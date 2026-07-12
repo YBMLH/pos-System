@@ -519,7 +519,11 @@ const I18N = {
     totalSpent:"Total spent", visits:"Visits", lastVisit:"Last visit", addCustomer:"Add customer",
     customerSaved:"Customer saved", rankBy:"Rank by", byScore:"Score", bySpent:"Spending", byRating:"Rating", byName:"Name",
     noClientsYet:"No customers yet", noClientsMsg:"Customers you add at checkout, on rentals, or here will appear ranked by loyalty.",
-    searchClients:"Search by name or phone…", topClient:"Top client", loyalty:"Loyalty", neverVisited:"—"
+    searchClients:"Search by name or phone…", topClient:"Top client", loyalty:"Loyalty", neverVisited:"—",
+    refundAmount:"Refund amount", storeKeeps:"Store keeps", refundToCustomer:"Refund to customer",
+    depositsKept:"Deposits kept", viewDeposits:"View deposits", noDeposits:"No deposits held",
+    depositKeepHint:"Reduce the refund to keep part of the deposit for damage, cleaning, late fees, or a lost item.",
+    logDepositKept:"Deposit kept"
   },
   fr:{
     app:"Boutique Kaftan", tagline:"Gestion de boutique",
@@ -646,7 +650,11 @@ const I18N = {
     totalSpent:"Total dépensé", visits:"Visites", lastVisit:"Dernière visite", addCustomer:"Ajouter un client",
     customerSaved:"Client enregistré", rankBy:"Classer par", byScore:"Score", bySpent:"Dépenses", byRating:"Évaluation", byName:"Nom",
     noClientsYet:"Aucun client", noClientsMsg:"Les clients ajoutés à la caisse, sur les locations ou ici apparaîtront classés par fidélité.",
-    searchClients:"Rechercher par nom ou téléphone…", topClient:"Meilleur client", loyalty:"Fidélité", neverVisited:"—"
+    searchClients:"Rechercher par nom ou téléphone…", topClient:"Meilleur client", loyalty:"Fidélité", neverVisited:"—",
+    refundAmount:"Montant remboursé", storeKeeps:"La boutique garde", refundToCustomer:"Rembourser au client",
+    depositsKept:"Cautions gardées", viewDeposits:"Voir les cautions", noDeposits:"Aucune caution détenue",
+    depositKeepHint:"Réduisez le remboursement pour garder une partie de la caution (dégâts, nettoyage, retard, article perdu).",
+    logDepositKept:"Caution gardée"
   },
   ar:{
     app:"متجر القفطان", tagline:"إدارة المتجر",
@@ -773,7 +781,11 @@ const I18N = {
     totalSpent:"إجمالي الإنفاق", visits:"الزيارات", lastVisit:"آخر زيارة", addCustomer:"إضافة عميل",
     customerSaved:"تم حفظ العميل", rankBy:"الترتيب حسب", byScore:"النقاط", bySpent:"الإنفاق", byRating:"التقييم", byName:"الاسم",
     noClientsYet:"لا يوجد عملاء بعد", noClientsMsg:"العملاء الذين تضيفهم عند الدفع أو في الإيجارات أو من هنا سيظهرون مرتبين حسب الولاء.",
-    searchClients:"ابحث بالاسم أو الهاتف…", topClient:"أفضل عميل", loyalty:"الولاء", neverVisited:"—"
+    searchClients:"ابحث بالاسم أو الهاتف…", topClient:"أفضل عميل", loyalty:"الولاء", neverVisited:"—",
+    refundAmount:"مبلغ الاسترجاع", storeKeeps:"يحتفظ المتجر بـ", refundToCustomer:"إرجاع للعميل",
+    depositsKept:"تأمينات محتجزة", viewDeposits:"عرض التأمينات", noDeposits:"لا توجد تأمينات محتجزة",
+    depositKeepHint:"قلّل مبلغ الاسترجاع للاحتفاظ بجزء من التأمين مقابل الأضرار أو التنظيف أو التأخير أو فقدان الصنف.",
+    logDepositKept:"تم الاحتفاظ بالتأمين"
   }
 };
 
@@ -1385,7 +1397,9 @@ async function viewDash(){
     </div>` : `<p class="subtle" style="padding:10px 0">${esc(t('noAlerts'))}</p>`}
   </div>
   ${canOwner?`<div class="card pad" style="margin-bottom:18px">
-    <div style="display:flex;align-items:center"><h3>${esc(t('depositsHeld'))}</h3><span class="v mono" style="margin-inline-start:auto;font-size:20px;font-weight:800">${money(depositsHeld)}</span></div>
+    <div style="display:flex;align-items:center;gap:10px"><h3>${esc(t('depositsHeld'))}</h3>
+      <span class="v mono" style="margin-inline-start:auto;font-size:20px;font-weight:800">${money(depositsHeld)}</span>
+      ${depositsHeld>0?`<button class="btn ghost sm" id="btnDeposits">${esc(t('viewDeposits'))}</button>`:''}</div>
   </div>`:''}
   <div class="card pad" style="margin-bottom:18px">
     <h3 style="margin-bottom:12px">${esc(t('quickActions'))}</h3>
@@ -1419,6 +1433,7 @@ async function viewDash(){
     if(b.dataset.q==='ledger') setTimeout(()=>{},80);
   });
   document.getElementById('btnBackupNow')&&(document.getElementById('btnBackupNow').onclick=()=>doBackup().then(()=>viewDash()));
+  document.getElementById('btnDeposits')&&(document.getElementById('btnDeposits').onclick=()=>{ rentalTab='deposits'; rentalView='list'; State.route='rentals'; renderApp(); });
   document.getElementById('qaExpense').onclick=()=>openExpenseModal(()=>viewDash());
 }
 
@@ -2100,30 +2115,36 @@ function buildSaleReceiptHtml(sale,items){
 /* ============================================================
    RENTALS
 ============================================================ */
-let rentalTab='active', rentalView='list', calMonth=new Date().getMonth(), calYear=new Date().getFullYear();
+let rentalTab='active', rentalView='list', calMonth=new Date().getMonth(), calYear=new Date().getFullYear(), depositSearch='';
 async function viewRentals(){
   const view=document.getElementById('view');
   let rentals=(await idbAll('rentals')).sort((a,b)=>b.createdAt-a.createdAt);
   const filt = rentalTab==='all'? rentals : rentalTab==='reserved'? rentals.filter(r=>r.status==='reserved') : rentals.filter(r=>r.status===(rentalTab==='active'?'active':'returned'));
+  let body;
+  if(rentalView==='cal'){ body=await buildRentalCalendar(rentals); }
+  else{
+    const tabs=`<div class="pill-tabs">
+      <button data-tab="active" class="${rentalTab==='active'?'on':''}">${esc(t('activeTab'))}</button>
+      <button data-tab="reserved" class="${rentalTab==='reserved'?'on':''}">${esc(t('reserved'))}</button>
+      <button data-tab="returned" class="${rentalTab==='returned'?'on':''}">${esc(t('returnedTab'))}</button>
+      <button data-tab="deposits" class="${rentalTab==='deposits'?'on':''}">${esc(t('depositsHeld'))}</button>
+      <button data-tab="all" class="${rentalTab==='all'?'on':''}">${esc(t('allTab'))}</button>
+    </div>`;
+    if(rentalTab==='deposits'){ body=tabs+await buildDepositsRegister(rentals); }
+    else{ body=tabs+(filt.length? `<div class="tablewrap"><table><thead><tr>
+       <th>${esc(t('item'))}</th><th>${esc(t('customer'))}</th><th>${esc(t('dueDate'))}</th>
+       <th class="t-right">${esc(t('rentalPrice'))}</th><th class="t-right">${esc(t('balance'))}</th>
+       <th>${esc(t('status'))}</th><th class="t-right">${esc(t('actions'))}</th>
+     </tr></thead><tbody>${filt.map(rowRental).join('')}</tbody></table></div>`
+     : emptyState(IC.rent,t('noRentals'),'',`<button class="btn" id="newRent2">${svg(IC.plus,'ic')}${esc(t('rentOut'))}</button>`)); }
+  }
   view.innerHTML=pageHead(t('rentals'),'',
     `<div class="seg" id="rentViewSeg" style="margin-inline-end:8px">
        <button data-v="list" class="${rentalView==='list'?'on':''}">${esc(t('listView'))}</button>
        <button data-v="cal" class="${rentalView==='cal'?'on':''}">${esc(t('calendarView'))}</button>
      </div>
-     <button class="btn" id="newRent">${svg(IC.plus,'ic')}${esc(t('rentOut'))}</button>`)+
-    (rentalView==='list'? `<div class="pill-tabs">
-      <button data-tab="active" class="${rentalTab==='active'?'on':''}">${esc(t('activeTab'))}</button>
-      <button data-tab="reserved" class="${rentalTab==='reserved'?'on':''}">${esc(t('reserved'))}</button>
-      <button data-tab="returned" class="${rentalTab==='returned'?'on':''}">${esc(t('returnedTab'))}</button>
-      <button data-tab="all" class="${rentalTab==='all'?'on':''}">${esc(t('allTab'))}</button>
-    </div>`+
-    (filt.length? `<div class="tablewrap"><table><thead><tr>
-       <th>${esc(t('item'))}</th><th>${esc(t('customer'))}</th><th>${esc(t('dueDate'))}</th>
-       <th class="t-right">${esc(t('rentalPrice'))}</th><th class="t-right">${esc(t('balance'))}</th>
-       <th>${esc(t('status'))}</th><th class="t-right">${esc(t('actions'))}</th>
-     </tr></thead><tbody>${filt.map(rowRental).join('')}</tbody></table></div>`
-     : emptyState(IC.rent,t('noRentals'),'',`<button class="btn" id="newRent2">${svg(IC.plus,'ic')}${esc(t('rentOut'))}</button>`))
-    : await buildRentalCalendar(rentals));
+     <button class="btn" id="newRent">${svg(IC.plus,'ic')}${esc(t('rentOut'))}</button>`)+body;
+  const ds=document.getElementById('depSearch'); if(ds){ ds.oninput=()=>{ depositSearch=ds.value; const pos=ds.selectionStart; viewRentals().then(()=>{ const n=document.getElementById('depSearch'); if(n){n.focus(); n.setSelectionRange(pos,pos);} }); }; }
   view.querySelectorAll('#rentViewSeg button').forEach(b=>b.onclick=()=>{ rentalView=b.dataset.v; viewRentals(); });
   view.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{ rentalTab=b.dataset.tab; viewRentals(); });
   document.getElementById('newRent')&&(document.getElementById('newRent').onclick=()=>openRentalModal());
@@ -2139,6 +2160,41 @@ async function viewRentals(){
     const r=await idbGet('rentals',el.dataset.calitem); if(!r) return;
     if(r.status==='reserved') activateReservation(r); else openReturnModal(r);
   });
+}
+/* Deposits register — every active rental where a deposit is being held.
+   Shows who, which item, when they took it, when it's due, and how much
+   the store is holding (and owes back). Searchable by customer or item. */
+async function buildDepositsRegister(rentals){
+  const custs=await getCustomers();
+  const phoneOf={}; custs.forEach(c=>{ phoneOf[c.id]=c.phone||''; });
+  const held=rentals.filter(r=>r.status==='active' && (r.deposit||0)>0);
+  const grandTotal=held.reduce((a,r)=>a+(r.deposit||0),0);
+  const q=depositSearch.trim().toLowerCase();
+  const shown=held.filter(r=>!q || (r.customerName||'').toLowerCase().includes(q) || (phoneOf[r.customerId]||'').toLowerCase().includes(q) || (r.name||'').toLowerCase().includes(q))
+                  .sort((a,b)=>(b.deposit||0)-(a.deposit||0));
+  return `<div class="card pad" style="margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div><div class="subtle" style="font-size:12px">${esc(t('depositsHeld'))}</div>
+        <div class="mono" style="font-size:24px;font-weight:800;color:var(--brand)">${money(grandTotal)}</div></div>
+      <div class="subtle" style="margin-inline-start:auto;text-align:end">${held.length} ${esc(t('activeRentals'))}</div>
+    </div>
+    <div class="searchbar">${svg(IC.search,'ic')}<input id="depSearch" type="search" placeholder="${esc(t('searchClients'))}" value="${esc(depositSearch)}"></div>`+
+    (shown.length? `<div class="tablewrap"><table><thead><tr>
+       <th>${esc(t('customer'))}</th><th>${esc(t('item'))}</th><th>${esc(t('startDate'))}</th>
+       <th>${esc(t('dueDate'))}</th><th class="t-right">${esc(t('deposit'))}</th><th class="t-right">${esc(t('actions'))}</th>
+     </tr></thead><tbody>${shown.map(r=>{
+        const overdue=r.dueDate && Date.parse(r.dueDate)<Date.now();
+        const phone=phoneOf[r.customerId];
+        return `<tr>
+         <td><b>${esc(r.customerName||'—')}</b>${phone?`<div class="subtle" style="font-size:11px;font-variant-numeric:tabular-nums">${esc(phone)}</div>`:''}</td>
+         <td>${esc(r.name)}</td>
+         <td class="mono subtle">${r.startDate?fmtDate(Date.parse(r.startDate)):fmtDate(r.createdAt)}</td>
+         <td class="mono">${r.dueDate?(overdue?`<span class="badge red">${fmtDate(Date.parse(r.dueDate))}</span>`:fmtDate(Date.parse(r.dueDate))):'—'}</td>
+         <td class="t-right"><span class="badge gold mono">${money(r.deposit)}</span></td>
+         <td class="t-right"><button class="btn secondary sm" data-return="${r.id}">${svg(IC.ret,'ic')}${esc(t('returnItem'))}</button></td>
+       </tr>`;
+     }).join('')}</tbody></table></div>
+     ${q?`<p class="subtle" style="text-align:center;font-size:12px;margin-top:8px">${shown.length} / ${held.length}</p>`:''}`
+     : `<div class="empty">${svg(IC.debt)}<h4>${esc(t('noDeposits'))}</h4></div>`);
 }
 async function buildRentalCalendar(rentals){
   const relevant=rentals.filter(r=>r.status==='active'||r.status==='reserved');
@@ -2364,32 +2420,50 @@ async function openReturnModal(r){
     <div class="field ${daysOver>0?'':'hidden'}" id="rt_lateBox"><label>${esc(t('lateFee'))}</label><input id="rt_lateAmt" type="number" min="0" step="0.01" value="${suggested}"></div>
     <div class="field"><label class="check"><input type="checkbox" id="rt_pay"> ${esc(t('amountPaid'))} (${esc(t('balance'))}: ${money(bal)})</label></div>
     <div class="field hidden" id="rt_payBox"><label>${esc(t('amountPaid'))}</label><input id="rt_payAmt" type="number" min="0" step="0.01" value="${bal}"></div>
-    ${r.deposit?`<div class="field"><label class="check"><input type="checkbox" id="rt_refund" checked> ${esc(t('refundDeposit'))} (${money(r.deposit)})</label></div>`:''}`,
+    ${r.deposit?`<div class="field"><label class="check"><input type="checkbox" id="rt_refund" checked> ${esc(t('refundDeposit'))} · ${esc(t('deposit'))}: ${money(r.deposit)}</label></div>
+     <div class="field" id="rt_refBox" style="margin-inline-start:26px">
+       <label>${esc(t('refundAmount'))}</label>
+       <input id="rt_refAmt" type="number" min="0" max="${r.deposit}" step="0.01" value="${r.deposit}">
+       <span class="hint">${esc(t('depositKeepHint'))}</span>
+       <div id="rt_keepLine" class="subtle" style="margin-top:6px"></div>
+     </div>`:''}`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
     <button class="btn" id="rt_go">${esc(t('confirmReturn'))}</button>`);
   document.getElementById('rt_late').onchange=e=>document.getElementById('rt_lateBox').classList.toggle('hidden',!e.target.checked);
   document.getElementById('rt_pay').onchange=e=>document.getElementById('rt_payBox').classList.toggle('hidden',!e.target.checked);
+  const refEl=document.getElementById('rt_refund'), refBox=document.getElementById('rt_refBox'), refAmtI=document.getElementById('rt_refAmt'), keepLine=document.getElementById('rt_keepLine');
+  function syncKeep(){
+    if(!refEl) return;
+    const on=refEl.checked;
+    if(refBox) refBox.classList.toggle('hidden',!on);
+    const amt=on?Math.min(r.deposit,Math.max(0,Number(refAmtI.value||0))):0;
+    const kept=(r.deposit||0)-amt;
+    if(keepLine) keepLine.innerHTML=`${esc(t('refundToCustomer'))}: <b>${money(amt)}</b>${kept>0?` · ${esc(t('storeKeeps'))}: <b style="color:var(--warn)">${money(kept)}</b>`:''}`;
+  }
+  if(refEl){ refEl.onchange=syncKeep; refAmtI&&(refAmtI.oninput=syncKeep); syncKeep(); }
   document.getElementById('rt_go').onclick=()=>{
     const late=document.getElementById('rt_late').checked?Number(document.getElementById('rt_lateAmt').value||0):0;
     const payChecked=document.getElementById('rt_pay').checked;
     const payAmt=payChecked?Number(document.getElementById('rt_payAmt').value||0):0;
-    const refundEl=document.getElementById('rt_refund');
-    const refundChecked=!!(refundEl && refundEl.checked && r.deposit>0);
+    const refundOn=!!(refEl && refEl.checked && r.deposit>0);
+    const refundAmt=refundOn?Math.min(r.deposit,Math.max(0,Number(refAmtI.value||0))):0;
+    const kept=(r.deposit||0)-refundAmt;
     const finalize=async(how)=>{
       r.lateFee=late;
       if(payChecked){ r.paid=(r.paid||0)+payAmt; }
-      r.status='returned'; r.returnedAt=now(); r.depositRefunded=refundChecked;
-      if(refundChecked) r.depositRefundedAt=now();
+      r.status='returned'; r.returnedAt=now();
+      if(r.deposit>0){ r.depositRefunded=refundAmt>0; r.depositRefundedAmount=refundAmt; r.depositKept=kept; if(refundAmt>0) r.depositRefundedAt=now(); }
       await idbPut('rentals',r);
       if(payChecked && payAmt>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'rental',amount:payAmt,method:'cash',createdAt:now(),userId:State.user.id});
-      if(refundChecked && r.deposit>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'depositRefund',amount:-r.deposit,method:'cash',createdAt:now(),userId:State.user.id});
+      if(refundAmt>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'depositRefund',amount:-refundAmt,method:'cash',createdAt:now(),userId:State.user.id});
       const p=await idbGet('products',r.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); }
       await logAct('logReturn', r.name+(r.customerName?' · '+r.customerName:''));
-      if(refundChecked){ await logAct('logRefund', r.name+' · '+money(r.deposit)+(how==='code'?(' · '+t('authorizedBy')):'')); }
+      if(refundAmt>0){ await logAct('logRefund', r.name+' · '+money(refundAmt)+(how==='code'?(' · '+t('authorizedBy')):'')); }
+      if(kept>0){ await logAct('logDepositKept', r.name+(r.customerName?' · '+r.customerName:'')+' · '+money(kept)); }
       closeModal(); toast(t('itemReturned'),'ok'); viewRentals();
     };
-    // Refunding a deposit as a cashier requires the manager code.
-    if(refundChecked && !isOwner()) requireAuth(finalize); else finalize('owner');
+    // Paying out a deposit refund as a cashier requires the manager code.
+    if(refundAmt>0 && !isOwner()) requireAuth(finalize); else finalize('owner');
   };
 }
 
@@ -2753,7 +2827,9 @@ async function viewReports(){
   const S=sales.filter(s=>s.createdAt>=from && s.createdAt<=to && !s.voided), R=rentals.filter(r=>r.createdAt>=from && r.createdAt<=to), E=expenses.filter(x=>x.createdAt>=from && x.createdAt<=to && !x.isWithdrawal);
   const salesRev=S.reduce((a,s)=>a+(s.paid||0),0);
   const rentRev=R.reduce((a,r)=>a+(r.paid||0),0);
-  const revenue=salesRev+rentRev;
+  // Deposits kept (damage/cleaning/late/lost) are income, recognised when the item is returned.
+  const depKept=rentals.filter(r=>(r.depositKept||0)>0 && (r.returnedAt||r.createdAt)>=from && (r.returnedAt||r.createdAt)<=to).reduce((a,r)=>a+(r.depositKept||0),0);
+  const revenue=salesRev+rentRev+depKept;
   const exp=E.reduce((a,x)=>a+(x.amount||0),0);
   // cost of goods sold (owner sees profit): sum cost of sold items in period
   let cogs=0;
@@ -2818,6 +2894,7 @@ async function viewReports(){
        <table><tbody>
          <tr><td>${esc(t('salesRevenue'))}</td><td class="t-right mono">${money(salesRev)}</td></tr>
          <tr><td>${esc(t('rentalRevenue'))}</td><td class="t-right mono">${money(rentRev)}</td></tr>
+         ${depKept>0?`<tr><td>${esc(t('depositsKept'))}</td><td class="t-right mono">${money(depKept)}</td></tr>`:''}
          <tr><td class="subtle">${esc(t('cost'))} (COGS)</td><td class="t-right mono subtle">− ${money(cogs)}</td></tr>
          <tr><td class="subtle">${esc(t('expenses'))}</td><td class="t-right mono subtle">− ${money(exp)}</td></tr>
          <tr><td><b>${esc(t('profit'))}</b></td><td class="t-right mono"><b>${money(profit)}</b></td></tr>
