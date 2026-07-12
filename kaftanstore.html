@@ -523,7 +523,7 @@ const I18N = {
     refundAmount:"Refund amount", storeKeeps:"Store keeps", refundToCustomer:"Refund to customer",
     depositsKept:"Deposits kept", viewDeposits:"View deposits", noDeposits:"No deposits held",
     depositKeepHint:"Reduce the refund to keep part of the deposit for damage, cleaning, late fees, or a lost item.",
-    logDepositKept:"Deposit kept"
+    logDepositKept:"Deposit kept", totalCollected:"Total collected today", depositRefundable:"Deposit refundable on return"
   },
   fr:{
     app:"Boutique Kaftan", tagline:"Gestion de boutique",
@@ -654,7 +654,7 @@ const I18N = {
     refundAmount:"Montant remboursé", storeKeeps:"La boutique garde", refundToCustomer:"Rembourser au client",
     depositsKept:"Cautions gardées", viewDeposits:"Voir les cautions", noDeposits:"Aucune caution détenue",
     depositKeepHint:"Réduisez le remboursement pour garder une partie de la caution (dégâts, nettoyage, retard, article perdu).",
-    logDepositKept:"Caution gardée"
+    logDepositKept:"Caution gardée", totalCollected:"Total encaissé aujourd'hui", depositRefundable:"Caution remboursable au retour"
   },
   ar:{
     app:"متجر القفطان", tagline:"إدارة المتجر",
@@ -785,7 +785,7 @@ const I18N = {
     refundAmount:"مبلغ الاسترجاع", storeKeeps:"يحتفظ المتجر بـ", refundToCustomer:"إرجاع للعميل",
     depositsKept:"تأمينات محتجزة", viewDeposits:"عرض التأمينات", noDeposits:"لا توجد تأمينات محتجزة",
     depositKeepHint:"قلّل مبلغ الاسترجاع للاحتفاظ بجزء من التأمين مقابل الأضرار أو التنظيف أو التأخير أو فقدان الصنف.",
-    logDepositKept:"تم الاحتفاظ بالتأمين"
+    logDepositKept:"تم الاحتفاظ بالتأمين", totalCollected:"إجمالي المحصّل اليوم", depositRefundable:"التأمين قابل للاسترجاع عند الإرجاع"
   }
 };
 
@@ -2401,10 +2401,12 @@ function buildRentalAgreementHtml(r){
     </div>
     <div style="border-top:1px dashed #000;margin-top:6px;padding-top:4px;font-size:12px">
       <div style="display:flex;justify-content:space-between"><span>${esc(t('rentalPrice'))}</span><span>${money2(r.price)}</span></div>
-      ${r.deposit?`<div style="display:flex;justify-content:space-between"><span>${esc(t('deposit'))}</span><span>${money2(r.deposit)}</span></div>`:''}
       <div style="display:flex;justify-content:space-between"><span>${esc(t('paid'))}</span><span>${money2(r.paid)}</span></div>
+      ${r.deposit?`<div style="display:flex;justify-content:space-between"><span>${esc(t('deposit'))}</span><span>${money2(r.deposit)}</span></div>`:''}
+      ${r.deposit?`<div style="display:flex;justify-content:space-between;font-weight:800;border-top:1px dashed #000;margin-top:3px;padding-top:3px"><span>${esc(t('totalCollected'))}</span><span>${money2((r.paid||0)+(r.deposit||0))}</span></div>`:''}
       ${bal>0?`<div style="display:flex;justify-content:space-between;font-weight:800"><span>${esc(t('balanceDue'))}</span><span>${money2(bal)}</span></div>`:''}
     </div>
+    ${r.deposit?`<div style="text-align:center;font-size:10px;margin-top:5px;opacity:.75">${esc(t('depositRefundable'))}</div>`:''}
     <div style="text-align:center;margin-top:8px">${C128.svg((r.id.replace(/\D/g,'')||'0').slice(-8).padStart(8,'0'),{height:34,module:1.3})}</div>`;
 }
 async function openReturnModal(r){
