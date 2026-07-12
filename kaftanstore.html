@@ -377,7 +377,8 @@ const IC = {
   activity:'<path d="M5 5h14M5 12h14M5 19h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="19" cy="19" r="2.4" fill="none" stroke="currentColor" stroke-width="1.7"/>',
   lock:'<rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.7"/>',
   cam:'<path d="M4 8h3l1.4-2h7.2L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.1" fill="none" stroke="currentColor" stroke-width="1.6"/>',
-  image:'<rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8.5" cy="9.5" r="1.5" fill="currentColor"/><path d="M4 17l5-5 3 3 3-3 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
+  image:'<rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8.5" cy="9.5" r="1.5" fill="currentColor"/><path d="M4 17l5-5 3 3 3-3 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
+  menu:'<path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
 };
 function svg(p,cls){return `<svg class="${cls||''}" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true">${p}</svg>`}
 
@@ -525,7 +526,8 @@ const I18N = {
     depositKeepHint:"Reduce the refund to keep part of the deposit for damage, cleaning, late fees, or a lost item.",
     logDepositKept:"Deposit kept", totalCollected:"Total collected today", depositRefundable:"Deposit refundable on return",
     cancelRental:"Cancel rental", cancelled:"Cancelled", rentalCancelled:"Rental cancelled", logCancelRental:"Rental cancelled",
-    cancelRentalConfirm:"Cancel this rental? Stock will be restored and any rent paid or deposit will be reversed."
+    cancelRentalConfirm:"Cancel this rental? Stock will be restored and any rent paid or deposit will be reversed.",
+    dueToday:"Due today", dueTomorrow:"Due tomorrow", moreNav:"More", depositForItem:"Deposit held", menu:"Menu"
   },
   fr:{
     app:"Boutique Kaftan", tagline:"Gestion de boutique",
@@ -658,7 +660,8 @@ const I18N = {
     depositKeepHint:"Réduisez le remboursement pour garder une partie de la caution (dégâts, nettoyage, retard, article perdu).",
     logDepositKept:"Caution gardée", totalCollected:"Total encaissé aujourd'hui", depositRefundable:"Caution remboursable au retour",
     cancelRental:"Annuler la location", cancelled:"Annulée", rentalCancelled:"Location annulée", logCancelRental:"Location annulée",
-    cancelRentalConfirm:"Annuler cette location ? Le stock sera restauré et tout loyer payé ou caution sera remboursé."
+    cancelRentalConfirm:"Annuler cette location ? Le stock sera restauré et tout loyer payé ou caution sera remboursé.",
+    dueToday:"À rendre aujourd'hui", dueTomorrow:"À rendre demain", moreNav:"Plus", depositForItem:"Caution détenue", menu:"Menu"
   },
   ar:{
     app:"متجر القفطان", tagline:"إدارة المتجر",
@@ -791,7 +794,8 @@ const I18N = {
     depositKeepHint:"قلّل مبلغ الاسترجاع للاحتفاظ بجزء من التأمين مقابل الأضرار أو التنظيف أو التأخير أو فقدان الصنف.",
     logDepositKept:"تم الاحتفاظ بالتأمين", totalCollected:"إجمالي المحصّل اليوم", depositRefundable:"التأمين قابل للاسترجاع عند الإرجاع",
     cancelRental:"إلغاء الإيجار", cancelled:"ملغى", rentalCancelled:"تم إلغاء الإيجار", logCancelRental:"تم إلغاء الإيجار",
-    cancelRentalConfirm:"إلغاء هذا الإيجار؟ سيُعاد المخزون وسيُسترجع أي إيجار مدفوع أو تأمين."
+    cancelRentalConfirm:"إلغاء هذا الإيجار؟ سيُعاد المخزون وسيُسترجع أي إيجار مدفوع أو تأمين.",
+    dueToday:"مستحق اليوم", dueTomorrow:"مستحق غداً", moreNav:"المزيد", depositForItem:"تأمين محتجز", menu:"القائمة"
   }
 };
 
@@ -1149,15 +1153,26 @@ function renderApp(){
      <main class="main" id="view"></main>
    </div>
    <nav class="tabbar">
-     ${items.filter(i=>i.k).slice(0,5).map(it=>`<button data-r="${it.k}" class="${State.route===it.k?'active':''}">
+     ${items.filter(i=>i.k).slice(0,4).map(it=>`<button data-r="${it.k}" class="${State.route===it.k?'active':''}">
        <span class="ic">${svg(it.ic)}</span>${esc(t(it.label))}</button>`).join('')}
+     <button id="moreTab" class="${items.filter(i=>i.k).slice(0,4).some(it=>it.k===State.route)?'':'active'}">
+       <span class="ic">${svg(IC.menu)}</span>${esc(t('moreNav'))}</button>
    </nav>`;
   app.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{ State.route=b.dataset.r; renderApp(); });
+  document.getElementById('moreTab')&&(document.getElementById('moreTab').onclick=()=>openMoreMenu());
   document.getElementById('btnLogout').onclick=()=>{ State.user=null; State.cart=[]; render(); };
   document.getElementById('btnSearch').onclick=()=>openGlobalSearch();
   document.getElementById('btnTill').onclick=()=>openTillModal();
   document.getElementById('topLang').onchange=async e=>{ State.lang=e.target.value; const m=await idbGet('meta','app'); m.lang=State.lang; await idbPut('meta',m); renderApp(); };
   routeView();
+}
+function openMoreMenu(){
+  const its=navItems().filter(i=>i.k);
+  modal(t('menu'),
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${its.map(it=>`<button class="btn ${State.route===it.k?'':'secondary'}" data-more="${it.k}" style="justify-content:flex-start">${svg(it.ic,'ic')}${esc(t(it.label))}</button>`).join('')}
+    </div>`,'');
+  document.querySelectorAll('[data-more]').forEach(b=>b.onclick=()=>{ State.route=b.dataset.more; closeModal(); renderApp(); });
 }
 function routeView(){
   const r=State.route;
@@ -1358,11 +1373,15 @@ async function viewDash(){
   const activeR=rentals.filter(r=>r.status==='active');
   const active=activeR.length;
   const custs=await getCustomers(); let owed=0; for(const c of custs) owed+=await customerBalance(c.id);
-  const low=products.filter(p=>(p.qty||0)<=2 && (p.mode!=='rent')).length;
+  const low=products.filter(p=>(p.qty||0)<=(p.lowStock??3) && (p.mode!=='rent')).length;
   const inStock=products.reduce((a,p)=>a+(p.qty||0),0);
-  const overdueR=activeR.filter(r=>r.dueDate && Date.parse(r.dueDate)<Date.now());
+  // date buckets by calendar day (dueDate is a YYYY-MM-DD string, compared as strings)
+  const todayStr=todayISO(), tomorrowStr=new Date(Date.now()+86400000).toISOString().slice(0,10);
+  const overdueR=activeR.filter(r=>r.dueDate && r.dueDate<todayStr);
+  const dueTodayR=activeR.filter(r=>r.dueDate===todayStr);
+  const dueTomorrowR=activeR.filter(r=>r.dueDate===tomorrowStr);
   const depositsHeld=activeR.reduce((a,r)=>a+(r.deposit||0),0);
-  const lowItems=products.filter(p=>(p.qty||0)<=2 && (p.mode!=='rent'));
+  const lowItems=products.filter(p=>(p.qty||0)<=(p.lowStock??3) && (p.mode!=='rent'));
 
   // recent
   let acts=[];
@@ -1371,7 +1390,8 @@ async function viewDash(){
   acts.sort((a,b)=>b.ts-a.ts); acts=acts.slice(0,8);
 
   const canOwner=isOwner();
-  const hasAlerts = overdueR.length>0 || lowItems.length>0;
+  const alertCount = overdueR.length+dueTodayR.length+dueTomorrowR.length+lowItems.length;
+  const hasAlerts = alertCount>0;
   const metaApp=await idbGet('meta','app');
   const daysSinceBackup = metaApp&&metaApp.lastBackup ? Math.floor((Date.now()-metaApp.lastBackup)/86400000) : null;
   const showBackupReminder = canOwner && (daysSinceBackup===null || daysSinceBackup>=1);
@@ -1388,10 +1408,20 @@ async function viewDash(){
   </div>
   <div class="card pad" style="margin-bottom:18px">
     <div style="display:flex;align-items:center;gap:10px"><h3>${esc(t('alertsHub'))}</h3>
-      <span class="badge ${hasAlerts?'red':'green'}" style="margin-inline-start:auto">${hasAlerts?(overdueR.length+lowItems.length):'✓'}</span></div>
+      <span class="badge ${hasAlerts?'red':'green'}" style="margin-inline-start:auto">${hasAlerts?alertCount:'✓'}</span></div>
     ${hasAlerts? `<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
-      ${overdueR.slice(0,4).map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--danger-100);border-radius:8px">
+      ${overdueR.slice(0,4).map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--danger-100);border-radius:8px" data-alert-rent="${r.id}">
         <span class="badge red"><span class="dot"></span>${esc(t('overdue'))}</span>
+        <span>${esc(r.name)} · ${esc(r.customerName||'')}</span>
+        <span class="subtle mono" style="margin-inline-start:auto">${fmtDate(Date.parse(r.dueDate))}</span>
+      </div>`).join('')}
+      ${dueTodayR.slice(0,4).map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--warn-100);border-radius:8px" data-alert-rent="${r.id}">
+        <span class="badge warnb"><span class="dot"></span>${esc(t('dueToday'))}</span>
+        <span>${esc(r.name)} · ${esc(r.customerName||'')}</span>
+        <span class="subtle mono" style="margin-inline-start:auto">${fmtDate(Date.parse(r.dueDate))}</span>
+      </div>`).join('')}
+      ${dueTomorrowR.slice(0,4).map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--brand-100);border-radius:8px" data-alert-rent="${r.id}">
+        <span class="badge brand"><span class="dot"></span>${esc(t('dueTomorrow'))}</span>
         <span>${esc(r.name)} · ${esc(r.customerName||'')}</span>
         <span class="subtle mono" style="margin-inline-start:auto">${fmtDate(Date.parse(r.dueDate))}</span>
       </div>`).join('')}
@@ -1440,6 +1470,8 @@ async function viewDash(){
   });
   document.getElementById('btnBackupNow')&&(document.getElementById('btnBackupNow').onclick=()=>doBackup().then(()=>viewDash()));
   document.getElementById('btnDeposits')&&(document.getElementById('btnDeposits').onclick=()=>{ rentalTab='deposits'; rentalView='list'; State.route='rentals'; renderApp(); });
+  view.querySelectorAll('[data-alert-rent]').forEach(el=>el.style.cursor='pointer');
+  view.querySelectorAll('[data-alert-rent]').forEach(el=>el.onclick=async()=>{ const r=await idbGet('rentals',el.dataset.alertRent); if(!r)return; State.route='rentals'; rentalTab='active'; renderApp(); setTimeout(()=>openReturnModal(r),60); });
   document.getElementById('qaExpense').onclick=()=>openExpenseModal(()=>viewDash());
 }
 
@@ -1574,7 +1606,7 @@ function modeBadge(m){
 function rowProduct(p,rentCount){
   const q=p.qty||0;
   const rentedTag = (p.mode==='rent'||p.mode==='both') && rentCount>0 ? `<div class="subtle" style="font-size:11px;margin-top:2px">${esc(t('rentedTimes').replace('{n}',rentCount))}</div>` : '';
-  const qBadge = p.mode==='rent' ? '' : (q<=0? `<span class="badge red">${esc(t('outOfStock'))}</span>` : q<=2? `<span class="badge warnb">${q} · ${esc(t('lowStockLabel'))}</span>` : `<span class="num">${q}</span>`);
+  const qBadge = p.mode==='rent' ? '' : (q<=0? `<span class="badge red">${esc(t('outOfStock'))}</span>` : q<=(p.lowStock??3)? `<span class="badge warnb">${q} · ${esc(t('lowStockLabel'))}</span>` : `<span class="num">${q}</span>`);
   return `<tr>
     <td><div style="display:flex;align-items:center;gap:11px">
       <span class="pthumb">${p.photo?`<img src="${p.photo}" alt="">`:svg(IC.box)}</span>
@@ -2701,6 +2733,8 @@ async function openCustomerLedger(cust){
   const rating=cust.rating||0;
   const lateCount=rentals.filter(r=>r.lateFee>0).length;
   const isCaution = lateCount>=2;
+  const heldDeposits=rentals.filter(r=>r.status==='active' && (r.deposit||0)>0);
+  const heldTotal=heldDeposits.reduce((a,r)=>a+(r.deposit||0),0);
   const starRow=[1,2,3,4,5].map(n=>`<span class="star ${n<=rating?'on':''}" data-star="${n}" style="cursor:pointer;font-size:22px;color:${n<=rating?'var(--gold)':'var(--line)'}">★</span>`).join('');
   modal(cust.name,
    `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
@@ -2708,6 +2742,16 @@ async function openCustomerLedger(cust){
       <span class="badge brand" style="font-size:13px">${points} ${esc(t('points'))}</span>
       ${cust.phone?`<span class="subtle">${esc(cust.phone)}</span>`:''}
     </div>
+    ${heldDeposits.length?`<div class="card pad" style="margin-bottom:12px;padding:12px 14px;background:var(--brand-100);border:none">
+      <div style="display:flex;align-items:center;margin-bottom:4px">
+        <b style="font-size:13.5px">${esc(t('depositsHeld'))}</b>
+        <span class="mono" style="margin-inline-start:auto;font-weight:800;color:var(--brand-700)">${money(heldTotal)}</span>
+      </div>
+      ${heldDeposits.map(r=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0">
+        <span><b>${esc(r.name)}</b>${r.dueDate?` <span class="subtle">· ${esc(t('dueDate'))} ${fmtDate(Date.parse(r.dueDate))}</span>`:''}</span>
+        <span class="mono" style="margin-inline-start:auto">${money(r.deposit)}</span>
+      </div>`).join('')}
+    </div>`:''}
     <div class="field"><label>${esc(t('rating'))}</label><div id="cust_stars">${starRow}</div></div>
     ${isCaution?`<div style="background:var(--danger-100);color:var(--danger);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:13px">⚠ ${esc(t('caution'))} (${lateCount})</div>`:''}
     <div class="field"><label>${esc(t('tags'))}</label><input id="cust_tags" type="text" value="${esc(cust.tags||'')}" placeholder="VIP, wholesale..."></div>
