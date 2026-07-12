@@ -523,7 +523,9 @@ const I18N = {
     refundAmount:"Refund amount", storeKeeps:"Store keeps", refundToCustomer:"Refund to customer",
     depositsKept:"Deposits kept", viewDeposits:"View deposits", noDeposits:"No deposits held",
     depositKeepHint:"Reduce the refund to keep part of the deposit for damage, cleaning, late fees, or a lost item.",
-    logDepositKept:"Deposit kept", totalCollected:"Total collected today", depositRefundable:"Deposit refundable on return"
+    logDepositKept:"Deposit kept", totalCollected:"Total collected today", depositRefundable:"Deposit refundable on return",
+    cancelRental:"Cancel rental", cancelled:"Cancelled", rentalCancelled:"Rental cancelled", logCancelRental:"Rental cancelled",
+    cancelRentalConfirm:"Cancel this rental? Stock will be restored and any rent paid or deposit will be reversed."
   },
   fr:{
     app:"Boutique Kaftan", tagline:"Gestion de boutique",
@@ -654,7 +656,9 @@ const I18N = {
     refundAmount:"Montant remboursé", storeKeeps:"La boutique garde", refundToCustomer:"Rembourser au client",
     depositsKept:"Cautions gardées", viewDeposits:"Voir les cautions", noDeposits:"Aucune caution détenue",
     depositKeepHint:"Réduisez le remboursement pour garder une partie de la caution (dégâts, nettoyage, retard, article perdu).",
-    logDepositKept:"Caution gardée", totalCollected:"Total encaissé aujourd'hui", depositRefundable:"Caution remboursable au retour"
+    logDepositKept:"Caution gardée", totalCollected:"Total encaissé aujourd'hui", depositRefundable:"Caution remboursable au retour",
+    cancelRental:"Annuler la location", cancelled:"Annulée", rentalCancelled:"Location annulée", logCancelRental:"Location annulée",
+    cancelRentalConfirm:"Annuler cette location ? Le stock sera restauré et tout loyer payé ou caution sera remboursé."
   },
   ar:{
     app:"متجر القفطان", tagline:"إدارة المتجر",
@@ -785,7 +789,9 @@ const I18N = {
     refundAmount:"مبلغ الاسترجاع", storeKeeps:"يحتفظ المتجر بـ", refundToCustomer:"إرجاع للعميل",
     depositsKept:"تأمينات محتجزة", viewDeposits:"عرض التأمينات", noDeposits:"لا توجد تأمينات محتجزة",
     depositKeepHint:"قلّل مبلغ الاسترجاع للاحتفاظ بجزء من التأمين مقابل الأضرار أو التنظيف أو التأخير أو فقدان الصنف.",
-    logDepositKept:"تم الاحتفاظ بالتأمين", totalCollected:"إجمالي المحصّل اليوم", depositRefundable:"التأمين قابل للاسترجاع عند الإرجاع"
+    logDepositKept:"تم الاحتفاظ بالتأمين", totalCollected:"إجمالي المحصّل اليوم", depositRefundable:"التأمين قابل للاسترجاع عند الإرجاع",
+    cancelRental:"إلغاء الإيجار", cancelled:"ملغى", rentalCancelled:"تم إلغاء الإيجار", logCancelRental:"تم إلغاء الإيجار",
+    cancelRentalConfirm:"إلغاء هذا الإيجار؟ سيُعاد المخزون وسيُسترجع أي إيجار مدفوع أو تأمين."
   }
 };
 
@@ -973,7 +979,7 @@ async function getProducts(){ return (await idbAll('products')).sort((a,b)=>b.cr
 async function getCustomers(){ return await idbAll('customers'); }
 async function customerBalance(cid){
   const sales=(await idbAll('sales')).filter(s=>s.customerId===cid && !s.voided);
-  const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cid);
+  const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cid && r.status!=='cancelled');
   let owed=0;
   sales.forEach(s=>owed+=Math.max(0,(s.total||0)-(s.paid||0)));
   rentals.forEach(r=>owed+=Math.max(0,(r.price||0)+(r.lateFee||0)-(r.paid||0)));
@@ -2150,6 +2156,7 @@ async function viewRentals(){
   document.getElementById('newRent')&&(document.getElementById('newRent').onclick=()=>openRentalModal());
   document.getElementById('newRent2')&&(document.getElementById('newRent2').onclick=()=>openRentalModal());
   view.querySelectorAll('[data-return]').forEach(b=>b.onclick=async()=>openReturnModal(await idbGet('rentals',b.dataset.return)));
+  view.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=async()=>cancelRental(await idbGet('rentals',b.dataset.cancel)));
   view.querySelectorAll('[data-agr]').forEach(b=>b.onclick=async()=>offerRentalPreview(await idbGet('rentals',b.dataset.agr)));
   view.querySelectorAll('[data-activate]').forEach(b=>b.onclick=async()=>activateReservation(await idbGet('rentals',b.dataset.activate)));
   view.querySelectorAll('[data-extend]').forEach(b=>b.onclick=async()=>openExtendModal(await idbGet('rentals',b.dataset.extend)));
@@ -2248,6 +2255,26 @@ async function activateReservation(r){
   await logAct('logRental', r.name+' · '+(r.customerName||''));
   toast(t('rentalDone'),'ok'); viewRentals();
 }
+/* Cancel a rental or reservation: restore stock (only if it was checked out),
+   reverse any rent paid + deposit in the till, and mark it cancelled so it
+   drops out of balances, points and reports. Cashiers need the manager code. */
+async function cancelRental(r){
+  if(!r || (r.status!=='active' && r.status!=='reserved')) return;
+  confirmDialog(t('cancelRentalConfirm'),()=>{
+    requireAuth(async(how)=>{
+      const method=r.method||'cash';
+      // reversing money that came in
+      if((r.paid||0)>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'refund',amount:-(r.paid||0),method,createdAt:now(),userId:State.user.id});
+      if((r.deposit||0)>0 && !r.depositRefunded) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'depositRefund',amount:-(r.deposit||0),method,createdAt:now(),userId:State.user.id});
+      // an active rental had a unit removed from stock; a reservation did not
+      if(r.status==='active' && r.productId){ const p=await idbGet('products',r.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); } }
+      r.status='cancelled'; r.cancelledAt=now(); if((r.deposit||0)>0) r.depositRefunded=true;
+      await idbPut('rentals',r);
+      await logAct('logCancelRental', r.name+(r.customerName?' · '+r.customerName:'')+(how==='code'?(' · '+t('authorizedBy')):''));
+      toast(t('rentalCancelled'),'ok'); viewRentals();
+    });
+  },true);
+}
 async function openExtendModal(r){
   if(!r) return;
   const p=r.productId? await idbGet('products',r.productId) : null;
@@ -2277,7 +2304,8 @@ async function openExtendModal(r){
 function rowRental(r){
   const bal=Math.max(0,(r.price||0)+(r.lateFee||0)-(r.paid||0));
   const overdue=r.status==='active' && r.dueDate && Date.parse(r.dueDate)<Date.now();
-  const statusBadge= r.status==='returned'? `<span class="badge grey">${esc(t('returned'))}</span>` :
+  const statusBadge= r.status==='cancelled'? `<span class="badge grey">${esc(t('cancelled'))}</span>` :
+    r.status==='returned'? `<span class="badge grey">${esc(t('returned'))}</span>` :
     r.status==='reserved'? `<span class="badge brand">${esc(t('reserved'))}</span>` :
     overdue? `<span class="badge red"><span class="dot"></span>${esc(t('overdue'))}</span>` : `<span class="badge gold"><span class="dot"></span>${esc(t('rented'))}</span>`;
   return `<tr>
@@ -2292,6 +2320,7 @@ function rowRental(r){
       ${r.status==='reserved'?`<button class="btn secondary sm" data-activate="${r.id}">${esc(t('rentOut'))}</button>`:''}
       ${r.status==='active'?`<button class="btn ghost sm" data-extend="${r.id}" title="${esc(t('extendRental'))}">${svg(IC.plus,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn secondary sm" data-return="${r.id}">${svg(IC.ret,'ic')}${esc(t('markReturned'))}</button>`:''}
+      ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-cancel="${r.id}" title="${esc(t('cancelRental'))}" style="color:var(--danger)">${svg(IC.trash,'ic')}</button>`:''}
     </td>
   </tr>`;
 }
@@ -2456,8 +2485,8 @@ async function openReturnModal(r){
       r.status='returned'; r.returnedAt=now();
       if(r.deposit>0){ r.depositRefunded=refundAmt>0; r.depositRefundedAmount=refundAmt; r.depositKept=kept; if(refundAmt>0) r.depositRefundedAt=now(); }
       await idbPut('rentals',r);
-      if(payChecked && payAmt>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'rental',amount:payAmt,method:'cash',createdAt:now(),userId:State.user.id});
-      if(refundAmt>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'depositRefund',amount:-refundAmt,method:'cash',createdAt:now(),userId:State.user.id});
+      if(payChecked && payAmt>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'rental',amount:payAmt,method:r.method||'cash',createdAt:now(),userId:State.user.id});
+      if(refundAmt>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'depositRefund',amount:-refundAmt,method:r.method||'cash',createdAt:now(),userId:State.user.id});
       const p=await idbGet('products',r.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); }
       await logAct('logReturn', r.name+(r.customerName?' · '+r.customerName:''));
       if(refundAmt>0){ await logAct('logRefund', r.name+' · '+money(refundAmt)+(how==='code'?(' · '+t('authorizedBy')):'')); }
@@ -2474,7 +2503,7 @@ async function openReturnModal(r){
 ============================================================ */
 async function oldestDebtDate(cid){
   const sales=(await idbAll('sales')).filter(s=>s.customerId===cid && !s.voided && (s.total-(s.paid||0))>0);
-  const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cid && ((r.price||0)+(r.lateFee||0)-(r.paid||0))>0);
+  const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cid && r.status!=='cancelled' && ((r.price||0)+(r.lateFee||0)-(r.paid||0))>0);
   const dates=[...sales,...rentals].map(x=>x.createdAt).filter(Boolean);
   return dates.length? Math.min(...dates) : null;
 }
@@ -2497,7 +2526,7 @@ async function allCustomerStats(){
   custs.forEach(c=>{ map[c.id]={cust:c,spent:0,tx:0,balance:0,lateCount:0,last:c.createdAt||0}; });
   sales.forEach(s=>{ const m=map[s.customerId]; if(!m||s.voided) return;
     m.spent+=(s.paid||0); m.tx++; m.balance+=Math.max(0,(s.total||0)-(s.paid||0)); if(s.createdAt>m.last)m.last=s.createdAt; });
-  rentals.forEach(r=>{ const m=map[r.customerId]; if(!m) return;
+  rentals.forEach(r=>{ const m=map[r.customerId]; if(!m || r.status==='cancelled') return;
     m.spent+=(r.paid||0); m.tx++; m.balance+=Math.max(0,(r.price||0)+(r.lateFee||0)-(r.paid||0));
     if(r.lateFee>0)m.lateCount++; if(r.createdAt>m.last)m.last=r.createdAt; });
   return Object.values(map).map(m=>{
@@ -2654,7 +2683,7 @@ function buildRepaymentReceiptHtml(cust,amt,bal){
 }
 async function customerPoints(cid){
   const sales=(await idbAll('sales')).filter(s=>s.customerId===cid && !s.voided);
-  const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cid);
+  const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cid && r.status!=='cancelled');
   const spent=sales.reduce((a,s)=>a+(s.paid||0),0)+rentals.reduce((a,r)=>a+(r.paid||0),0);
   return Math.floor(spent/100); // 1 point per 100 DA paid
 }
@@ -2826,7 +2855,7 @@ async function viewReports(){
   if(!isOwner()){ view.innerHTML=pageHead(t('reports'))+emptyState(IC.chart,t('ownerOnly'),t('ownerOnlyMsg')); return; }
   const {from,to}=dateRangeFor(repPeriod,repCustomFrom,repCustomTo);
   const [sales,rentals,expenses,products]=await Promise.all([idbAll('sales'),idbAll('rentals'),idbAll('expenses'),idbAll('products')]);
-  const S=sales.filter(s=>s.createdAt>=from && s.createdAt<=to && !s.voided), R=rentals.filter(r=>r.createdAt>=from && r.createdAt<=to), E=expenses.filter(x=>x.createdAt>=from && x.createdAt<=to && !x.isWithdrawal);
+  const S=sales.filter(s=>s.createdAt>=from && s.createdAt<=to && !s.voided), R=rentals.filter(r=>r.createdAt>=from && r.createdAt<=to && r.status!=='cancelled'), E=expenses.filter(x=>x.createdAt>=from && x.createdAt<=to && !x.isWithdrawal);
   const salesRev=S.reduce((a,s)=>a+(s.paid||0),0);
   const rentRev=R.reduce((a,r)=>a+(r.paid||0),0);
   // Deposits kept (damage/cleaning/late/lost) are income, recognised when the item is returned.
