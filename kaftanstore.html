@@ -377,7 +377,8 @@ const IC = {
   activity:'<path d="M5 5h14M5 12h14M5 19h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="19" cy="19" r="2.4" fill="none" stroke="currentColor" stroke-width="1.7"/>',
   lock:'<rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.7"/>',
   cam:'<path d="M4 8h3l1.4-2h7.2L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.1" fill="none" stroke="currentColor" stroke-width="1.6"/>',
-  image:'<rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8.5" cy="9.5" r="1.5" fill="currentColor"/><path d="M4 17l5-5 3 3 3-3 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>'
+  image:'<rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8.5" cy="9.5" r="1.5" fill="currentColor"/><path d="M4 17l5-5 3 3 3-3 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
+  menu:'<path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
 };
 function svg(p,cls){return `<svg class="${cls||''}" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true">${p}</svg>`}
 
@@ -523,7 +524,16 @@ const I18N = {
     refundAmount:"Refund amount", storeKeeps:"Store keeps", refundToCustomer:"Refund to customer",
     depositsKept:"Deposits kept", viewDeposits:"View deposits", noDeposits:"No deposits held",
     depositKeepHint:"Reduce the refund to keep part of the deposit for damage, cleaning, late fees, or a lost item.",
-    logDepositKept:"Deposit kept", totalCollected:"Total collected today", depositRefundable:"Deposit refundable on return"
+    logDepositKept:"Deposit kept", totalCollected:"Total collected today", depositRefundable:"Deposit refundable on return",
+    cancelRental:"Cancel rental", cancelled:"Cancelled", rentalCancelled:"Rental cancelled", logCancelRental:"Rental cancelled",
+    cancelRentalConfirm:"Cancel this rental? Stock will be restored and any rent paid or deposit will be reversed.",
+    dueToday:"Due today", dueTomorrow:"Due tomorrow", moreNav:"More", depositForItem:"Deposit held", menu:"Menu",
+    storeDataFolder:"Store Data folder", fsFolderHint:"Your data is auto-saved to a \"Store Data\" folder on your computer, so nothing is lost if the app or browser closes.",
+    fsCreateFolder:"Create folder on Desktop", changeFolder:"Change folder", fsSaveNow:"Save now", fsLoadFolder:"Load from folder",
+    fsNotSet:"Not set up", fsLastSaved:"Last saved", fsLinked:"Store Data folder ready — auto-saving is on",
+    fsUnsupported:"Automatic folder saving isn't available here — use Backup below instead.",
+    fsSetupTitle:"Turn on automatic saving", fsSetupMsg:"Create a \"Store Data\" folder on your Desktop so your data is saved to your computer automatically and can be restored anytime.",
+    fsLoadConfirm:"This folder already has data. Load it into the app?", later:"Later"
   },
   fr:{
     app:"Boutique Kaftan", tagline:"Gestion de boutique",
@@ -654,7 +664,16 @@ const I18N = {
     refundAmount:"Montant remboursé", storeKeeps:"La boutique garde", refundToCustomer:"Rembourser au client",
     depositsKept:"Cautions gardées", viewDeposits:"Voir les cautions", noDeposits:"Aucune caution détenue",
     depositKeepHint:"Réduisez le remboursement pour garder une partie de la caution (dégâts, nettoyage, retard, article perdu).",
-    logDepositKept:"Caution gardée", totalCollected:"Total encaissé aujourd'hui", depositRefundable:"Caution remboursable au retour"
+    logDepositKept:"Caution gardée", totalCollected:"Total encaissé aujourd'hui", depositRefundable:"Caution remboursable au retour",
+    cancelRental:"Annuler la location", cancelled:"Annulée", rentalCancelled:"Location annulée", logCancelRental:"Location annulée",
+    cancelRentalConfirm:"Annuler cette location ? Le stock sera restauré et tout loyer payé ou caution sera remboursé.",
+    dueToday:"À rendre aujourd'hui", dueTomorrow:"À rendre demain", moreNav:"Plus", depositForItem:"Caution détenue", menu:"Menu",
+    storeDataFolder:"Dossier Store Data", fsFolderHint:"Vos données sont enregistrées automatiquement dans un dossier « Store Data » sur votre ordinateur, pour ne rien perdre à la fermeture.",
+    fsCreateFolder:"Créer le dossier sur le Bureau", changeFolder:"Changer de dossier", fsSaveNow:"Enregistrer maintenant", fsLoadFolder:"Charger depuis le dossier",
+    fsNotSet:"Non configuré", fsLastSaved:"Dernier enregistrement", fsLinked:"Dossier Store Data prêt — sauvegarde automatique activée",
+    fsUnsupported:"L'enregistrement automatique n'est pas disponible ici — utilisez Sauvegarder ci-dessous.",
+    fsSetupTitle:"Activer la sauvegarde automatique", fsSetupMsg:"Créez un dossier « Store Data » sur votre Bureau pour enregistrer vos données automatiquement et pouvoir les restaurer à tout moment.",
+    fsLoadConfirm:"Ce dossier contient déjà des données. Les charger dans l'application ?", later:"Plus tard"
   },
   ar:{
     app:"متجر القفطان", tagline:"إدارة المتجر",
@@ -785,21 +804,30 @@ const I18N = {
     refundAmount:"مبلغ الاسترجاع", storeKeeps:"يحتفظ المتجر بـ", refundToCustomer:"إرجاع للعميل",
     depositsKept:"تأمينات محتجزة", viewDeposits:"عرض التأمينات", noDeposits:"لا توجد تأمينات محتجزة",
     depositKeepHint:"قلّل مبلغ الاسترجاع للاحتفاظ بجزء من التأمين مقابل الأضرار أو التنظيف أو التأخير أو فقدان الصنف.",
-    logDepositKept:"تم الاحتفاظ بالتأمين", totalCollected:"إجمالي المحصّل اليوم", depositRefundable:"التأمين قابل للاسترجاع عند الإرجاع"
+    logDepositKept:"تم الاحتفاظ بالتأمين", totalCollected:"إجمالي المحصّل اليوم", depositRefundable:"التأمين قابل للاسترجاع عند الإرجاع",
+    cancelRental:"إلغاء الإيجار", cancelled:"ملغى", rentalCancelled:"تم إلغاء الإيجار", logCancelRental:"تم إلغاء الإيجار",
+    cancelRentalConfirm:"إلغاء هذا الإيجار؟ سيُعاد المخزون وسيُسترجع أي إيجار مدفوع أو تأمين.",
+    dueToday:"مستحق اليوم", dueTomorrow:"مستحق غداً", moreNav:"المزيد", depositForItem:"تأمين محتجز", menu:"القائمة",
+    storeDataFolder:"مجلد بيانات المتجر", fsFolderHint:"تُحفظ بياناتك تلقائياً في مجلد «Store Data» على جهازك، حتى لا تفقد شيئاً عند إغلاق التطبيق.",
+    fsCreateFolder:"إنشاء المجلد على سطح المكتب", changeFolder:"تغيير المجلد", fsSaveNow:"احفظ الآن", fsLoadFolder:"تحميل من المجلد",
+    fsNotSet:"غير مُعد", fsLastSaved:"آخر حفظ", fsLinked:"مجلد البيانات جاهز — الحفظ التلقائي مُفعّل",
+    fsUnsupported:"الحفظ التلقائي في مجلد غير متاح هنا — استخدم النسخ الاحتياطي بالأسفل.",
+    fsSetupTitle:"تفعيل الحفظ التلقائي", fsSetupMsg:"أنشئ مجلد «Store Data» على سطح المكتب لحفظ بياناتك تلقائياً واستعادتها في أي وقت.",
+    fsLoadConfirm:"هذا المجلد يحتوي على بيانات بالفعل. هل تريد تحميلها في التطبيق؟", later:"لاحقاً"
   }
 };
 
 /* ---------------- State ---------------- */
 const State = {
   lang:'en', currency:'DZD', storeName:'', user:null,
-  route:'dash', cart:[], db:null
+  route:'dash', cart:[], db:null, dirHandle:null
 };
 function t(k){ return (I18N[State.lang] && I18N[State.lang][k]) || I18N.en[k] || k; }
 function isRTL(){ return State.lang==='ar'; }
 function isOwner(){ return State.user && State.user.role==='owner'; }
 
 /* ---------------- IndexedDB ---------------- */
-const DB_NAME='kaftanStoreDB', DB_VER=4;
+const DB_NAME='kaftanStoreDB', DB_VER=5;
 const STORES=['meta','users','products','sales','rentals','customers','payments','expenses','activity','parked'];
 function openDB(){
   return new Promise((res,rej)=>{
@@ -807,6 +835,9 @@ function openDB(){
     r.onupgradeneeded=e=>{
       const db=e.target.result;
       STORES.forEach(s=>{ if(!db.objectStoreNames.contains(s)) db.createObjectStore(s,{keyPath:'id'}); });
+      // _fs holds the linked "Store Data" folder handle; kept out of STORES so
+      // backup/restore/reset never touch it.
+      if(!db.objectStoreNames.contains('_fs')) db.createObjectStore('_fs',{keyPath:'id'});
     };
     r.onsuccess=e=>res(e.target.result);
     r.onerror=e=>rej(e.target.error);
@@ -973,7 +1004,7 @@ async function getProducts(){ return (await idbAll('products')).sort((a,b)=>b.cr
 async function getCustomers(){ return await idbAll('customers'); }
 async function customerBalance(cid){
   const sales=(await idbAll('sales')).filter(s=>s.customerId===cid && !s.voided);
-  const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cid);
+  const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cid && r.status!=='cancelled');
   let owed=0;
   sales.forEach(s=>owed+=Math.max(0,(s.total||0)-(s.paid||0)));
   rentals.forEach(r=>owed+=Math.max(0,(r.price||0)+(r.lateFee||0)-(r.paid||0)));
@@ -1143,15 +1174,27 @@ function renderApp(){
      <main class="main" id="view"></main>
    </div>
    <nav class="tabbar">
-     ${items.filter(i=>i.k).slice(0,5).map(it=>`<button data-r="${it.k}" class="${State.route===it.k?'active':''}">
+     ${items.filter(i=>i.k).slice(0,4).map(it=>`<button data-r="${it.k}" class="${State.route===it.k?'active':''}">
        <span class="ic">${svg(it.ic)}</span>${esc(t(it.label))}</button>`).join('')}
+     <button id="moreTab" class="${items.filter(i=>i.k).slice(0,4).some(it=>it.k===State.route)?'':'active'}">
+       <span class="ic">${svg(IC.menu)}</span>${esc(t('moreNav'))}</button>
    </nav>`;
   app.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{ State.route=b.dataset.r; renderApp(); });
+  document.getElementById('moreTab')&&(document.getElementById('moreTab').onclick=()=>openMoreMenu());
   document.getElementById('btnLogout').onclick=()=>{ State.user=null; State.cart=[]; render(); };
   document.getElementById('btnSearch').onclick=()=>openGlobalSearch();
   document.getElementById('btnTill').onclick=()=>openTillModal();
   document.getElementById('topLang').onchange=async e=>{ State.lang=e.target.value; const m=await idbGet('meta','app'); m.lang=State.lang; await idbPut('meta',m); renderApp(); };
   routeView();
+  maybePromptFolderSetup();
+}
+function openMoreMenu(){
+  const its=navItems().filter(i=>i.k);
+  modal(t('menu'),
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${its.map(it=>`<button class="btn ${State.route===it.k?'':'secondary'}" data-more="${it.k}" style="justify-content:flex-start">${svg(it.ic,'ic')}${esc(t(it.label))}</button>`).join('')}
+    </div>`,'');
+  document.querySelectorAll('[data-more]').forEach(b=>b.onclick=()=>{ State.route=b.dataset.more; closeModal(); renderApp(); });
 }
 function routeView(){
   const r=State.route;
@@ -1352,11 +1395,15 @@ async function viewDash(){
   const activeR=rentals.filter(r=>r.status==='active');
   const active=activeR.length;
   const custs=await getCustomers(); let owed=0; for(const c of custs) owed+=await customerBalance(c.id);
-  const low=products.filter(p=>(p.qty||0)<=2 && (p.mode!=='rent')).length;
+  const low=products.filter(p=>(p.qty||0)<=(p.lowStock??3) && (p.mode!=='rent')).length;
   const inStock=products.reduce((a,p)=>a+(p.qty||0),0);
-  const overdueR=activeR.filter(r=>r.dueDate && Date.parse(r.dueDate)<Date.now());
+  // date buckets by calendar day (dueDate is a YYYY-MM-DD string, compared as strings)
+  const todayStr=todayISO(), tomorrowStr=new Date(Date.now()+86400000).toISOString().slice(0,10);
+  const overdueR=activeR.filter(r=>r.dueDate && r.dueDate<todayStr);
+  const dueTodayR=activeR.filter(r=>r.dueDate===todayStr);
+  const dueTomorrowR=activeR.filter(r=>r.dueDate===tomorrowStr);
   const depositsHeld=activeR.reduce((a,r)=>a+(r.deposit||0),0);
-  const lowItems=products.filter(p=>(p.qty||0)<=2 && (p.mode!=='rent'));
+  const lowItems=products.filter(p=>(p.qty||0)<=(p.lowStock??3) && (p.mode!=='rent'));
 
   // recent
   let acts=[];
@@ -1365,7 +1412,8 @@ async function viewDash(){
   acts.sort((a,b)=>b.ts-a.ts); acts=acts.slice(0,8);
 
   const canOwner=isOwner();
-  const hasAlerts = overdueR.length>0 || lowItems.length>0;
+  const alertCount = overdueR.length+dueTodayR.length+dueTomorrowR.length+lowItems.length;
+  const hasAlerts = alertCount>0;
   const metaApp=await idbGet('meta','app');
   const daysSinceBackup = metaApp&&metaApp.lastBackup ? Math.floor((Date.now()-metaApp.lastBackup)/86400000) : null;
   const showBackupReminder = canOwner && (daysSinceBackup===null || daysSinceBackup>=1);
@@ -1382,10 +1430,20 @@ async function viewDash(){
   </div>
   <div class="card pad" style="margin-bottom:18px">
     <div style="display:flex;align-items:center;gap:10px"><h3>${esc(t('alertsHub'))}</h3>
-      <span class="badge ${hasAlerts?'red':'green'}" style="margin-inline-start:auto">${hasAlerts?(overdueR.length+lowItems.length):'✓'}</span></div>
+      <span class="badge ${hasAlerts?'red':'green'}" style="margin-inline-start:auto">${hasAlerts?alertCount:'✓'}</span></div>
     ${hasAlerts? `<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
-      ${overdueR.slice(0,4).map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--danger-100);border-radius:8px">
+      ${overdueR.slice(0,4).map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--danger-100);border-radius:8px" data-alert-rent="${r.id}">
         <span class="badge red"><span class="dot"></span>${esc(t('overdue'))}</span>
+        <span>${esc(r.name)} · ${esc(r.customerName||'')}</span>
+        <span class="subtle mono" style="margin-inline-start:auto">${fmtDate(Date.parse(r.dueDate))}</span>
+      </div>`).join('')}
+      ${dueTodayR.slice(0,4).map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--warn-100);border-radius:8px" data-alert-rent="${r.id}">
+        <span class="badge warnb"><span class="dot"></span>${esc(t('dueToday'))}</span>
+        <span>${esc(r.name)} · ${esc(r.customerName||'')}</span>
+        <span class="subtle mono" style="margin-inline-start:auto">${fmtDate(Date.parse(r.dueDate))}</span>
+      </div>`).join('')}
+      ${dueTomorrowR.slice(0,4).map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--brand-100);border-radius:8px" data-alert-rent="${r.id}">
+        <span class="badge brand"><span class="dot"></span>${esc(t('dueTomorrow'))}</span>
         <span>${esc(r.name)} · ${esc(r.customerName||'')}</span>
         <span class="subtle mono" style="margin-inline-start:auto">${fmtDate(Date.parse(r.dueDate))}</span>
       </div>`).join('')}
@@ -1434,6 +1492,8 @@ async function viewDash(){
   });
   document.getElementById('btnBackupNow')&&(document.getElementById('btnBackupNow').onclick=()=>doBackup().then(()=>viewDash()));
   document.getElementById('btnDeposits')&&(document.getElementById('btnDeposits').onclick=()=>{ rentalTab='deposits'; rentalView='list'; State.route='rentals'; renderApp(); });
+  view.querySelectorAll('[data-alert-rent]').forEach(el=>el.style.cursor='pointer');
+  view.querySelectorAll('[data-alert-rent]').forEach(el=>el.onclick=async()=>{ const r=await idbGet('rentals',el.dataset.alertRent); if(!r)return; State.route='rentals'; rentalTab='active'; renderApp(); setTimeout(()=>openReturnModal(r),60); });
   document.getElementById('qaExpense').onclick=()=>openExpenseModal(()=>viewDash());
 }
 
@@ -1568,7 +1628,7 @@ function modeBadge(m){
 function rowProduct(p,rentCount){
   const q=p.qty||0;
   const rentedTag = (p.mode==='rent'||p.mode==='both') && rentCount>0 ? `<div class="subtle" style="font-size:11px;margin-top:2px">${esc(t('rentedTimes').replace('{n}',rentCount))}</div>` : '';
-  const qBadge = p.mode==='rent' ? '' : (q<=0? `<span class="badge red">${esc(t('outOfStock'))}</span>` : q<=2? `<span class="badge warnb">${q} · ${esc(t('lowStockLabel'))}</span>` : `<span class="num">${q}</span>`);
+  const qBadge = p.mode==='rent' ? '' : (q<=0? `<span class="badge red">${esc(t('outOfStock'))}</span>` : q<=(p.lowStock??3)? `<span class="badge warnb">${q} · ${esc(t('lowStockLabel'))}</span>` : `<span class="num">${q}</span>`);
   return `<tr>
     <td><div style="display:flex;align-items:center;gap:11px">
       <span class="pthumb">${p.photo?`<img src="${p.photo}" alt="">`:svg(IC.box)}</span>
@@ -2150,6 +2210,7 @@ async function viewRentals(){
   document.getElementById('newRent')&&(document.getElementById('newRent').onclick=()=>openRentalModal());
   document.getElementById('newRent2')&&(document.getElementById('newRent2').onclick=()=>openRentalModal());
   view.querySelectorAll('[data-return]').forEach(b=>b.onclick=async()=>openReturnModal(await idbGet('rentals',b.dataset.return)));
+  view.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=async()=>cancelRental(await idbGet('rentals',b.dataset.cancel)));
   view.querySelectorAll('[data-agr]').forEach(b=>b.onclick=async()=>offerRentalPreview(await idbGet('rentals',b.dataset.agr)));
   view.querySelectorAll('[data-activate]').forEach(b=>b.onclick=async()=>activateReservation(await idbGet('rentals',b.dataset.activate)));
   view.querySelectorAll('[data-extend]').forEach(b=>b.onclick=async()=>openExtendModal(await idbGet('rentals',b.dataset.extend)));
@@ -2248,6 +2309,26 @@ async function activateReservation(r){
   await logAct('logRental', r.name+' · '+(r.customerName||''));
   toast(t('rentalDone'),'ok'); viewRentals();
 }
+/* Cancel a rental or reservation: restore stock (only if it was checked out),
+   reverse any rent paid + deposit in the till, and mark it cancelled so it
+   drops out of balances, points and reports. Cashiers need the manager code. */
+async function cancelRental(r){
+  if(!r || (r.status!=='active' && r.status!=='reserved')) return;
+  confirmDialog(t('cancelRentalConfirm'),()=>{
+    requireAuth(async(how)=>{
+      const method=r.method||'cash';
+      // reversing money that came in
+      if((r.paid||0)>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'refund',amount:-(r.paid||0),method,createdAt:now(),userId:State.user.id});
+      if((r.deposit||0)>0 && !r.depositRefunded) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'depositRefund',amount:-(r.deposit||0),method,createdAt:now(),userId:State.user.id});
+      // an active rental had a unit removed from stock; a reservation did not
+      if(r.status==='active' && r.productId){ const p=await idbGet('products',r.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); } }
+      r.status='cancelled'; r.cancelledAt=now(); if((r.deposit||0)>0) r.depositRefunded=true;
+      await idbPut('rentals',r);
+      await logAct('logCancelRental', r.name+(r.customerName?' · '+r.customerName:'')+(how==='code'?(' · '+t('authorizedBy')):''));
+      toast(t('rentalCancelled'),'ok'); viewRentals();
+    });
+  },true);
+}
 async function openExtendModal(r){
   if(!r) return;
   const p=r.productId? await idbGet('products',r.productId) : null;
@@ -2277,7 +2358,8 @@ async function openExtendModal(r){
 function rowRental(r){
   const bal=Math.max(0,(r.price||0)+(r.lateFee||0)-(r.paid||0));
   const overdue=r.status==='active' && r.dueDate && Date.parse(r.dueDate)<Date.now();
-  const statusBadge= r.status==='returned'? `<span class="badge grey">${esc(t('returned'))}</span>` :
+  const statusBadge= r.status==='cancelled'? `<span class="badge grey">${esc(t('cancelled'))}</span>` :
+    r.status==='returned'? `<span class="badge grey">${esc(t('returned'))}</span>` :
     r.status==='reserved'? `<span class="badge brand">${esc(t('reserved'))}</span>` :
     overdue? `<span class="badge red"><span class="dot"></span>${esc(t('overdue'))}</span>` : `<span class="badge gold"><span class="dot"></span>${esc(t('rented'))}</span>`;
   return `<tr>
@@ -2292,6 +2374,7 @@ function rowRental(r){
       ${r.status==='reserved'?`<button class="btn secondary sm" data-activate="${r.id}">${esc(t('rentOut'))}</button>`:''}
       ${r.status==='active'?`<button class="btn ghost sm" data-extend="${r.id}" title="${esc(t('extendRental'))}">${svg(IC.plus,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn secondary sm" data-return="${r.id}">${svg(IC.ret,'ic')}${esc(t('markReturned'))}</button>`:''}
+      ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-cancel="${r.id}" title="${esc(t('cancelRental'))}" style="color:var(--danger)">${svg(IC.trash,'ic')}</button>`:''}
     </td>
   </tr>`;
 }
@@ -2456,8 +2539,8 @@ async function openReturnModal(r){
       r.status='returned'; r.returnedAt=now();
       if(r.deposit>0){ r.depositRefunded=refundAmt>0; r.depositRefundedAmount=refundAmt; r.depositKept=kept; if(refundAmt>0) r.depositRefundedAt=now(); }
       await idbPut('rentals',r);
-      if(payChecked && payAmt>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'rental',amount:payAmt,method:'cash',createdAt:now(),userId:State.user.id});
-      if(refundAmt>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'depositRefund',amount:-refundAmt,method:'cash',createdAt:now(),userId:State.user.id});
+      if(payChecked && payAmt>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'rental',amount:payAmt,method:r.method||'cash',createdAt:now(),userId:State.user.id});
+      if(refundAmt>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'depositRefund',amount:-refundAmt,method:r.method||'cash',createdAt:now(),userId:State.user.id});
       const p=await idbGet('products',r.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); }
       await logAct('logReturn', r.name+(r.customerName?' · '+r.customerName:''));
       if(refundAmt>0){ await logAct('logRefund', r.name+' · '+money(refundAmt)+(how==='code'?(' · '+t('authorizedBy')):'')); }
@@ -2474,7 +2557,7 @@ async function openReturnModal(r){
 ============================================================ */
 async function oldestDebtDate(cid){
   const sales=(await idbAll('sales')).filter(s=>s.customerId===cid && !s.voided && (s.total-(s.paid||0))>0);
-  const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cid && ((r.price||0)+(r.lateFee||0)-(r.paid||0))>0);
+  const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cid && r.status!=='cancelled' && ((r.price||0)+(r.lateFee||0)-(r.paid||0))>0);
   const dates=[...sales,...rentals].map(x=>x.createdAt).filter(Boolean);
   return dates.length? Math.min(...dates) : null;
 }
@@ -2497,7 +2580,7 @@ async function allCustomerStats(){
   custs.forEach(c=>{ map[c.id]={cust:c,spent:0,tx:0,balance:0,lateCount:0,last:c.createdAt||0}; });
   sales.forEach(s=>{ const m=map[s.customerId]; if(!m||s.voided) return;
     m.spent+=(s.paid||0); m.tx++; m.balance+=Math.max(0,(s.total||0)-(s.paid||0)); if(s.createdAt>m.last)m.last=s.createdAt; });
-  rentals.forEach(r=>{ const m=map[r.customerId]; if(!m) return;
+  rentals.forEach(r=>{ const m=map[r.customerId]; if(!m || r.status==='cancelled') return;
     m.spent+=(r.paid||0); m.tx++; m.balance+=Math.max(0,(r.price||0)+(r.lateFee||0)-(r.paid||0));
     if(r.lateFee>0)m.lateCount++; if(r.createdAt>m.last)m.last=r.createdAt; });
   return Object.values(map).map(m=>{
@@ -2654,7 +2737,7 @@ function buildRepaymentReceiptHtml(cust,amt,bal){
 }
 async function customerPoints(cid){
   const sales=(await idbAll('sales')).filter(s=>s.customerId===cid && !s.voided);
-  const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cid);
+  const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cid && r.status!=='cancelled');
   const spent=sales.reduce((a,s)=>a+(s.paid||0),0)+rentals.reduce((a,r)=>a+(r.paid||0),0);
   return Math.floor(spent/100); // 1 point per 100 DA paid
 }
@@ -2672,6 +2755,8 @@ async function openCustomerLedger(cust){
   const rating=cust.rating||0;
   const lateCount=rentals.filter(r=>r.lateFee>0).length;
   const isCaution = lateCount>=2;
+  const heldDeposits=rentals.filter(r=>r.status==='active' && (r.deposit||0)>0);
+  const heldTotal=heldDeposits.reduce((a,r)=>a+(r.deposit||0),0);
   const starRow=[1,2,3,4,5].map(n=>`<span class="star ${n<=rating?'on':''}" data-star="${n}" style="cursor:pointer;font-size:22px;color:${n<=rating?'var(--gold)':'var(--line)'}">★</span>`).join('');
   modal(cust.name,
    `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
@@ -2679,6 +2764,16 @@ async function openCustomerLedger(cust){
       <span class="badge brand" style="font-size:13px">${points} ${esc(t('points'))}</span>
       ${cust.phone?`<span class="subtle">${esc(cust.phone)}</span>`:''}
     </div>
+    ${heldDeposits.length?`<div class="card pad" style="margin-bottom:12px;padding:12px 14px;background:var(--brand-100);border:none">
+      <div style="display:flex;align-items:center;margin-bottom:4px">
+        <b style="font-size:13.5px">${esc(t('depositsHeld'))}</b>
+        <span class="mono" style="margin-inline-start:auto;font-weight:800;color:var(--brand-700)">${money(heldTotal)}</span>
+      </div>
+      ${heldDeposits.map(r=>`<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0">
+        <span><b>${esc(r.name)}</b>${r.dueDate?` <span class="subtle">· ${esc(t('dueDate'))} ${fmtDate(Date.parse(r.dueDate))}</span>`:''}</span>
+        <span class="mono" style="margin-inline-start:auto">${money(r.deposit)}</span>
+      </div>`).join('')}
+    </div>`:''}
     <div class="field"><label>${esc(t('rating'))}</label><div id="cust_stars">${starRow}</div></div>
     ${isCaution?`<div style="background:var(--danger-100);color:var(--danger);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:13px">⚠ ${esc(t('caution'))} (${lateCount})</div>`:''}
     <div class="field"><label>${esc(t('tags'))}</label><input id="cust_tags" type="text" value="${esc(cust.tags||'')}" placeholder="VIP, wholesale..."></div>
@@ -2826,7 +2921,7 @@ async function viewReports(){
   if(!isOwner()){ view.innerHTML=pageHead(t('reports'))+emptyState(IC.chart,t('ownerOnly'),t('ownerOnlyMsg')); return; }
   const {from,to}=dateRangeFor(repPeriod,repCustomFrom,repCustomTo);
   const [sales,rentals,expenses,products]=await Promise.all([idbAll('sales'),idbAll('rentals'),idbAll('expenses'),idbAll('products')]);
-  const S=sales.filter(s=>s.createdAt>=from && s.createdAt<=to && !s.voided), R=rentals.filter(r=>r.createdAt>=from && r.createdAt<=to), E=expenses.filter(x=>x.createdAt>=from && x.createdAt<=to && !x.isWithdrawal);
+  const S=sales.filter(s=>s.createdAt>=from && s.createdAt<=to && !s.voided), R=rentals.filter(r=>r.createdAt>=from && r.createdAt<=to && r.status!=='cancelled'), E=expenses.filter(x=>x.createdAt>=from && x.createdAt<=to && !x.isWithdrawal);
   const salesRev=S.reduce((a,s)=>a+(s.paid||0),0);
   const rentRev=R.reduce((a,r)=>a+(r.paid||0),0);
   // Deposits kept (damage/cleaning/late/lost) are income, recognised when the item is returned.
@@ -3109,6 +3204,21 @@ async function viewSettings(){
        <button class="btn" id="saveCode">${esc(t('save'))}</button>
      </div>`:''}
      <div class="card pad">
+       <h3 style="margin-bottom:6px">${svg(IC.down,'ic')} ${esc(t('storeDataFolder'))}</h3>
+       ${FS_SUPPORTED? `<p class="subtle" style="margin-bottom:12px">${esc(t('fsFolderHint'))}</p>
+       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+         ${State.dirHandle? `<span class="badge green">${esc(t('active'))}</span><span class="subtle">${esc(State.dirHandle.name||'Store Data')}</span>`
+            : `<span class="badge warnb">${esc(t('fsNotSet'))}</span>`}
+         ${meta.lastFsSave? `<span class="subtle" style="margin-inline-start:auto;font-size:12px">${esc(t('fsLastSaved'))}: ${fmtDate(meta.lastFsSave)} ${new Date(meta.lastFsSave).toLocaleTimeString(State.lang,{hour:'2-digit',minute:'2-digit'})}</span>`:''}
+       </div>
+       <div style="display:flex;gap:10px;flex-wrap:wrap">
+         <button class="btn" id="fsChoose">${svg(IC.down,'ic')}${State.dirHandle?esc(t('changeFolder')):esc(t('fsCreateFolder'))}</button>
+         ${State.dirHandle?`<button class="btn secondary" id="fsSaveNow">${esc(t('fsSaveNow'))}</button>
+         <button class="btn secondary" id="fsLoadNow">${svg(IC.up,'ic')}${esc(t('fsLoadFolder'))}</button>`:''}
+       </div>`
+       : `<p class="subtle">${esc(t('fsUnsupported'))}</p>`}
+     </div>
+     <div class="card pad">
        <h3 style="margin-bottom:6px">${esc(t('data'))}</h3>
        <p class="subtle" style="margin-bottom:14px">${esc(t('aboutData'))}</p>
        <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -3120,6 +3230,9 @@ async function viewSettings(){
        <p class="subtle" style="font-size:12px;margin-top:12px">${esc(t('backupHint'))}</p>
      </div>
    </div>`;
+  document.getElementById('fsChoose')&&(document.getElementById('fsChoose').onclick=async()=>{ if(await fsChooseFolder()) viewSettings(); });
+  document.getElementById('fsSaveNow')&&(document.getElementById('fsSaveNow').onclick=async()=>{ const ok=await fsSaveAll(true); toast(ok?t('backupDone'):t('fsUnsupported'), ok?'ok':'err'); viewSettings(); });
+  document.getElementById('fsLoadNow')&&(document.getElementById('fsLoadNow').onclick=()=>confirmDialog(t('restoreConfirm'),()=>fsLoadAll(true)));
   document.getElementById('set_save').onclick=async()=>{
     meta.storeName=document.getElementById('set_name').value.trim()||t('app');
     State.lang=document.getElementById('set_lang').value; meta.lang=State.lang;
@@ -3143,9 +3256,13 @@ async function viewSettings(){
   document.getElementById('restoreFile').onchange=doRestore;
   document.getElementById('btnReset')&&(document.getElementById('btnReset').onclick=()=>confirmDialog(t('resetConfirm'),async()=>{ for(const s of STORES) await idbClear(s); State.user=null; State.cart=[]; toast(t('deleted'),'ok'); render(); },true));
 }
-async function doBackup(){
+async function buildSnapshot(){
   const data={_app:'kaftan-store',_v:1,exportedAt:now()};
   for(const s of STORES) data[s]=await idbAll(s);
+  return data;
+}
+async function doBackup(){
+  const data=await buildSnapshot();
   const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download=`kaftan-backup-${todayISO()}.json`; a.click();
@@ -3170,6 +3287,127 @@ function doRestore(e){
     e.target.value='';
   };
   reader.readAsText(file);
+}
+
+/* ============================================================
+   STORE DATA FOLDER — automatic save to a real folder on disk
+   Uses the File System Access API (works in Chrome/Edge and inside the
+   desktop app). Falls back to manual backup where unsupported.
+============================================================ */
+const FS_SUPPORTED = typeof window.showDirectoryPicker === 'function';
+let _autoSaveTimer=null, _fsBusy=false, _fsPrompted=false;
+
+async function fsGetHandle(){
+  if(State.dirHandle) return State.dirHandle;
+  try{ const rec=await idbGet('_fs','dir'); if(rec&&rec.handle){ State.dirHandle=rec.handle; return rec.handle; } }catch(e){}
+  return null;
+}
+async function fsHasPermission(handle,prompt){
+  if(!handle||!handle.queryPermission) return false;
+  const opts={mode:'readwrite'};
+  try{
+    if((await handle.queryPermission(opts))==='granted') return true;
+    if(prompt && (await handle.requestPermission(opts))==='granted') return true;
+  }catch(e){}
+  return false;
+}
+async function fsWriteFile(dir,name,text){
+  const fh=await dir.getFileHandle(name,{create:true});
+  const w=await fh.createWritable(); await w.write(text); await w.close();
+}
+async function fsFileExists(dir,name){ try{ await dir.getFileHandle(name); return true; }catch(e){ return false; } }
+async function fsWriteReadme(dir){
+  await fsWriteFile(dir,'README.txt',
+    'Kaftan Store Manager — automatic data folder.\r\n\r\n'+
+    'Do NOT delete, move or rename this folder while using the app.\r\n'+
+    'store-data.json  = your latest data (updated automatically).\r\n'+
+    'store-data-YYYY-MM-DD.json = a daily snapshot, kept just in case.\r\n');
+}
+/* Link (or create) the Store Data folder. Opens on the Desktop; the app
+   creates a "Store Data" subfolder inside whatever the user selects. */
+async function fsChooseFolder(){
+  if(!FS_SUPPORTED){ toast(t('fsUnsupported'),'err'); return false; }
+  let parent;
+  try{ parent=await window.showDirectoryPicker({id:'kaftanStoreData',mode:'readwrite',startIn:'desktop'}); }
+  catch(e){ return false; } // user cancelled the picker
+  let dir;
+  try{ dir=await parent.getDirectoryHandle('Store Data',{create:true}); }
+  catch(e){ toast(t('fsUnsupported'),'err'); return false; }
+  State.dirHandle=dir;
+  await idbPut('_fs',{id:'dir',handle:dir});
+  await fsWriteReadme(dir);
+  // If this folder already holds data (e.g. moved to a new PC), offer to load it.
+  if(await fsFileExists(dir,'store-data.json')){
+    const hasLocal=(await idbAll('products')).length>0 || (await idbAll('sales')).length>0;
+    if(!hasLocal){ confirmDialog(t('fsLoadConfirm'),()=>fsLoadAll(true)); }
+    else await fsSaveAll(true);
+  } else {
+    await fsSaveAll(true);
+  }
+  toast(t('fsLinked'),'ok');
+  return true;
+}
+async function fsSaveAll(force){
+  const dir=await fsGetHandle(); if(!dir) return false;
+  if(!(await fsHasPermission(dir,false))) return false;
+  _fsBusy=true;
+  try{
+    const text=JSON.stringify(await buildSnapshot());
+    await fsWriteFile(dir,'store-data.json',text);
+    const daily=`store-data-${todayISO()}.json`;
+    // one snapshot per day, never overwritten
+    if(!(await fsFileExists(dir,daily))) await fsWriteFile(dir,daily,text);
+    const m=await idbGet('meta','app'); if(m){ m.lastBackup=now(); m.lastFsSave=now(); await idbPut('meta',m); }
+    return true;
+  }catch(e){ return false; }
+  finally{ _fsBusy=false; }
+}
+async function fsLoadAll(reload){
+  const dir=await fsGetHandle(); if(!dir) return false;
+  if(!(await fsHasPermission(dir,true))){ toast(t('fsUnsupported'),'err'); return false; }
+  _fsBusy=true;
+  try{
+    const fh=await dir.getFileHandle('store-data.json');
+    const data=JSON.parse(await (await fh.getFile()).text());
+    if(data._app!=='kaftan-store'){ toast('Invalid file','err'); return false; }
+    for(const s of STORES){ await idbClear(s); for(const rec of (data[s]||[])) await idbPut(s,rec); }
+    const meta=await idbGet('meta','app'); if(meta){ State.lang=meta.lang||State.lang; State.storeName=meta.storeName; }
+    toast(t('restored'),'ok');
+    if(reload){ State.user=null; State.cart=[]; render(); }
+    return true;
+  }catch(e){ toast(t('fsUnsupported'),'err'); return false; }
+  finally{ _fsBusy=false; }
+}
+/* Debounced auto-save fired after every data change. */
+function scheduleAutoSave(){
+  if(_fsBusy || !State.dirHandle) return;
+  if(_autoSaveTimer) clearTimeout(_autoSaveTimer);
+  _autoSaveTimer=setTimeout(()=>{ fsSaveAll(false); }, 1200);
+}
+/* Wrap the low-level writes so any change schedules a save. */
+function fsInstallAutoSave(){
+  const rp=idbPut, rd=idbDel;
+  idbPut=function(s,v){ const r=rp(s,v); if(s!=='_fs') scheduleAutoSave(); return r; };
+  idbDel=function(s,id){ const r=rd(s,id); scheduleAutoSave(); return r; };
+  // Best-effort flush when the app is closing or hidden.
+  const flush=()=>{ try{ fsSaveAll(false); }catch(e){} };
+  window.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') flush(); });
+  window.addEventListener('pagehide',flush);
+  window.addEventListener('beforeunload',flush);
+}
+/* One-time prompt (after first setup) to create the Store Data folder. */
+async function maybePromptFolderSetup(){
+  if(!FS_SUPPORTED || _fsPrompted) return; _fsPrompted=true;
+  if(await fsGetHandle()) return;
+  const m=await idbGet('meta','app'); if(!m || m.fsPromptDone) return;
+  modal(t('fsSetupTitle'),
+    `<p style="margin:2px 0 8px">${esc(t('fsSetupMsg'))}</p>
+     <p class="subtle" style="font-size:12.5px">${esc(t('fsFolderHint'))}</p>`,
+    `<button class="btn secondary" id="fsLater">${esc(t('later'))}</button>
+     <button class="btn" id="fsNow">${svg(IC.down,'ic')}${esc(t('fsCreateFolder'))}</button>`);
+  const markDone=async()=>{ const mm=await idbGet('meta','app'); if(mm){ mm.fsPromptDone=true; await idbPut('meta',mm); } };
+  document.getElementById('fsLater').onclick=async()=>{ await markDone(); closeModal(); };
+  document.getElementById('fsNow').onclick=async()=>{ const ok=await fsChooseFolder(); if(ok){ await markDone(); closeModal(); } };
 }
 
 /* ============================================================
@@ -3198,6 +3436,8 @@ function setupAutoLock(minutes){
   try{
     State.db=await openDB();
     try{ if(navigator.storage && navigator.storage.persist){ await navigator.storage.persist(); } }catch(e){}
+    fsInstallAutoSave();
+    await fsGetHandle(); // reconnect the Store Data folder if one was linked before
     const meta=await idbGet('meta','app');
     if(meta && meta.lang) State.lang=meta.lang;
     if(meta) setupAutoLock(meta.autoLockMin);
