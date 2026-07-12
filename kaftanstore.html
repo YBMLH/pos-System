@@ -527,7 +527,13 @@ const I18N = {
     logDepositKept:"Deposit kept", totalCollected:"Total collected today", depositRefundable:"Deposit refundable on return",
     cancelRental:"Cancel rental", cancelled:"Cancelled", rentalCancelled:"Rental cancelled", logCancelRental:"Rental cancelled",
     cancelRentalConfirm:"Cancel this rental? Stock will be restored and any rent paid or deposit will be reversed.",
-    dueToday:"Due today", dueTomorrow:"Due tomorrow", moreNav:"More", depositForItem:"Deposit held", menu:"Menu"
+    dueToday:"Due today", dueTomorrow:"Due tomorrow", moreNav:"More", depositForItem:"Deposit held", menu:"Menu",
+    storeDataFolder:"Store Data folder", fsFolderHint:"Your data is auto-saved to a \"Store Data\" folder on your computer, so nothing is lost if the app or browser closes.",
+    fsCreateFolder:"Create folder on Desktop", changeFolder:"Change folder", fsSaveNow:"Save now", fsLoadFolder:"Load from folder",
+    fsNotSet:"Not set up", fsLastSaved:"Last saved", fsLinked:"Store Data folder ready — auto-saving is on",
+    fsUnsupported:"Automatic folder saving isn't available here — use Backup below instead.",
+    fsSetupTitle:"Turn on automatic saving", fsSetupMsg:"Create a \"Store Data\" folder on your Desktop so your data is saved to your computer automatically and can be restored anytime.",
+    fsLoadConfirm:"This folder already has data. Load it into the app?", later:"Later"
   },
   fr:{
     app:"Boutique Kaftan", tagline:"Gestion de boutique",
@@ -661,7 +667,13 @@ const I18N = {
     logDepositKept:"Caution gardée", totalCollected:"Total encaissé aujourd'hui", depositRefundable:"Caution remboursable au retour",
     cancelRental:"Annuler la location", cancelled:"Annulée", rentalCancelled:"Location annulée", logCancelRental:"Location annulée",
     cancelRentalConfirm:"Annuler cette location ? Le stock sera restauré et tout loyer payé ou caution sera remboursé.",
-    dueToday:"À rendre aujourd'hui", dueTomorrow:"À rendre demain", moreNav:"Plus", depositForItem:"Caution détenue", menu:"Menu"
+    dueToday:"À rendre aujourd'hui", dueTomorrow:"À rendre demain", moreNav:"Plus", depositForItem:"Caution détenue", menu:"Menu",
+    storeDataFolder:"Dossier Store Data", fsFolderHint:"Vos données sont enregistrées automatiquement dans un dossier « Store Data » sur votre ordinateur, pour ne rien perdre à la fermeture.",
+    fsCreateFolder:"Créer le dossier sur le Bureau", changeFolder:"Changer de dossier", fsSaveNow:"Enregistrer maintenant", fsLoadFolder:"Charger depuis le dossier",
+    fsNotSet:"Non configuré", fsLastSaved:"Dernier enregistrement", fsLinked:"Dossier Store Data prêt — sauvegarde automatique activée",
+    fsUnsupported:"L'enregistrement automatique n'est pas disponible ici — utilisez Sauvegarder ci-dessous.",
+    fsSetupTitle:"Activer la sauvegarde automatique", fsSetupMsg:"Créez un dossier « Store Data » sur votre Bureau pour enregistrer vos données automatiquement et pouvoir les restaurer à tout moment.",
+    fsLoadConfirm:"Ce dossier contient déjà des données. Les charger dans l'application ?", later:"Plus tard"
   },
   ar:{
     app:"متجر القفطان", tagline:"إدارة المتجر",
@@ -795,21 +807,27 @@ const I18N = {
     logDepositKept:"تم الاحتفاظ بالتأمين", totalCollected:"إجمالي المحصّل اليوم", depositRefundable:"التأمين قابل للاسترجاع عند الإرجاع",
     cancelRental:"إلغاء الإيجار", cancelled:"ملغى", rentalCancelled:"تم إلغاء الإيجار", logCancelRental:"تم إلغاء الإيجار",
     cancelRentalConfirm:"إلغاء هذا الإيجار؟ سيُعاد المخزون وسيُسترجع أي إيجار مدفوع أو تأمين.",
-    dueToday:"مستحق اليوم", dueTomorrow:"مستحق غداً", moreNav:"المزيد", depositForItem:"تأمين محتجز", menu:"القائمة"
+    dueToday:"مستحق اليوم", dueTomorrow:"مستحق غداً", moreNav:"المزيد", depositForItem:"تأمين محتجز", menu:"القائمة",
+    storeDataFolder:"مجلد بيانات المتجر", fsFolderHint:"تُحفظ بياناتك تلقائياً في مجلد «Store Data» على جهازك، حتى لا تفقد شيئاً عند إغلاق التطبيق.",
+    fsCreateFolder:"إنشاء المجلد على سطح المكتب", changeFolder:"تغيير المجلد", fsSaveNow:"احفظ الآن", fsLoadFolder:"تحميل من المجلد",
+    fsNotSet:"غير مُعد", fsLastSaved:"آخر حفظ", fsLinked:"مجلد البيانات جاهز — الحفظ التلقائي مُفعّل",
+    fsUnsupported:"الحفظ التلقائي في مجلد غير متاح هنا — استخدم النسخ الاحتياطي بالأسفل.",
+    fsSetupTitle:"تفعيل الحفظ التلقائي", fsSetupMsg:"أنشئ مجلد «Store Data» على سطح المكتب لحفظ بياناتك تلقائياً واستعادتها في أي وقت.",
+    fsLoadConfirm:"هذا المجلد يحتوي على بيانات بالفعل. هل تريد تحميلها في التطبيق؟", later:"لاحقاً"
   }
 };
 
 /* ---------------- State ---------------- */
 const State = {
   lang:'en', currency:'DZD', storeName:'', user:null,
-  route:'dash', cart:[], db:null
+  route:'dash', cart:[], db:null, dirHandle:null
 };
 function t(k){ return (I18N[State.lang] && I18N[State.lang][k]) || I18N.en[k] || k; }
 function isRTL(){ return State.lang==='ar'; }
 function isOwner(){ return State.user && State.user.role==='owner'; }
 
 /* ---------------- IndexedDB ---------------- */
-const DB_NAME='kaftanStoreDB', DB_VER=4;
+const DB_NAME='kaftanStoreDB', DB_VER=5;
 const STORES=['meta','users','products','sales','rentals','customers','payments','expenses','activity','parked'];
 function openDB(){
   return new Promise((res,rej)=>{
@@ -817,6 +835,9 @@ function openDB(){
     r.onupgradeneeded=e=>{
       const db=e.target.result;
       STORES.forEach(s=>{ if(!db.objectStoreNames.contains(s)) db.createObjectStore(s,{keyPath:'id'}); });
+      // _fs holds the linked "Store Data" folder handle; kept out of STORES so
+      // backup/restore/reset never touch it.
+      if(!db.objectStoreNames.contains('_fs')) db.createObjectStore('_fs',{keyPath:'id'});
     };
     r.onsuccess=e=>res(e.target.result);
     r.onerror=e=>rej(e.target.error);
@@ -1165,6 +1186,7 @@ function renderApp(){
   document.getElementById('btnTill').onclick=()=>openTillModal();
   document.getElementById('topLang').onchange=async e=>{ State.lang=e.target.value; const m=await idbGet('meta','app'); m.lang=State.lang; await idbPut('meta',m); renderApp(); };
   routeView();
+  maybePromptFolderSetup();
 }
 function openMoreMenu(){
   const its=navItems().filter(i=>i.k);
@@ -3182,6 +3204,21 @@ async function viewSettings(){
        <button class="btn" id="saveCode">${esc(t('save'))}</button>
      </div>`:''}
      <div class="card pad">
+       <h3 style="margin-bottom:6px">${svg(IC.down,'ic')} ${esc(t('storeDataFolder'))}</h3>
+       ${FS_SUPPORTED? `<p class="subtle" style="margin-bottom:12px">${esc(t('fsFolderHint'))}</p>
+       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+         ${State.dirHandle? `<span class="badge green">${esc(t('active'))}</span><span class="subtle">${esc(State.dirHandle.name||'Store Data')}</span>`
+            : `<span class="badge warnb">${esc(t('fsNotSet'))}</span>`}
+         ${meta.lastFsSave? `<span class="subtle" style="margin-inline-start:auto;font-size:12px">${esc(t('fsLastSaved'))}: ${fmtDate(meta.lastFsSave)} ${new Date(meta.lastFsSave).toLocaleTimeString(State.lang,{hour:'2-digit',minute:'2-digit'})}</span>`:''}
+       </div>
+       <div style="display:flex;gap:10px;flex-wrap:wrap">
+         <button class="btn" id="fsChoose">${svg(IC.down,'ic')}${State.dirHandle?esc(t('changeFolder')):esc(t('fsCreateFolder'))}</button>
+         ${State.dirHandle?`<button class="btn secondary" id="fsSaveNow">${esc(t('fsSaveNow'))}</button>
+         <button class="btn secondary" id="fsLoadNow">${svg(IC.up,'ic')}${esc(t('fsLoadFolder'))}</button>`:''}
+       </div>`
+       : `<p class="subtle">${esc(t('fsUnsupported'))}</p>`}
+     </div>
+     <div class="card pad">
        <h3 style="margin-bottom:6px">${esc(t('data'))}</h3>
        <p class="subtle" style="margin-bottom:14px">${esc(t('aboutData'))}</p>
        <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -3193,6 +3230,9 @@ async function viewSettings(){
        <p class="subtle" style="font-size:12px;margin-top:12px">${esc(t('backupHint'))}</p>
      </div>
    </div>`;
+  document.getElementById('fsChoose')&&(document.getElementById('fsChoose').onclick=async()=>{ if(await fsChooseFolder()) viewSettings(); });
+  document.getElementById('fsSaveNow')&&(document.getElementById('fsSaveNow').onclick=async()=>{ const ok=await fsSaveAll(true); toast(ok?t('backupDone'):t('fsUnsupported'), ok?'ok':'err'); viewSettings(); });
+  document.getElementById('fsLoadNow')&&(document.getElementById('fsLoadNow').onclick=()=>confirmDialog(t('restoreConfirm'),()=>fsLoadAll(true)));
   document.getElementById('set_save').onclick=async()=>{
     meta.storeName=document.getElementById('set_name').value.trim()||t('app');
     State.lang=document.getElementById('set_lang').value; meta.lang=State.lang;
@@ -3216,9 +3256,13 @@ async function viewSettings(){
   document.getElementById('restoreFile').onchange=doRestore;
   document.getElementById('btnReset')&&(document.getElementById('btnReset').onclick=()=>confirmDialog(t('resetConfirm'),async()=>{ for(const s of STORES) await idbClear(s); State.user=null; State.cart=[]; toast(t('deleted'),'ok'); render(); },true));
 }
-async function doBackup(){
+async function buildSnapshot(){
   const data={_app:'kaftan-store',_v:1,exportedAt:now()};
   for(const s of STORES) data[s]=await idbAll(s);
+  return data;
+}
+async function doBackup(){
+  const data=await buildSnapshot();
   const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download=`kaftan-backup-${todayISO()}.json`; a.click();
@@ -3243,6 +3287,127 @@ function doRestore(e){
     e.target.value='';
   };
   reader.readAsText(file);
+}
+
+/* ============================================================
+   STORE DATA FOLDER — automatic save to a real folder on disk
+   Uses the File System Access API (works in Chrome/Edge and inside the
+   desktop app). Falls back to manual backup where unsupported.
+============================================================ */
+const FS_SUPPORTED = typeof window.showDirectoryPicker === 'function';
+let _autoSaveTimer=null, _fsBusy=false, _fsPrompted=false;
+
+async function fsGetHandle(){
+  if(State.dirHandle) return State.dirHandle;
+  try{ const rec=await idbGet('_fs','dir'); if(rec&&rec.handle){ State.dirHandle=rec.handle; return rec.handle; } }catch(e){}
+  return null;
+}
+async function fsHasPermission(handle,prompt){
+  if(!handle||!handle.queryPermission) return false;
+  const opts={mode:'readwrite'};
+  try{
+    if((await handle.queryPermission(opts))==='granted') return true;
+    if(prompt && (await handle.requestPermission(opts))==='granted') return true;
+  }catch(e){}
+  return false;
+}
+async function fsWriteFile(dir,name,text){
+  const fh=await dir.getFileHandle(name,{create:true});
+  const w=await fh.createWritable(); await w.write(text); await w.close();
+}
+async function fsFileExists(dir,name){ try{ await dir.getFileHandle(name); return true; }catch(e){ return false; } }
+async function fsWriteReadme(dir){
+  await fsWriteFile(dir,'README.txt',
+    'Kaftan Store Manager — automatic data folder.\r\n\r\n'+
+    'Do NOT delete, move or rename this folder while using the app.\r\n'+
+    'store-data.json  = your latest data (updated automatically).\r\n'+
+    'store-data-YYYY-MM-DD.json = a daily snapshot, kept just in case.\r\n');
+}
+/* Link (or create) the Store Data folder. Opens on the Desktop; the app
+   creates a "Store Data" subfolder inside whatever the user selects. */
+async function fsChooseFolder(){
+  if(!FS_SUPPORTED){ toast(t('fsUnsupported'),'err'); return false; }
+  let parent;
+  try{ parent=await window.showDirectoryPicker({id:'kaftanStoreData',mode:'readwrite',startIn:'desktop'}); }
+  catch(e){ return false; } // user cancelled the picker
+  let dir;
+  try{ dir=await parent.getDirectoryHandle('Store Data',{create:true}); }
+  catch(e){ toast(t('fsUnsupported'),'err'); return false; }
+  State.dirHandle=dir;
+  await idbPut('_fs',{id:'dir',handle:dir});
+  await fsWriteReadme(dir);
+  // If this folder already holds data (e.g. moved to a new PC), offer to load it.
+  if(await fsFileExists(dir,'store-data.json')){
+    const hasLocal=(await idbAll('products')).length>0 || (await idbAll('sales')).length>0;
+    if(!hasLocal){ confirmDialog(t('fsLoadConfirm'),()=>fsLoadAll(true)); }
+    else await fsSaveAll(true);
+  } else {
+    await fsSaveAll(true);
+  }
+  toast(t('fsLinked'),'ok');
+  return true;
+}
+async function fsSaveAll(force){
+  const dir=await fsGetHandle(); if(!dir) return false;
+  if(!(await fsHasPermission(dir,false))) return false;
+  _fsBusy=true;
+  try{
+    const text=JSON.stringify(await buildSnapshot());
+    await fsWriteFile(dir,'store-data.json',text);
+    const daily=`store-data-${todayISO()}.json`;
+    // one snapshot per day, never overwritten
+    if(!(await fsFileExists(dir,daily))) await fsWriteFile(dir,daily,text);
+    const m=await idbGet('meta','app'); if(m){ m.lastBackup=now(); m.lastFsSave=now(); await idbPut('meta',m); }
+    return true;
+  }catch(e){ return false; }
+  finally{ _fsBusy=false; }
+}
+async function fsLoadAll(reload){
+  const dir=await fsGetHandle(); if(!dir) return false;
+  if(!(await fsHasPermission(dir,true))){ toast(t('fsUnsupported'),'err'); return false; }
+  _fsBusy=true;
+  try{
+    const fh=await dir.getFileHandle('store-data.json');
+    const data=JSON.parse(await (await fh.getFile()).text());
+    if(data._app!=='kaftan-store'){ toast('Invalid file','err'); return false; }
+    for(const s of STORES){ await idbClear(s); for(const rec of (data[s]||[])) await idbPut(s,rec); }
+    const meta=await idbGet('meta','app'); if(meta){ State.lang=meta.lang||State.lang; State.storeName=meta.storeName; }
+    toast(t('restored'),'ok');
+    if(reload){ State.user=null; State.cart=[]; render(); }
+    return true;
+  }catch(e){ toast(t('fsUnsupported'),'err'); return false; }
+  finally{ _fsBusy=false; }
+}
+/* Debounced auto-save fired after every data change. */
+function scheduleAutoSave(){
+  if(_fsBusy || !State.dirHandle) return;
+  if(_autoSaveTimer) clearTimeout(_autoSaveTimer);
+  _autoSaveTimer=setTimeout(()=>{ fsSaveAll(false); }, 1200);
+}
+/* Wrap the low-level writes so any change schedules a save. */
+function fsInstallAutoSave(){
+  const rp=idbPut, rd=idbDel;
+  idbPut=function(s,v){ const r=rp(s,v); if(s!=='_fs') scheduleAutoSave(); return r; };
+  idbDel=function(s,id){ const r=rd(s,id); scheduleAutoSave(); return r; };
+  // Best-effort flush when the app is closing or hidden.
+  const flush=()=>{ try{ fsSaveAll(false); }catch(e){} };
+  window.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') flush(); });
+  window.addEventListener('pagehide',flush);
+  window.addEventListener('beforeunload',flush);
+}
+/* One-time prompt (after first setup) to create the Store Data folder. */
+async function maybePromptFolderSetup(){
+  if(!FS_SUPPORTED || _fsPrompted) return; _fsPrompted=true;
+  if(await fsGetHandle()) return;
+  const m=await idbGet('meta','app'); if(!m || m.fsPromptDone) return;
+  modal(t('fsSetupTitle'),
+    `<p style="margin:2px 0 8px">${esc(t('fsSetupMsg'))}</p>
+     <p class="subtle" style="font-size:12.5px">${esc(t('fsFolderHint'))}</p>`,
+    `<button class="btn secondary" id="fsLater">${esc(t('later'))}</button>
+     <button class="btn" id="fsNow">${svg(IC.down,'ic')}${esc(t('fsCreateFolder'))}</button>`);
+  const markDone=async()=>{ const mm=await idbGet('meta','app'); if(mm){ mm.fsPromptDone=true; await idbPut('meta',mm); } };
+  document.getElementById('fsLater').onclick=async()=>{ await markDone(); closeModal(); };
+  document.getElementById('fsNow').onclick=async()=>{ const ok=await fsChooseFolder(); if(ok){ await markDone(); closeModal(); } };
 }
 
 /* ============================================================
@@ -3271,6 +3436,8 @@ function setupAutoLock(minutes){
   try{
     State.db=await openDB();
     try{ if(navigator.storage && navigator.storage.persist){ await navigator.storage.persist(); } }catch(e){}
+    fsInstallAutoSave();
+    await fsGetHandle(); // reconnect the Store Data folder if one was linked before
     const meta=await idbGet('meta','app');
     if(meta && meta.lang) State.lang=meta.lang;
     if(meta) setupAutoLock(meta.autoLockMin);
