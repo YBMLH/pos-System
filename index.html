@@ -2198,7 +2198,6 @@ function buildSaleReceiptHtml(sale,items){
     <span>${esc(l.name)} ×${l.qty}</span>
     <span style="text-align:right;flex-shrink:0">${money2(l.price*l.qty)}</span>
   </div>${l.qty>1?`<div style="font-size:10px;color:#666;text-align:right;margin-bottom:2px">${money2(l.price)} ${esc(t('each'))}</div>`:''}`).join('');
-  const saleId=sale.id.slice(-8).replace(/\D/g,'')||'00000000';
   return `<div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:4px">${esc(State.storeName||t('app'))}</div>
     <div style="text-align:center;font-size:9px;margin-bottom:6px;color:#666">${new Date().toLocaleString(State.lang)}</div>
     <div style="border-bottom:1px dashed #000;padding-bottom:4px;margin-bottom:6px;text-align:center;font-weight:700;font-size:11px">${esc(t('customer'))}: ${esc(sale.customerName||t('walkIn'))}</div>
@@ -2219,8 +2218,6 @@ function buildSaleReceiptHtml(sale,items){
         <span style="text-align:right;flex-shrink:0">${money2(sale.balance)}</span>
       </div>`:''}
     </div>
-    <div style="text-align:center;margin:6px 0">${renderBarcodeHtml(saleId,{height:56}).html}</div>
-    <div style="text-align:center;font-size:10px;font-weight:600;margin-bottom:4px">${esc(saleId)}</div>
     <div style="text-align:center;font-size:10px;color:#666">${esc(isRTL()?'شكراً لتسوقكم':'Merci · Thank you')}</div>`;
 }
 
@@ -2542,8 +2539,7 @@ function buildRentalAgreementHtml(r){
       ${r.deposit?`<div style="display:flex;justify-content:space-between;font-weight:800"><span>${esc(t('totalCollected'))}</span><span>${money2((r.paid||0)+(r.deposit||0))}</span></div>`:''}
       ${bal>0?`<div style="display:flex;justify-content:space-between;font-weight:800;border-top:1px dashed #000;margin-top:3px;padding-top:3px"><span>${esc(t('balanceDue'))}</span><span>${money2(bal)}</span></div>`:''}
     </div>
-    ${r.deposit?`<div style="text-align:center;font-size:10px;margin-bottom:4px;color:#666">${esc(t('depositRefundable'))}</div>`:''}
-    <div style="text-align:center;margin:6px 0">${renderBarcodeHtml((r.id.replace(/\D/g,'')||'0').slice(-8).padStart(8,'0'),{height:48}).html}</div>`;
+    ${r.deposit?`<div style="text-align:center;font-size:10px;margin-bottom:4px;color:#666">${esc(t('depositRefundable'))}</div>`:''}`;
 }
 async function openReturnModal(r){
   const bal=Math.max(0,(r.price||0)-(r.paid||0));
