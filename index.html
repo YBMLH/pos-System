@@ -1739,7 +1739,7 @@ function openLabelModal(p){
     const is60x40=labelSize==='label';
     const bh=is60x40?44:56;
     const nameF=is60x40?13:13, metaF=is60x40?8:8, codeF=is60x40?10:10;
-    const bcStyle = is60x40 ? 'max-width:50mm;height:auto;display:block;margin:0 auto' : '';
+    const bcStyle = is60x40 ? 'max-width:50mm;height:auto;display:block;margin:0 auto' : 'width:100%;max-width:70mm;height:auto;display:block;margin:0 auto';
     const bcHtml = renderBarcodeHtml(p.barcode, {height:bh, style:bcStyle}).html;
     let rows='';
     for(let i=0;i<count;i++){
