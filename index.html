@@ -321,6 +321,7 @@ kbd{background:#EEEDEA;border-radius:5px;padding:1px 6px;font-size:11px;font-fam
   #printArea.labels{page:label-page}
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 </head>
 <body>
 <div id="electron-titlebar">
@@ -890,34 +891,26 @@ function fmtDate(ts){ const d=new Date(ts); return d.toLocaleDateString(State.la
 function initials(name){ return (name||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-/* ---------------- Code 128 barcode (subset B/C auto) ---------------- */
-const C128 = (function(){
-  const P=["11011001100","11001101100","11001100110","10010011000","10010001100","10001001100","10011001000","10011000100","10001100100","11001001000","11001000100","11000100100","10110011100","10011011100","10011001110","10111001100","10011101100","10011100110","11001110010","11001011100","11001001110","11011100100","11001110100","11101101110","11101001100","11100101100","11100100110","11101100100","11100110100","11100110010","11011011000","11011000110","11000110110","10100011000","10001011000","10001000110","10110001000","10001101000","10001100010","11010001000","11000101000","11000100010","10110111000","10110001110","10001101110","10111011000","10111000110","10001110110","11101110110","11010001110","11000101110","11011101000","11011100010","11011101110","11101011000","11101000110","11100010110","11101101000","11101100010","11100011010","11101111010","11001000010","11110001010","10100110000","10100001100","10010110000","10010000110","10000101100","10000100110","10110010000","10110000100","10011010000","10011000010","10000110100","10000110010","11000010010","11001010000","11110111010","11000010100","10001111010","10100111100","10010111100","10010011110","10111100100","10011110100","10011110010","11110100100","11110010100","11110010010","11011011110","11011110110","11110110110","10101111000","10100011110","10001011110","10111101000","10111100010","11110101000","11110100010","10111011110","10111101110","11101011110","11110101110","11010000100","11010010000","11010011100","11000111010"];
-  const START_B=104, START_C=105, STOP="1100011101011";
-  function encode(data){
-    data=String(data);
-    let codes=[], i=0;
-    // choose Code C if all digits and even length >=4, else Code B
-    if(/^\d+$/.test(data) && data.length>=4 && data.length%2===0){
-      codes.push(START_C);
-      for(i=0;i<data.length;i+=2) codes.push(parseInt(data.substr(i,2),10));
-    } else {
-      codes.push(START_B);
-      for(i=0;i<data.length;i++){ let c=data.charCodeAt(i); if(c<32||c>126)c=95; codes.push(c-32); }
-    }
-    let sum=codes[0]; for(i=1;i<codes.length;i++) sum+=codes[i]*i;
-    codes.push(sum%103);
-    let bits=""; codes.forEach(c=>bits+=P[c]); bits+=STOP;
-    return bits;
-  }
-  function svg(data,opt){
-    opt=opt||{}; const h=opt.height||46, mod=opt.module||1.6, bits=encode(data);
-    const w=bits.length*mod; let rects=""; let x=0;
-    for(let i=0;i<bits.length;i++){ if(bits[i]==='1'){ rects+=`<rect x="${(x).toFixed(2)}" y="0" width="${mod.toFixed(2)}" height="${h}" fill="#000"/>`; } x+=mod; }
-    return `<svg class="label-svg" width="${w.toFixed(0)}" height="${h}" viewBox="0 0 ${w.toFixed(2)} ${h}" xmlns="http://www.w3.org/2000/svg">${rects}</svg>`;
-  }
-  return {svg,encode};
-})();
+/* ---------------- Barcode rendering with JsBarcode (Code128) ---------------- */
+function renderBarcodeHtml(data, opts){
+  opts = opts || {};
+  const containerId = 'bc_' + uid();
+  const style = opts.style ? `style="${opts.style}"` : '';
+  return {
+    html: `<div id="${containerId}" data-barcode="${esc(String(data))}" data-height="${opts.height||50}" ${style}></div>`,
+    id: containerId
+  };
+}
+function renderAllBarcodes(){
+  document.querySelectorAll('[data-barcode]').forEach(el=>{
+    const code = el.getAttribute('data-barcode');
+    const height = parseInt(el.getAttribute('data-height')||50);
+    if(!code) return;
+    try {
+      JsBarcode(el, code, {format:"CODE128", height:height, margin:2, lineColor:"#000"});
+    } catch(e){}
+  });
+}
 
 /* ---------------- Toast / Modal ---------------- */
 function toast(msg,type){ const el=document.createElement('div'); el.className='toast '+(type||''); el.textContent=msg; document.getElementById('toasts').appendChild(el); setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300)},2200); }
@@ -1744,12 +1737,10 @@ function openLabelModal(p){
   let count=1, labelSize='label'; // 'label' = 40x60mm sticker roll, 'receipt' = 76mm roll
   function labelRows(forPrint){
     const is40=labelSize==='label';
-    const module=is40?1.3:1.7, bh=is40?44:48;
+    const bh=is40?44:48;
     const nameF=is40?12:13, metaF=is40?9:10, codeF=is40?10:11;
-    // On the 40x60 sticker, cap the barcode width so long codes never clip the label.
-    const bc = is40
-      ? C128.svg(p.barcode,{height:bh,module}).replace('class="label-svg"','class="label-svg" style="max-width:36mm;height:auto;display:block;margin:0 auto"')
-      : C128.svg(p.barcode,{height:bh,module});
+    const bcStyle = is40 ? 'max-width:36mm;height:auto;display:block;margin:0 auto' : '';
+    const bcHtml = renderBarcodeHtml(p.barcode, {height:bh, style:bcStyle}).html;
     let rows='';
     for(let i=0;i<count;i++){
       const last=i===count-1;
@@ -1758,7 +1749,7 @@ function openLabelModal(p){
       rows+=`<div style="text-align:center;padding:4px 0 10px;${is40?'width:38mm;margin:0 auto;':''}${sep}">
         <div style="font-weight:700;font-size:${nameF}px;line-height:1.15">${esc(p.name)}</div>
         <div style="font-size:${metaF}px;color:#333;margin:1px 0 4px">${[p.size,p.color].filter(Boolean).map(esc).join(' · ')}${p.mode!=='rent'?' · '+money2(p.salePrice):''}</div>
-        ${bc}
+        ${bcHtml}
         <div style="font-family:monospace;font-size:${codeF}px;letter-spacing:${is40?1:2}px">${esc(p.barcode)}</div>
       </div>`;
     }
@@ -1774,13 +1765,15 @@ function openLabelModal(p){
         <input id="lblCount" type="number" min="1" max="60" value="${count}" style="width:90px"></div>`;
   }
   function wire(){
+    renderAllBarcodes();
     const inp=document.getElementById('lblCount');
     if(inp) inp.oninput=e=>{ count=Math.max(1,Math.min(60,parseInt(e.target.value||1)));
-      const r=document.getElementById('lblRows'); if(r) r.innerHTML=labelRows(false); };
+      const r=document.getElementById('lblRows'); if(r) r.innerHTML=labelRows(false); setTimeout(renderAllBarcodes, 50);
+    };
     document.querySelectorAll('#lblSizeSeg button').forEach(b=>b.onclick=()=>{
       labelSize=b.dataset.s;
       document.querySelectorAll('#lblSizeSeg button').forEach(x=>x.classList.toggle('on',x===b));
-      const r=document.getElementById('lblRows'); if(r) r.innerHTML=labelRows(false);
+      const r=document.getElementById('lblRows'); if(r) r.innerHTML=labelRows(false); setTimeout(renderAllBarcodes, 50);
     });
   }
   showReceiptPreview({
@@ -1798,8 +1791,7 @@ function doPrint(html,mode){
   const pa=document.getElementById('printArea');
   pa.className = (mode==='report'||mode===true)? 'report' : (mode==='labels'? 'labels' : '');
   pa.innerHTML=html;
-  window.print();
-  setTimeout(()=>{ pa.innerHTML=''; pa.className=''; },500);
+  setTimeout(()=>{ renderAllBarcodes(); window.print(); setTimeout(()=>{ pa.innerHTML=''; pa.className=''; },500); }, 50);
 }
 
 /* Build the inner receipt HTML string (used for both preview and actual print) */
@@ -1889,6 +1881,8 @@ function showReceiptPreview(opts){
     closeModal();
     onPrint(sigDataUrl);
   };
+
+  setTimeout(renderAllBarcodes, 50);
 }
 
 /* offerReceipt — used after a sale/repayment: show preview, then print on confirm */
@@ -2192,7 +2186,7 @@ function buildSaleReceiptHtml(sale,items){
       <div style="display:flex;justify-content:space-between"><span>${esc(t('paid'))}</span><span>${money2(sale.paid)}</span></div>
       ${sale.balance>0?`<div style="display:flex;justify-content:space-between;font-weight:700"><span>${esc(t('balanceDue'))}</span><span>${money2(sale.balance)}</span></div>`:''}
     </div>
-    <div style="text-align:center;font-size:10px;margin-top:8px">${C128.svg(sale.id.slice(-8).replace(/\D/g,'')||'00000000',{height:34,module:1.3})}</div>
+    <div style="text-align:center;font-size:10px;margin-top:8px">${renderBarcodeHtml(sale.id.slice(-8).replace(/\D/g,'')||'00000000',{height:34}).html}</div>
     <div style="text-align:center;font-size:10px;margin-top:6px">${esc(isRTL()?'شكراً لتسوقكم':'Merci · Thank you')}</div>`;
 }
 
@@ -2514,7 +2508,7 @@ function buildRentalAgreementHtml(r){
       ${bal>0?`<div style="display:flex;justify-content:space-between;font-weight:800"><span>${esc(t('balanceDue'))}</span><span>${money2(bal)}</span></div>`:''}
     </div>
     ${r.deposit?`<div style="text-align:center;font-size:10px;margin-top:5px;opacity:.75">${esc(t('depositRefundable'))}</div>`:''}
-    <div style="text-align:center;margin-top:8px">${C128.svg((r.id.replace(/\D/g,'')||'0').slice(-8).padStart(8,'0'),{height:34,module:1.3})}</div>`;
+    <div style="text-align:center;margin-top:8px">${renderBarcodeHtml((r.id.replace(/\D/g,'')||'0').slice(-8).padStart(8,'0'),{height:34}).html}</div>`;
 }
 async function openReturnModal(r){
   const bal=Math.max(0,(r.price||0)-(r.paid||0));
