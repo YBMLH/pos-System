@@ -1734,7 +1734,7 @@ function openProductModal(p){
   };
 }
 function openLabelModal(p){
-  let count=1, labelSize='label'; // 'label' = 40x60mm sticker roll, 'receipt' = 76mm roll
+  let count=1, labelSize=State.printPref||'label'; // 'label' = 60x40mm sticker roll, 'receipt' = 76mm roll
   function labelRows(forPrint){
     const is60x40=labelSize==='label';
     const bh=is60x40?44:56;
@@ -1772,16 +1772,21 @@ function openLabelModal(p){
     };
     document.querySelectorAll('#lblSizeSeg button').forEach(b=>b.onclick=()=>{
       labelSize=b.dataset.s;
+      State.printPref=labelSize;
+      idbPut('appState',State);
       document.querySelectorAll('#lblSizeSeg button').forEach(x=>x.classList.toggle('on',x===b));
       const r=document.getElementById('lblRows'); if(r) r.innerHTML=labelRows(false); setTimeout(renderAllBarcodes, 50);
     });
   }
+  const hintText = labelSize==='label'
+    ? (State.lang==='ar'?'اختر ورق 60×40مم في نافذة الطباعة.':State.lang==='fr'?'Sélectionnez le papier 60×40mm dans la boîte de dialogue.':'Select 60×40mm paper in the print dialog.')
+    : (State.lang==='ar'?'اختر ورق 76مم في نافذة الطباعة.':State.lang==='fr'?'Sélectionnez le papier 76mm dans la boîte de dialogue.':'Select 76mm paper in the print dialog.');
   showReceiptPreview({
     title: t('printLabel'),
     receiptHtml: controls()+`<div id="lblRows">${labelRows(false)}</div>`,
     signature: false,
     rentalId: null,
-    hint: t('labelPrintHint'),
+    hint: hintText,
     onPrint: ()=>doPrint(labelRows(true), labelSize==='label'?'labels':'')
   });
   setTimeout(wire, 60);
