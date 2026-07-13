@@ -1737,8 +1737,8 @@ function openLabelModal(p){
   let count=1, labelSize='label'; // 'label' = 40x60mm sticker roll, 'receipt' = 76mm roll
   function labelRows(forPrint){
     const is60x40=labelSize==='label';
-    const bh=is60x40?44:48;
-    const nameF=is60x40?11:13, metaF=is60x40?8:10, codeF=is60x40?9:11;
+    const bh=is60x40?44:56;
+    const nameF=is60x40?13:13, metaF=is60x40?8:8, codeF=is60x40?10:10;
     const bcStyle = is60x40 ? 'max-width:50mm;height:auto;display:block;margin:0 auto' : '';
     const bcHtml = renderBarcodeHtml(p.barcode, {height:bh, style:bcStyle}).html;
     let rows='';
@@ -1746,11 +1746,11 @@ function openLabelModal(p){
       const last=i===count-1;
       const sep = forPrint ? (last?'':'page-break-after:always;')
                            : (last?'':'border-bottom:1px dashed #ccc;margin-bottom:8px;');
-      rows+=`<div style="text-align:center;padding:2px 0 6px;${is60x40?'width:58mm;margin:0 auto;':''}${sep}">
-        <div style="font-weight:700;font-size:${nameF}px;line-height:1.15">${esc(p.name)}</div>
-        <div style="font-size:${metaF}px;color:#333;margin:1px 0 2px">${[p.size,p.color].filter(Boolean).map(esc).join(' · ')}${p.mode!=='rent'?' · '+money2(p.salePrice):''}</div>
+      rows+=`<div style="text-align:center;padding:2px 0 4px;${is60x40?'width:58mm;margin:0 auto;':''}${sep}">
+        <div style="font-weight:800;font-size:${nameF}px;line-height:1.15">${esc(p.name)}</div>
+        <div style="font-size:${metaF}px;color:#333;margin:1px 0 2px;font-weight:500">${[p.size,p.color].filter(Boolean).map(esc).join(' · ')}${p.mode!=='rent'?' · '+money2(p.salePrice):''}</div>
         ${bcHtml}
-        <div style="font-family:monospace;font-size:${codeF}px;letter-spacing:${is60x40?0.5:2}px">${esc(p.barcode)}</div>
+        <div style="font-family:monospace;font-weight:600;font-size:${codeF}px;letter-spacing:${is60x40?0.5:2}px;margin-top:2px">${esc(p.barcode)}</div>
       </div>`;
     }
     return rows;
@@ -2177,17 +2177,34 @@ function donutSvg(segments,opts){
   </div>`;
 }
 function buildSaleReceiptHtml(sale,items){
-  const rows=items.map(l=>`<tr><td style="padding:1px 0">${esc(l.name)} ×${l.qty}${l.qty>1?`<div style="font-size:9.5px;color:#555">${money2(l.price)} ${esc(t('each'))}</div>`:''}</td><td style="text-align:right;padding:1px 0;vertical-align:top">${money2(l.price*l.qty)}</td></tr>`).join('');
-  return `${receiptHead()}
-    <div style="font-size:10px">${esc(t('customer'))}: ${esc(sale.customerName||t('walkIn'))}</div>
-    <table style="width:100%;font-size:12px;margin:6px 0">${rows}</table>
-    <div style="border-top:1px dashed #000;padding-top:4px">
-      <div style="display:flex;justify-content:space-between;font-weight:800;font-size:14px"><span>${esc(t('total'))}</span><span>${money2(sale.total)}</span></div>
-      <div style="display:flex;justify-content:space-between"><span>${esc(t('paid'))}</span><span>${money2(sale.paid)}</span></div>
-      ${sale.balance>0?`<div style="display:flex;justify-content:space-between;font-weight:700"><span>${esc(t('balanceDue'))}</span><span>${money2(sale.balance)}</span></div>`:''}
+  const productRows=items.map(l=>`<div style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 0;font-weight:600;font-size:13px;gap:8px">
+    <span>${esc(l.name)} ×${l.qty}</span>
+    <span style="text-align:right">${money2(l.price*l.qty)}</span>
+  </div>${l.qty>1?`<div style="font-size:10px;color:#666;text-align:right;margin-bottom:2px">${money2(l.price)} ${esc(t('each'))}</div>`:''}`).join('');
+  const saleId=sale.id.slice(-8).replace(/\D/g,'')||'00000000';
+  return `<div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:4px">${esc(State.storeName||t('app'))}</div>
+    <div style="text-align:center;font-size:9px;margin-bottom:6px;color:#666">${new Date().toLocaleString(State.lang)}</div>
+    <div style="border-bottom:1px dashed #000;padding-bottom:4px;margin-bottom:6px;text-align:center;font-weight:700;font-size:11px">${esc(t('customer'))}: ${esc(sale.customerName||t('walkIn'))}</div>
+    <div style="font-size:12px;margin-bottom:8px">
+      ${productRows}
     </div>
-    <div style="text-align:center;font-size:10px;margin-top:8px">${renderBarcodeHtml(sale.id.slice(-8).replace(/\D/g,'')||'00000000',{height:34}).html}</div>
-    <div style="text-align:center;font-size:10px;margin-top:6px">${esc(isRTL()?'شكراً لتسوقكم':'Merci · Thank you')}</div>`;
+    <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:4px 0;margin:6px 0;text-align:center">
+      <div style="display:flex;justify-content:center;font-weight:800;font-size:14px;gap:20px;margin-bottom:2px">
+        <span>${esc(t('total'))}</span>
+        <span>${money2(sale.total)}</span>
+      </div>
+      <div style="display:flex;justify-content:center;font-size:11px;gap:20px;margin-bottom:2px">
+        <span>${esc(t('paid'))}</span>
+        <span>${money2(sale.paid)}</span>
+      </div>
+      ${sale.balance>0?`<div style="display:flex;justify-content:center;font-weight:700;font-size:11px;gap:20px">
+        <span>${esc(t('balanceDue'))}</span>
+        <span>${money2(sale.balance)}</span>
+      </div>`:''}
+    </div>
+    <div style="text-align:center;margin:6px 0">${renderBarcodeHtml(saleId,{height:56}).html}</div>
+    <div style="text-align:center;font-size:10px;font-weight:600;margin-bottom:4px">${esc(saleId)}</div>
+    <div style="text-align:center;font-size:10px;color:#666">${esc(isRTL()?'شكراً لتسوقكم':'Merci · Thank you')}</div>`;
 }
 
 /* ============================================================
@@ -2492,23 +2509,24 @@ function offerRentalAgreement(r){ offerRentalPreview(r); }
 
 function buildRentalAgreementHtml(r){
   const bal=Math.max(0,(r.price||0)+(r.lateFee||0)-(r.paid||0));
-  return `${receiptHead()}
-    <div style="text-align:center;font-weight:700;margin-bottom:4px">${esc(t('rentAgreement'))}</div>
-    <div style="font-size:11px;line-height:1.6">
-      <div>${esc(t('item'))}: <b>${esc(r.name)}</b></div>
-      <div>${esc(t('customer'))}: ${esc(r.customerName||'—')}</div>
-      <div>${esc(t('startDate'))}: ${esc(r.startDate||'—')}</div>
-      <div>${esc(t('dueDate'))}: ${esc(r.dueDate||'—')}</div>
+  return `<div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:4px">${esc(State.storeName||t('app'))}</div>
+    <div style="text-align:center;font-size:9px;margin-bottom:6px;color:#666">${new Date().toLocaleString(State.lang)}</div>
+    <div style="text-align:center;font-weight:700;font-size:12px;margin-bottom:6px;text-transform:uppercase">${esc(t('rentAgreement'))}</div>
+    <div style="font-size:11px;line-height:1.8;margin-bottom:6px">
+      <div style="font-weight:600">${esc(t('item'))}: <span style="font-weight:700">${esc(r.name)}</span></div>
+      <div>${esc(t('customer'))}: <span style="font-weight:600">${esc(r.customerName||'—')}</span></div>
+      <div>${esc(t('startDate'))}: <span style="font-weight:600">${esc(r.startDate||'—')}</span></div>
+      <div>${esc(t('dueDate'))}: <span style="font-weight:600">${esc(r.dueDate||'—')}</span></div>
     </div>
-    <div style="border-top:1px dashed #000;margin-top:6px;padding-top:4px;font-size:12px">
-      <div style="display:flex;justify-content:space-between"><span>${esc(t('rentalPrice'))}</span><span>${money2(r.price)}</span></div>
-      <div style="display:flex;justify-content:space-between"><span>${esc(t('paid'))}</span><span>${money2(r.paid)}</span></div>
-      ${r.deposit?`<div style="display:flex;justify-content:space-between"><span>${esc(t('deposit'))}</span><span>${money2(r.deposit)}</span></div>`:''}
-      ${r.deposit?`<div style="display:flex;justify-content:space-between;font-weight:800;border-top:1px dashed #000;margin-top:3px;padding-top:3px"><span>${esc(t('totalCollected'))}</span><span>${money2((r.paid||0)+(r.deposit||0))}</span></div>`:''}
-      ${bal>0?`<div style="display:flex;justify-content:space-between;font-weight:800"><span>${esc(t('balanceDue'))}</span><span>${money2(bal)}</span></div>`:''}
+    <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:4px 0;margin:6px 0;font-size:11px">
+      <div style="display:flex;justify-content:space-between;font-weight:600;margin-bottom:2px"><span>${esc(t('rentalPrice'))}</span><span>${money2(r.price)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('paid'))}</span><span>${money2(r.paid)}</span></div>
+      ${r.deposit?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('deposit'))}</span><span>${money2(r.deposit)}</span></div>`:''}
+      ${r.deposit?`<div style="display:flex;justify-content:space-between;font-weight:800"><span>${esc(t('totalCollected'))}</span><span>${money2((r.paid||0)+(r.deposit||0))}</span></div>`:''}
+      ${bal>0?`<div style="display:flex;justify-content:space-between;font-weight:800;border-top:1px dashed #000;margin-top:3px;padding-top:3px"><span>${esc(t('balanceDue'))}</span><span>${money2(bal)}</span></div>`:''}
     </div>
-    ${r.deposit?`<div style="text-align:center;font-size:10px;margin-top:5px;opacity:.75">${esc(t('depositRefundable'))}</div>`:''}
-    <div style="text-align:center;margin-top:8px">${renderBarcodeHtml((r.id.replace(/\D/g,'')||'0').slice(-8).padStart(8,'0'),{height:34}).html}</div>`;
+    ${r.deposit?`<div style="text-align:center;font-size:10px;margin-bottom:4px;color:#666">${esc(t('depositRefundable'))}</div>`:''}
+    <div style="text-align:center;margin:6px 0">${renderBarcodeHtml((r.id.replace(/\D/g,'')||'0').slice(-8).padStart(8,'0'),{height:48}).html}</div>`;
 }
 async function openReturnModal(r){
   const bal=Math.max(0,(r.price||0)-(r.paid||0));
@@ -2744,14 +2762,20 @@ async function openPaymentModal(cust){
   };
 }
 function buildRepaymentReceiptHtml(cust,amt,bal){
-  return `${receiptHead()}
-    <div style="text-align:center;font-weight:700;margin-bottom:6px">${esc(t('repayment'))}</div>
-    <div style="font-size:11px">${esc(t('customer'))}: ${esc(cust.name)}</div>
-    <div style="border-top:1px dashed #000;margin-top:6px;padding-top:4px">
-      <div style="display:flex;justify-content:space-between;font-weight:800"><span>${esc(t('paid'))}</span><span>${money2(amt)}</span></div>
-      <div style="display:flex;justify-content:space-between"><span>${esc(t('balance'))}</span><span>${money2(bal||0)}</span></div>
-    </div>
-    <div style="text-align:center;font-size:10px;margin-top:8px">${new Date().toLocaleString(State.lang)}</div>`;
+  return `<div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:4px">${esc(State.storeName||t('app'))}</div>
+    <div style="text-align:center;font-size:9px;margin-bottom:6px;color:#666">${new Date().toLocaleString(State.lang)}</div>
+    <div style="text-align:center;font-weight:700;font-size:12px;margin-bottom:6px;text-transform:uppercase">${esc(t('repayment'))}</div>
+    <div style="border-bottom:1px dashed #000;padding-bottom:4px;margin-bottom:6px;text-align:center;font-weight:600;font-size:11px">${esc(t('customer'))}: ${esc(cust.name)}</div>
+    <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:6px 0;margin:6px 0;text-align:center">
+      <div style="display:flex;justify-content:center;font-weight:800;font-size:13px;gap:20px;margin-bottom:2px">
+        <span>${esc(t('paid'))}</span>
+        <span>${money2(amt)}</span>
+      </div>
+      <div style="display:flex;justify-content:center;font-size:11px;gap:20px">
+        <span>${esc(t('balance'))}</span>
+        <span>${money2(bal||0)}</span>
+      </div>
+    </div>`;
 }
 async function customerPoints(cid){
   const sales=(await idbAll('sales')).filter(s=>s.customerId===cid && !s.voided);
