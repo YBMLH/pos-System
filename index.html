@@ -1737,7 +1737,7 @@ function openLabelModal(p){
   let count=1, labelSize='label'; // 'label' = 40x60mm sticker roll, 'receipt' = 76mm roll
   function labelRows(forPrint){
     const is60x40=labelSize==='label';
-    const bh=is60x40?28:48;
+    const bh=is60x40?44:48;
     const nameF=is60x40?11:13, metaF=is60x40?8:10, codeF=is60x40?9:11;
     const bcStyle = is60x40 ? 'max-width:50mm;height:auto;display:block;margin:0 auto' : '';
     const bcHtml = renderBarcodeHtml(p.barcode, {height:bh, style:bcStyle}).html;
@@ -1746,9 +1746,9 @@ function openLabelModal(p){
       const last=i===count-1;
       const sep = forPrint ? (last?'':'page-break-after:always;')
                            : (last?'':'border-bottom:1px dashed #ccc;margin-bottom:8px;');
-      rows+=`<div style="text-align:center;padding:3px 0 6px;${is60x40?'width:58mm;margin:0 auto;':''}${sep}">
+      rows+=`<div style="text-align:center;padding:2px 0 6px;${is60x40?'width:58mm;margin:0 auto;':''}${sep}">
         <div style="font-weight:700;font-size:${nameF}px;line-height:1.15">${esc(p.name)}</div>
-        <div style="font-size:${metaF}px;color:#333;margin:1px 0 3px">${[p.size,p.color].filter(Boolean).map(esc).join(' · ')}${p.mode!=='rent'?' · '+money2(p.salePrice):''}</div>
+        <div style="font-size:${metaF}px;color:#333;margin:1px 0 2px">${[p.size,p.color].filter(Boolean).map(esc).join(' · ')}${p.mode!=='rent'?' · '+money2(p.salePrice):''}</div>
         ${bcHtml}
         <div style="font-family:monospace;font-size:${codeF}px;letter-spacing:${is60x40?0.5:2}px">${esc(p.barcode)}</div>
       </div>`;
