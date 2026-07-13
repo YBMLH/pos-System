@@ -308,6 +308,10 @@ kbd{background:#EEEDEA;border-radius:5px;padding:1px 6px;font-size:11px;font-fam
 .cli-score .l{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-top:3px}
 .cli-badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
 
+/* Barcodes: wrapper carries sizing, inner svg scales proportionally (has viewBox) */
+.bc-wrap{text-align:center}
+.bc-svg{display:block;max-width:100%;height:auto;margin:0 auto}
+
 @media print{
   body *{visibility:hidden}
   #printArea,#printArea *{visibility:visible}
@@ -895,14 +899,18 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;'
 function renderBarcodeHtml(data, opts){
   opts = opts || {};
   const containerId = 'bc_' + uid();
-  const style = opts.style ? `style="${opts.style}"` : '';
+  // JsBarcode only renders into <svg>/<canvas>/<img> (a <div> throws "Not supported")
+  // and it overwrites the target's inline style — so sizing lives on the wrapper div
+  // (which JsBarcode never touches) and the svg scales via the .bc-svg class.
+  const wrapStyle = opts.style ? ` style="${opts.style}"` : '';
   return {
-    html: `<div id="${containerId}" data-barcode="${esc(String(data))}" data-height="${opts.height||50}" ${style}></div>`,
+    html: `<div class="bc-wrap"${wrapStyle}><svg class="bc-svg" id="${containerId}" data-barcode="${esc(String(data))}" data-height="${opts.height||50}"></svg></div>`,
     id: containerId
   };
 }
 function renderAllBarcodes(){
-  document.querySelectorAll('[data-barcode]').forEach(el=>{
+  if(typeof JsBarcode==='undefined') return;
+  document.querySelectorAll('svg[data-barcode]').forEach(el=>{
     const code = el.getAttribute('data-barcode');
     const height = parseInt(el.getAttribute('data-height')||50);
     if(!code) return;
@@ -1739,7 +1747,7 @@ function openLabelModal(p){
     const is60x40=labelSize==='label';
     const bh=is60x40?44:56;
     const nameF=is60x40?13:13, metaF=is60x40?8:8, codeF=is60x40?10:10;
-    const bcStyle = is60x40 ? 'max-width:50mm;height:auto;display:block;margin:0 auto' : 'width:100%;max-width:70mm;height:auto;display:block;margin:0 auto';
+    const bcStyle = is60x40 ? 'max-width:50mm;margin:0 auto' : 'max-width:70mm;margin:0 auto';
     const bcHtml = renderBarcodeHtml(p.barcode, {height:bh, style:bcStyle}).html;
     let rows='';
     for(let i=0;i<count;i++){
