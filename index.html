@@ -316,8 +316,8 @@ kbd{background:#EEEDEA;border-radius:5px;padding:1px 6px;font-size:11px;font-fam
   @page{size:76mm auto;margin:2mm}
   @page report-page{size:auto;margin:14mm}
   #printArea.report{page:report-page}
-  #printArea.labels{width:40mm}
-  @page label-page{size:40mm 60mm;margin:1mm}
+  #printArea.labels{width:60mm}
+  @page label-page{size:60mm 40mm;margin:1mm}
   #printArea.labels{page:label-page}
 }
 </style>
@@ -407,7 +407,7 @@ const I18N = {
     forSale:"For sale", forRent:"For rent", both:"Both", barcode:"Barcode",
     perDay:"per day", flat:"flat", actions:"Actions",
     editProduct:"Edit product", printLabel:"Print label", labels:"labels",
-    labelSize:"Label size", label40x60:"Label 40×60 mm", labelReceipt:"Receipt roll 76 mm",
+    labelSize:"Label size", label60x40:"Label 60×40 mm", labelReceipt:"Receipt roll 76 mm",
     labelPrintHint:"In the print dialog pick the matching paper: 40×60 mm for labels, 76 mm for the receipt roll.",
     deleteConfirm:"Delete this product?", deleted:"Deleted",
     lowStockLabel:"Low", outOfStock:"Out",
@@ -558,7 +558,7 @@ const I18N = {
     forSale:"À vendre", forRent:"À louer", both:"Les deux", barcode:"Code-barres",
     perDay:"par jour", flat:"forfait", actions:"Actions",
     editProduct:"Modifier produit", printLabel:"Imprimer étiquette", labels:"étiquettes",
-    labelSize:"Taille d'étiquette", label40x60:"Étiquette 40×60 mm", labelReceipt:"Rouleau reçu 76 mm",
+    labelSize:"Taille d'étiquette", label60x40:"Étiquette 60×40 mm", labelReceipt:"Rouleau reçu 76 mm",
     labelPrintHint:"Dans la boîte de dialogue, choisissez le bon papier : 40×60 mm pour les étiquettes, 76 mm pour le rouleau de reçu.",
     deleteConfirm:"Supprimer ce produit ?", deleted:"Supprimé",
     lowStockLabel:"Faible", outOfStock:"Épuisé",
@@ -700,7 +700,7 @@ const I18N = {
     forSale:"للبيع", forRent:"للإيجار", both:"كلاهما", barcode:"باركود",
     perDay:"لليوم", flat:"ثابت", actions:"إجراءات",
     editProduct:"تعديل المنتج", printLabel:"طباعة ملصق", labels:"ملصقات",
-    labelSize:"مقاس الملصق", label40x60:"ملصق 40×60 مم", labelReceipt:"رول الإيصال 76 مم",
+    labelSize:"مقاس الملصق", label60x40:"ملصق 60×40 مم", labelReceipt:"رول الإيصال 76 مم",
     labelPrintHint:"في نافذة الطباعة اختر الورق المناسب: 40×60 مم للملصقات، 76 مم لرول الإيصال.",
     deleteConfirm:"حذف هذا المنتج؟", deleted:"تم الحذف",
     lowStockLabel:"منخفض", outOfStock:"نفد",
@@ -1736,21 +1736,21 @@ function openProductModal(p){
 function openLabelModal(p){
   let count=1, labelSize='label'; // 'label' = 40x60mm sticker roll, 'receipt' = 76mm roll
   function labelRows(forPrint){
-    const is40=labelSize==='label';
-    const bh=is40?44:48;
-    const nameF=is40?12:13, metaF=is40?9:10, codeF=is40?10:11;
-    const bcStyle = is40 ? 'max-width:36mm;height:auto;display:block;margin:0 auto' : '';
+    const is60x40=labelSize==='label';
+    const bh=is60x40?28:48;
+    const nameF=is60x40?11:13, metaF=is60x40?8:10, codeF=is60x40?9:11;
+    const bcStyle = is60x40 ? 'max-width:50mm;height:auto;display:block;margin:0 auto' : '';
     const bcHtml = renderBarcodeHtml(p.barcode, {height:bh, style:bcStyle}).html;
     let rows='';
     for(let i=0;i<count;i++){
       const last=i===count-1;
       const sep = forPrint ? (last?'':'page-break-after:always;')
                            : (last?'':'border-bottom:1px dashed #ccc;margin-bottom:8px;');
-      rows+=`<div style="text-align:center;padding:4px 0 10px;${is40?'width:38mm;margin:0 auto;':''}${sep}">
+      rows+=`<div style="text-align:center;padding:3px 0 6px;${is60x40?'width:58mm;margin:0 auto;':''}${sep}">
         <div style="font-weight:700;font-size:${nameF}px;line-height:1.15">${esc(p.name)}</div>
-        <div style="font-size:${metaF}px;color:#333;margin:1px 0 4px">${[p.size,p.color].filter(Boolean).map(esc).join(' · ')}${p.mode!=='rent'?' · '+money2(p.salePrice):''}</div>
+        <div style="font-size:${metaF}px;color:#333;margin:1px 0 3px">${[p.size,p.color].filter(Boolean).map(esc).join(' · ')}${p.mode!=='rent'?' · '+money2(p.salePrice):''}</div>
         ${bcHtml}
-        <div style="font-family:monospace;font-size:${codeF}px;letter-spacing:${is40?1:2}px">${esc(p.barcode)}</div>
+        <div style="font-family:monospace;font-size:${codeF}px;letter-spacing:${is60x40?0.5:2}px">${esc(p.barcode)}</div>
       </div>`;
     }
     return rows;
@@ -1758,7 +1758,7 @@ function openLabelModal(p){
   function controls(){
     return `<div class="field"><label>${esc(t('labelSize'))}</label>
         <div class="seg" id="lblSizeSeg">
-          <button type="button" data-s="label" class="${labelSize==='label'?'on':''}">${esc(t('label40x60'))}</button>
+          <button type="button" data-s="label" class="${labelSize==='label'?'on':''}">${esc(t('label60x40'))}</button>
           <button type="button" data-s="receipt" class="${labelSize==='receipt'?'on':''}">${esc(t('labelReceipt'))}</button>
         </div></div>
       <div class="field" style="max-width:160px;margin-bottom:12px"><label>${esc(t('labels'))}</label>
