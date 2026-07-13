@@ -316,6 +316,9 @@ kbd{background:#EEEDEA;border-radius:5px;padding:1px 6px;font-size:11px;font-fam
   @page{size:76mm auto;margin:2mm}
   @page report-page{size:auto;margin:14mm}
   #printArea.report{page:report-page}
+  #printArea.labels{width:40mm}
+  @page label-page{size:40mm 60mm;margin:1mm}
+  #printArea.labels{page:label-page}
 }
 </style>
 </head>
@@ -403,6 +406,8 @@ const I18N = {
     forSale:"For sale", forRent:"For rent", both:"Both", barcode:"Barcode",
     perDay:"per day", flat:"flat", actions:"Actions",
     editProduct:"Edit product", printLabel:"Print label", labels:"labels",
+    labelSize:"Label size", label40x60:"Label 40×60 mm", labelReceipt:"Receipt roll 76 mm",
+    labelPrintHint:"In the print dialog pick the matching paper: 40×60 mm for labels, 76 mm for the receipt roll.",
     deleteConfirm:"Delete this product?", deleted:"Deleted",
     lowStockLabel:"Low", outOfStock:"Out",
     saveProduct:"Save product", productSaved:"Product saved",
@@ -552,6 +557,8 @@ const I18N = {
     forSale:"À vendre", forRent:"À louer", both:"Les deux", barcode:"Code-barres",
     perDay:"par jour", flat:"forfait", actions:"Actions",
     editProduct:"Modifier produit", printLabel:"Imprimer étiquette", labels:"étiquettes",
+    labelSize:"Taille d'étiquette", label40x60:"Étiquette 40×60 mm", labelReceipt:"Rouleau reçu 76 mm",
+    labelPrintHint:"Dans la boîte de dialogue, choisissez le bon papier : 40×60 mm pour les étiquettes, 76 mm pour le rouleau de reçu.",
     deleteConfirm:"Supprimer ce produit ?", deleted:"Supprimé",
     lowStockLabel:"Faible", outOfStock:"Épuisé",
     saveProduct:"Enregistrer", productSaved:"Produit enregistré",
@@ -692,6 +699,8 @@ const I18N = {
     forSale:"للبيع", forRent:"للإيجار", both:"كلاهما", barcode:"باركود",
     perDay:"لليوم", flat:"ثابت", actions:"إجراءات",
     editProduct:"تعديل المنتج", printLabel:"طباعة ملصق", labels:"ملصقات",
+    labelSize:"مقاس الملصق", label40x60:"ملصق 40×60 مم", labelReceipt:"رول الإيصال 76 مم",
+    labelPrintHint:"في نافذة الطباعة اختر الورق المناسب: 40×60 مم للملصقات، 76 مم لرول الإيصال.",
     deleteConfirm:"حذف هذا المنتج؟", deleted:"تم الحذف",
     lowStockLabel:"منخفض", outOfStock:"نفد",
     saveProduct:"حفظ المنتج", productSaved:"تم حفظ المنتج",
@@ -1732,57 +1741,62 @@ function openProductModal(p){
   };
 }
 function openLabelModal(p){
-  let count=1;
-  function buildLabelHtml(){
+  let count=1, labelSize='label'; // 'label' = 40x60mm sticker roll, 'receipt' = 76mm roll
+  function labelRows(forPrint){
+    const is40=labelSize==='label';
+    const module=is40?1.3:1.7, bh=is40?44:48;
+    const nameF=is40?12:13, metaF=is40?9:10, codeF=is40?10:11;
+    // On the 40x60 sticker, cap the barcode width so long codes never clip the label.
+    const bc = is40
+      ? C128.svg(p.barcode,{height:bh,module}).replace('class="label-svg"','class="label-svg" style="max-width:36mm;height:auto;display:block;margin:0 auto"')
+      : C128.svg(p.barcode,{height:bh,module});
     let rows='';
     for(let i=0;i<count;i++){
-      rows+=`<div style="text-align:center;padding:4px 0 10px;${i<count-1?'border-bottom:1px dashed #ccc;margin-bottom:8px;':''}">
-        <div style="font-weight:700;font-size:13px">${esc(p.name)}</div>
-        <div style="font-size:10px;color:#333;margin:1px 0 4px">${[p.size,p.color].filter(Boolean).map(esc).join(' · ')}${p.mode!=='rent'?' · '+money2(p.salePrice):''}</div>
-        ${C128.svg(p.barcode,{height:48,module:1.7})}
-        <div style="font-family:monospace;font-size:11px;letter-spacing:2px">${esc(p.barcode)}</div>
+      const last=i===count-1;
+      const sep = forPrint ? (last?'':'page-break-after:always;')
+                           : (last?'':'border-bottom:1px dashed #ccc;margin-bottom:8px;');
+      rows+=`<div style="text-align:center;padding:4px 0 10px;${is40?'width:38mm;margin:0 auto;':''}${sep}">
+        <div style="font-weight:700;font-size:${nameF}px;line-height:1.15">${esc(p.name)}</div>
+        <div style="font-size:${metaF}px;color:#333;margin:1px 0 4px">${[p.size,p.color].filter(Boolean).map(esc).join(' · ')}${p.mode!=='rent'?' · '+money2(p.salePrice):''}</div>
+        ${bc}
+        <div style="font-family:monospace;font-size:${codeF}px;letter-spacing:${is40?1:2}px">${esc(p.barcode)}</div>
       </div>`;
     }
     return rows;
   }
-  function open(){
-    showReceiptPreview({
-      title: t('printLabel'),
-      receiptHtml: `<div class="field" style="max-width:160px;margin-bottom:12px"><label>${esc(t('labels'))}</label>
-        <input id="lblCount" type="number" min="1" max="60" value="${count}" style="width:90px"></div>` + buildLabelHtml(),
-      signature: false,
-      rentalId: null,
-      onPrint: ()=>{
-        let html='';
-        for(let i=0;i<count;i++){
-          html+=`<div style="text-align:center;padding:4px 0 10px;${i<count-1?'page-break-after:always;':''}">
-            <div style="font-weight:700;font-size:13px">${esc(p.name)}</div>
-            <div style="font-size:10px;color:#333;margin:1px 0 4px">${[p.size,p.color].filter(Boolean).map(esc).join(' · ')}${p.mode!=='rent'?' · '+money2(p.salePrice):''}</div>
-            ${C128.svg(p.barcode,{height:48,module:1.7})}
-            <div style="font-family:monospace;font-size:11px;letter-spacing:2px">${esc(p.barcode)}</div>
-          </div>`;
-        }
-        doPrint(html);
-      }
-    });
-    // wire the count input after modal renders
-    setTimeout(()=>{
-      const inp=document.getElementById('lblCount');
-      if(inp) inp.oninput=e=>{
-        count=Math.max(1,Math.min(60,parseInt(e.target.value||1)));
-        const box=document.getElementById('rcptPreviewBox');
-        if(box) box.querySelector('.rcpt-preview-inner').innerHTML=
-          `<div class="field" style="max-width:160px;margin-bottom:12px"><label>${esc(t('labels'))}</label>
-            <input id="lblCount" type="number" min="1" max="60" value="${count}" style="width:90px"></div>` + buildLabelHtml();
-      };
-    }, 60);
+  function controls(){
+    return `<div class="field"><label>${esc(t('labelSize'))}</label>
+        <div class="seg" id="lblSizeSeg">
+          <button type="button" data-s="label" class="${labelSize==='label'?'on':''}">${esc(t('label40x60'))}</button>
+          <button type="button" data-s="receipt" class="${labelSize==='receipt'?'on':''}">${esc(t('labelReceipt'))}</button>
+        </div></div>
+      <div class="field" style="max-width:160px;margin-bottom:12px"><label>${esc(t('labels'))}</label>
+        <input id="lblCount" type="number" min="1" max="60" value="${count}" style="width:90px"></div>`;
   }
-  open();
+  function wire(){
+    const inp=document.getElementById('lblCount');
+    if(inp) inp.oninput=e=>{ count=Math.max(1,Math.min(60,parseInt(e.target.value||1)));
+      const r=document.getElementById('lblRows'); if(r) r.innerHTML=labelRows(false); };
+    document.querySelectorAll('#lblSizeSeg button').forEach(b=>b.onclick=()=>{
+      labelSize=b.dataset.s;
+      document.querySelectorAll('#lblSizeSeg button').forEach(x=>x.classList.toggle('on',x===b));
+      const r=document.getElementById('lblRows'); if(r) r.innerHTML=labelRows(false);
+    });
+  }
+  showReceiptPreview({
+    title: t('printLabel'),
+    receiptHtml: controls()+`<div id="lblRows">${labelRows(false)}</div>`,
+    signature: false,
+    rentalId: null,
+    hint: t('labelPrintHint'),
+    onPrint: ()=>doPrint(labelRows(true), labelSize==='label'?'labels':'')
+  });
+  setTimeout(wire, 60);
 }
 /* -------- Print helpers -------- */
-function doPrint(html,isReport){
+function doPrint(html,mode){
   const pa=document.getElementById('printArea');
-  pa.className = isReport? 'report' : '';
+  pa.className = (mode==='report'||mode===true)? 'report' : (mode==='labels'? 'labels' : '');
   pa.innerHTML=html;
   window.print();
   setTimeout(()=>{ pa.innerHTML=''; pa.className=''; },500);
@@ -1804,7 +1818,7 @@ function wrapReceiptInner(innerHtml){
   }
 */
 function showReceiptPreview(opts){
-  const {title, receiptHtml, signature, rentalId, onPrint} = opts;
+  const {title, receiptHtml, signature, rentalId, onPrint, hint} = opts;
   const sigSection = signature ? `
     <div class="sigwrap">
       <label>${esc(t('signature'))} <span class="subtle">(${esc(t('optional'))})</span></label>
@@ -1820,9 +1834,9 @@ function showReceiptPreview(opts){
      </div>
      ${sigSection}
      <p class="subtle" style="font-size:12px;margin-top:12px">
-       ${esc(State.lang==='ar'?'اختر طابعة XP-350B ومقاس 76مم في نافذة الطباعة.':
+       ${esc(hint || (State.lang==='ar'?'اختر طابعة XP-350B ومقاس 76مم في نافذة الطباعة.':
              State.lang==='fr'?"Choisissez l'imprimante XP-350B et le format 76mm dans la boîte de dialogue.":
-             'Select the XP-350B printer and 76mm paper in the print dialog.')}
+             'Select the XP-350B printer and 76mm paper in the print dialog.'))}
      </p>`,
     `<button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>
      <button class="btn" id="doPrintBtn">${svg(IC.print,'ic')}${esc(t('print'))}</button>`,
