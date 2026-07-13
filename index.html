@@ -411,7 +411,7 @@ const I18N = {
     // pos
     catalog:"Catalog", cart:"Cart", cartEmpty:"Cart is empty — tap a product to add it.",
     subtotal:"Subtotal", total:"Total", checkout:"Checkout", clear:"Clear",
-    scanHint:"Scan a barcode or search",
+    scanHint:"Scan a barcode or search", scanNotFound:"No product with that barcode", addedToCart:"added to cart",
     // checkout modal
     completeSale:"Complete sale", customer:"Customer", walkIn:"Walk-in (no name)",
     amountPaid:"Amount paid", payFull:"Pay full", change:"Change", balanceDue:"Balance due",
@@ -559,7 +559,7 @@ const I18N = {
     noProducts:"Aucun produit", addFirstProduct:"Ajoutez votre premier kaftan pour commencer.",
     catalog:"Catalogue", cart:"Panier", cartEmpty:"Panier vide — touchez un produit.",
     subtotal:"Sous-total", total:"Total", checkout:"Encaisser", clear:"Vider",
-    scanHint:"Scanner un code ou rechercher",
+    scanHint:"Scanner un code ou rechercher", scanNotFound:"Aucun produit avec ce code-barres", addedToCart:"ajouté au panier",
     completeSale:"Finaliser la vente", customer:"Client", walkIn:"Client de passage",
     amountPaid:"Montant payé", payFull:"Payer tout", change:"Rendu", balanceDue:"Reste à payer",
     onCredit:"Enregistré à crédit", saleDone:"Vente finalisée", printReceipt:"Imprimer reçu",
@@ -699,7 +699,7 @@ const I18N = {
     noProducts:"لا توجد منتجات", addFirstProduct:"أضف أول قفطان للبدء.",
     catalog:"الكتالوج", cart:"السلة", cartEmpty:"السلة فارغة — اضغط على منتج لإضافته.",
     subtotal:"المجموع الفرعي", total:"الإجمالي", checkout:"الدفع", clear:"تفريغ",
-    scanHint:"امسح باركود أو ابحث",
+    scanHint:"امسح باركود أو ابحث", scanNotFound:"لا يوجد منتج بهذا الباركود", addedToCart:"أُضيف إلى السلة",
     completeSale:"إتمام البيع", customer:"العميل", walkIn:"عميل عابر",
     amountPaid:"المبلغ المدفوع", payFull:"دفع الكامل", change:"الباقي", balanceDue:"المتبقي",
     onCredit:"سُجّل كدين", saleDone:"تم البيع", printReceipt:"طباعة الإيصال",
@@ -1993,6 +1993,16 @@ function addToCart(p){
   const inStock=p.qty||0;
   if(line){ if(line.qty<inStock){ line.qty++; } else { toast(t('outOfStock'),'err'); } }
   else State.cart.push({id:p.id,name:p.name,size:p.size,color:p.color,price:p.salePrice,qty:1,stock:inStock});
+}
+/* Global scan-to-cart: a barcode scanned anywhere in the app adds 1 to the cart. */
+async function handleGlobalScan(code){
+  const hit=(await getProducts()).find(p=>p.barcode===code);
+  if(!hit || hit.mode==='rent'){ toast(t('scanNotFound'),'err'); return; }  // unknown or not sellable
+  if((hit.qty||0)<=0){ toast(t('outOfStock'),'err'); return; }
+  addToCart(hit);
+  toast(hit.name+' · '+t('addedToCart'),'ok');
+  if(State.route!=='pos'){ State.route='pos'; renderApp(); }  // viewPOS() redraws the cart
+  else { drawCart(await getProducts()); }
 }
 function drawCart(products){
   const wrap=document.getElementById('cartItems'), foot=document.getElementById('cartFoot');
@@ -3446,6 +3456,29 @@ function setupAutoLock(minutes){
     document.getElementById('app').innerHTML=`<div style="padding:40px;text-align:center"><h2>Storage error</h2><p class="subtle">${esc(err.message||err)}</p><p class="subtle">This app needs IndexedDB. Try a normal (non-private) browser window.</p></div>`;
   }
 })();
+
+/* -------- Global barcode scanner: scan a product anywhere → add 1 to cart --------
+   Detects a hardware reader by its speed (fast keystroke burst ending in Enter).
+   Capture phase so a scan's Enter is consumed before the checkout shortcut below.
+   Ignored while typing in a field (e.g. the POS search box handles its own scan)
+   or while a modal is open. */
+let _scanBuf='', _scanLast=0;
+document.addEventListener('keydown', e=>{
+  if(!State.user) return; // only once signed in
+  const el=document.activeElement;
+  const typing = el && (el.tagName==='INPUT'||el.tagName==='TEXTAREA'||el.tagName==='SELECT'||el.isContentEditable);
+  const modalOpen = document.getElementById('modalRoot').innerHTML.trim()!=='';
+  const ts=Date.now(); if(ts-_scanLast>100) _scanBuf=''; _scanLast=ts;
+  if(e.key==='Enter'){
+    const code=_scanBuf; _scanBuf='';
+    if(!typing && !modalOpen && code.length>=3){
+      e.preventDefault(); e.stopImmediatePropagation(); // don't also trigger checkout
+      handleGlobalScan(code);
+    }
+    return;
+  }
+  if(e.key.length===1) _scanBuf+=e.key;
+}, true);
 
 /* -------- Global Escape closes modal; POS shortcuts (Enter=checkout, Esc=clear cart) -------- */
 document.addEventListener('keydown', e=>{
