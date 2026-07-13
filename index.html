@@ -311,9 +311,9 @@ kbd{background:#EEEDEA;border-radius:5px;padding:1px 6px;font-size:11px;font-fam
 @media print{
   body *{visibility:hidden}
   #printArea,#printArea *{visibility:visible}
-  #printArea{position:absolute;inset-inline-start:0;top:0;width:72mm}
+  #printArea{position:absolute;inset-inline-start:0;top:0;width:76mm;box-sizing:border-box;padding:0}
   #printArea.report{width:100%}
-  @page{size:76mm auto;margin:2mm}
+  @page{size:76mm auto;margin:1mm}
   @page report-page{size:auto;margin:14mm}
   #printArea.report{page:report-page}
   #printArea.labels{width:60mm}
@@ -1317,7 +1317,7 @@ async function openCloseOutModal(){
 
   function reportHtml(){
     const line='—'.repeat(30);
-    return `<div style="font-family:monospace;font-size:12px;width:72mm">
+    return `<div style="font-family:monospace;font-size:12px;width:76mm">
       <div style="text-align:center;margin-bottom:8px">
         <div style="font-weight:800;font-size:15px">${esc(State.storeName)}</div>
         <div style="font-size:10.5px">${esc(t('dailyCloseOut'))}</div>
@@ -1524,7 +1524,7 @@ async function openReorderModal(products){
     try{ await navigator.clipboard.writeText(fullText); toast(t('copied'),'ok'); }
     catch(e){ const ta=document.createElement('textarea'); ta.value=fullText; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy'); toast(t('copied'),'ok');}catch(_){ toast(t('copyFailed'),'err'); } document.body.removeChild(ta); }
   };
-  document.getElementById('ro_print').onclick=()=>doPrint(`<div style="font-family:monospace;font-size:12px;width:72mm">
+  document.getElementById('ro_print').onclick=()=>doPrint(`<div style="font-family:monospace;font-size:12px;width:76mm">
     <div style="text-align:center;font-weight:800;margin-bottom:6px">${esc(State.storeName)}</div>
     <div style="text-align:center;font-size:11px;margin-bottom:8px">${esc(t('reorderList'))} · ${fmtDate(now())}</div>
     <div style="font-size:10px">${'—'.repeat(30)}</div>
@@ -1898,7 +1898,7 @@ function offerReceipt(buildHtmlFn, title){
     receiptHtml: html,
     signature: false,
     rentalId: null,
-    onPrint: ()=>doPrint(`<div style="font-family:monospace;font-size:12px;width:72mm">${html}</div>`)
+    onPrint: ()=>doPrint(`<div style="font-family:monospace;font-size:12px;width:76mm">${html}</div>`)
   });
 }
 
@@ -1915,7 +1915,7 @@ function offerRentalPreview(r){
         <div style="font-size:10px;margin-bottom:2px">${esc(t('signature'))}:</div>
         <img src="${sig}" style="max-width:100%;height:auto">
       </div>` : '';
-      doPrint(`<div style="font-family:monospace;font-size:12px;width:72mm">${html}${sigBlock}</div>`);
+      doPrint(`<div style="font-family:monospace;font-size:12px;width:76mm">${html}${sigBlock}</div>`);
     }
   });
 }
@@ -2182,9 +2182,9 @@ function donutSvg(segments,opts){
   </div>`;
 }
 function buildSaleReceiptHtml(sale,items){
-  const productRows=items.map(l=>`<div style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 0;font-weight:600;font-size:13px;gap:8px">
+  const productRows=items.map(l=>`<div style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 0;font-weight:600;font-size:13px;gap:4px">
     <span>${esc(l.name)} ×${l.qty}</span>
-    <span style="text-align:right">${money2(l.price*l.qty)}</span>
+    <span style="text-align:right;flex-shrink:0">${money2(l.price*l.qty)}</span>
   </div>${l.qty>1?`<div style="font-size:10px;color:#666;text-align:right;margin-bottom:2px">${money2(l.price)} ${esc(t('each'))}</div>`:''}`).join('');
   const saleId=sale.id.slice(-8).replace(/\D/g,'')||'00000000';
   return `<div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:4px">${esc(State.storeName||t('app'))}</div>
@@ -2193,18 +2193,18 @@ function buildSaleReceiptHtml(sale,items){
     <div style="font-size:12px;margin-bottom:8px">
       ${productRows}
     </div>
-    <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:4px 0;margin:6px 0;text-align:center">
-      <div style="display:flex;justify-content:center;font-weight:800;font-size:14px;gap:20px;margin-bottom:2px">
+    <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:4px 0;margin:6px 0;width:100%">
+      <div style="display:flex;justify-content:space-between;font-weight:800;font-size:14px;gap:8px;margin-bottom:2px">
         <span>${esc(t('total'))}</span>
-        <span>${money2(sale.total)}</span>
+        <span style="text-align:right;flex-shrink:0">${money2(sale.total)}</span>
       </div>
-      <div style="display:flex;justify-content:center;font-size:11px;gap:20px;margin-bottom:2px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;gap:8px;margin-bottom:2px">
         <span>${esc(t('paid'))}</span>
-        <span>${money2(sale.paid)}</span>
+        <span style="text-align:right;flex-shrink:0">${money2(sale.paid)}</span>
       </div>
-      ${sale.balance>0?`<div style="display:flex;justify-content:center;font-weight:700;font-size:11px;gap:20px">
+      ${sale.balance>0?`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:11px;gap:8px">
         <span>${esc(t('balanceDue'))}</span>
-        <span>${money2(sale.balance)}</span>
+        <span style="text-align:right;flex-shrink:0">${money2(sale.balance)}</span>
       </div>`:''}
     </div>
     <div style="text-align:center;margin:6px 0">${renderBarcodeHtml(saleId,{height:56}).html}</div>
@@ -2771,14 +2771,14 @@ function buildRepaymentReceiptHtml(cust,amt,bal){
     <div style="text-align:center;font-size:9px;margin-bottom:6px;color:#666">${new Date().toLocaleString(State.lang)}</div>
     <div style="text-align:center;font-weight:700;font-size:12px;margin-bottom:6px;text-transform:uppercase">${esc(t('repayment'))}</div>
     <div style="border-bottom:1px dashed #000;padding-bottom:4px;margin-bottom:6px;text-align:center;font-weight:600;font-size:11px">${esc(t('customer'))}: ${esc(cust.name)}</div>
-    <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:6px 0;margin:6px 0;text-align:center">
-      <div style="display:flex;justify-content:center;font-weight:800;font-size:13px;gap:20px;margin-bottom:2px">
+    <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:6px 0;margin:6px 0;width:100%">
+      <div style="display:flex;justify-content:space-between;font-weight:800;font-size:13px;gap:8px;margin-bottom:2px">
         <span>${esc(t('paid'))}</span>
-        <span>${money2(amt)}</span>
+        <span style="text-align:right;flex-shrink:0">${money2(amt)}</span>
       </div>
-      <div style="display:flex;justify-content:center;font-size:11px;gap:20px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;gap:8px">
         <span>${esc(t('balance'))}</span>
-        <span>${money2(bal||0)}</span>
+        <span style="text-align:right;flex-shrink:0">${money2(bal||0)}</span>
       </div>
     </div>`;
 }
