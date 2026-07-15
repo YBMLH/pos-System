@@ -922,7 +922,9 @@ function renderAllBarcodes(){
     const height = parseInt(el.getAttribute('data-height')||50);
     if(!code) return;
     try {
-      JsBarcode(el, code, {format:"CODE128", height:height, margin:2, lineColor:"#000"});
+      // displayValue:false — the label prints its own code caption; the built-in
+      // text would duplicate it and eat vertical space on the 40mm sticker.
+      JsBarcode(el, code, {format:"CODE128", height:height, margin:2, lineColor:"#000", displayValue:false});
     } catch(e){}
   });
 }
@@ -1766,6 +1768,7 @@ function openLabelModal(p){
       const sep = forPrint ? (last?'':'page-break-after:always;')
                            : (last?'':'border-bottom:1px dashed #ccc;margin-bottom:8px;');
       rows+=`<div style="text-align:center;padding:2px 0 4px;${is60x40?'width:58mm;margin:0 auto;':''}${sep}">
+        <div style="font-weight:800;font-size:${is60x40?9:11}px;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid #000;padding-bottom:1px;margin-bottom:2px">${esc(State.storeName||t('app'))}</div>
         <div style="font-weight:800;font-size:${nameF}px;line-height:1.15">${esc(p.name)}</div>
         <div style="font-size:${metaF}px;color:#333;margin:1px 0 2px;font-weight:500">${[p.size,p.color].filter(Boolean).map(esc).join(' · ')}${p.mode!=='rent'?' · '+money2(p.salePrice):''}</div>
         ${bcHtml}
