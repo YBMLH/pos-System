@@ -417,7 +417,6 @@ const I18N = {
     perDay:"per day", flat:"flat", actions:"Actions",
     editProduct:"Edit product", printLabel:"Print label", labels:"labels",
     labelSize:"Label size", label60x40:"Label 60×40 mm", labelReceipt:"Receipt roll 76 mm",
-    labelPrintHint:"In the print dialog pick the matching paper: 40×60 mm for labels, 76 mm for the receipt roll.",
     deleteConfirm:"Delete this product?", deleted:"Deleted",
     lowStockLabel:"Low", outOfStock:"Out",
     saveProduct:"Save product", productSaved:"Product saved",
@@ -427,6 +426,7 @@ const I18N = {
     catalog:"Catalog", cart:"Cart", cartEmpty:"Cart is empty — tap a product to add it.",
     subtotal:"Subtotal", total:"Total", checkout:"Checkout", clear:"Clear",
     scanHint:"Scan a barcode or search", scanNotFound:"No product with that barcode", addedToCart:"added to cart",
+    dupBarcode:"Another product already uses this barcode",
     // checkout modal
     completeSale:"Complete sale", customer:"Customer", walkIn:"Walk-in (no name)",
     amountPaid:"Amount paid", payFull:"Pay full", change:"Change", balanceDue:"Balance due",
@@ -568,7 +568,6 @@ const I18N = {
     perDay:"par jour", flat:"forfait", actions:"Actions",
     editProduct:"Modifier produit", printLabel:"Imprimer étiquette", labels:"étiquettes",
     labelSize:"Taille d'étiquette", label60x40:"Étiquette 60×40 mm", labelReceipt:"Rouleau reçu 76 mm",
-    labelPrintHint:"Dans la boîte de dialogue, choisissez le bon papier : 40×60 mm pour les étiquettes, 76 mm pour le rouleau de reçu.",
     deleteConfirm:"Supprimer ce produit ?", deleted:"Supprimé",
     lowStockLabel:"Faible", outOfStock:"Épuisé",
     saveProduct:"Enregistrer", productSaved:"Produit enregistré",
@@ -577,6 +576,7 @@ const I18N = {
     catalog:"Catalogue", cart:"Panier", cartEmpty:"Panier vide — touchez un produit.",
     subtotal:"Sous-total", total:"Total", checkout:"Encaisser", clear:"Vider",
     scanHint:"Scanner un code ou rechercher", scanNotFound:"Aucun produit avec ce code-barres", addedToCart:"ajouté au panier",
+    dupBarcode:"Un autre produit utilise déjà ce code-barres",
     completeSale:"Finaliser la vente", customer:"Client", walkIn:"Client de passage",
     amountPaid:"Montant payé", payFull:"Payer tout", change:"Rendu", balanceDue:"Reste à payer",
     onCredit:"Enregistré à crédit", saleDone:"Vente finalisée", printReceipt:"Imprimer reçu",
@@ -710,7 +710,6 @@ const I18N = {
     perDay:"لليوم", flat:"ثابت", actions:"إجراءات",
     editProduct:"تعديل المنتج", printLabel:"طباعة ملصق", labels:"ملصقات",
     labelSize:"مقاس الملصق", label60x40:"ملصق 60×40 مم", labelReceipt:"رول الإيصال 76 مم",
-    labelPrintHint:"في نافذة الطباعة اختر الورق المناسب: 40×60 مم للملصقات، 76 مم لرول الإيصال.",
     deleteConfirm:"حذف هذا المنتج؟", deleted:"تم الحذف",
     lowStockLabel:"منخفض", outOfStock:"نفد",
     saveProduct:"حفظ المنتج", productSaved:"تم حفظ المنتج",
@@ -719,6 +718,7 @@ const I18N = {
     catalog:"الكتالوج", cart:"السلة", cartEmpty:"السلة فارغة — اضغط على منتج لإضافته.",
     subtotal:"المجموع الفرعي", total:"الإجمالي", checkout:"الدفع", clear:"تفريغ",
     scanHint:"امسح باركود أو ابحث", scanNotFound:"لا يوجد منتج بهذا الباركود", addedToCart:"أُضيف إلى السلة",
+    dupBarcode:"منتج آخر يستخدم هذا الباركود بالفعل",
     completeSale:"إتمام البيع", customer:"العميل", walkIn:"عميل عابر",
     amountPaid:"المبلغ المدفوع", payFull:"دفع الكامل", change:"الباقي", balanceDue:"المتبقي",
     onCredit:"سُجّل كدين", saleDone:"تم البيع", printReceipt:"طباعة الإيصال",
@@ -873,7 +873,9 @@ function idbClear(store){ return new Promise((res,rej)=>{ const r=tx(store,'read
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 function hashPin(pin){ let h=5381; const s='kf7$'+pin; for(let i=0;i<s.length;i++){h=((h<<5)+h)+s.charCodeAt(i);h=h&0xffffffff;} return (h>>>0).toString(16); }
 function money(n){ n=Number(n||0); const s=n.toLocaleString('en-US',{maximumFractionDigits:2}); return isRTL()? s+' دج' : s+' DZD'; }
-function todayISO(){ return new Date().toISOString().slice(0,10); }
+/* Local-timezone YYYY-MM-DD (toISOString is UTC and shifts the date for UTC+ zones) */
+function localISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function todayISO(){ return localISO(new Date()); }
 function now(){ return Date.now(); }
 function startOf(period){
   const d=new Date(); d.setHours(0,0,0,0);
@@ -1164,6 +1166,8 @@ function navItems(){
   return items;
 }
 function renderApp(){
+  document.documentElement.lang=State.lang;
+  document.documentElement.dir=isRTL()?'rtl':'ltr';
   const app=document.getElementById('app');
   const items=navItems();
   app.innerHTML=`
@@ -1291,7 +1295,7 @@ async function openWithdrawModal(){
     const amt=Math.max(0,Number(document.getElementById('wd_amt').value||0));
     if(amt<=0){ toast(t('required'),'err'); return; }
     const note=document.getElementById('wd_note').value.trim();
-    const exp={id:uid(),category:t('ownerWithdrawal'),amount:amt,note,isWithdrawal:true,createdAt:now(),userId:State.user.id};
+    const exp={id:uid(),label:t('ownerWithdrawal')+(note?' · '+note:''),category:t('ownerWithdrawal'),amount:amt,note,isWithdrawal:true,createdAt:now(),userId:State.user.id,userName:State.user.name};
     await idbPut('expenses',exp);
     await logAct('logWithdraw', money(amt)+(note?' · '+note:''));
     closeModal(); toast(t('saved'),'ok'); openTillModal();
@@ -1409,11 +1413,11 @@ async function viewDash(){
   const todayExpTotal=todayExpenses.reduce((a,x)=>a+(x.amount||0),0);
   const activeR=rentals.filter(r=>r.status==='active');
   const active=activeR.length;
-  const custs=await getCustomers(); let owed=0; for(const c of custs) owed+=await customerBalance(c.id);
+  const owed=(await allCustomerStats()).reduce((a,m)=>a+m.balance,0);
   const low=products.filter(p=>(p.qty||0)<=(p.lowStock??3) && (p.mode!=='rent')).length;
   const inStock=products.reduce((a,p)=>a+(p.qty||0),0);
   // date buckets by calendar day (dueDate is a YYYY-MM-DD string, compared as strings)
-  const todayStr=todayISO(), tomorrowStr=new Date(Date.now()+86400000).toISOString().slice(0,10);
+  const todayStr=todayISO(), tomorrowStr=localISO(new Date(Date.now()+86400000));
   const overdueR=activeR.filter(r=>r.dueDate && r.dueDate<todayStr);
   const dueTodayR=activeR.filter(r=>r.dueDate===todayStr);
   const dueTomorrowR=activeR.filter(r=>r.dueDate===tomorrowStr);
@@ -1742,6 +1746,8 @@ function openProductModal(p){
       createdAt: e.createdAt||now()
     };
     if(!obj.barcode){ obj.barcode = '2'+String(Date.now()).slice(-11); } // numeric -> Code128C
+    const clash=(await getProducts()).find(x=>x.id!==obj.id && x.barcode===obj.barcode);
+    if(clash){ toast(t('dupBarcode')+' — '+clash.name,'err'); return; }
     await idbPut('products',obj); closeModal(); toast(t('productSaved'),'ok'); viewStock();
     logAct(e.id?'logProdEdit':'logProdAdd', obj.name);
   };
@@ -1783,10 +1789,10 @@ function openLabelModal(p){
     if(inp) inp.oninput=e=>{ count=Math.max(1,Math.min(60,parseInt(e.target.value||1)));
       const r=document.getElementById('lblRows'); if(r) r.innerHTML=labelRows(false); setTimeout(renderAllBarcodes, 50);
     };
-    document.querySelectorAll('#lblSizeSeg button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#lblSizeSeg button').forEach(b=>b.onclick=async()=>{
       labelSize=b.dataset.s;
       State.printPref=labelSize;
-      idbPut('appState',State);
+      const m=await idbGet('meta','app'); if(m){ m.printPref=labelSize; await idbPut('meta',m); }
       document.querySelectorAll('#lblSizeSeg button').forEach(x=>x.classList.toggle('on',x===b));
       const r=document.getElementById('lblRows'); if(r) r.innerHTML=labelRows(false); setTimeout(renderAllBarcodes, 50);
     });
@@ -2111,14 +2117,16 @@ async function openCheckout(subtotal){
   document.getElementById('ck_cust').onchange=e=>{ document.getElementById('newCustBox').classList.toggle('hidden',e.target.value!=='__new'); syncInfo(); };
   document.querySelectorAll('#ck_method button').forEach(b=>b.onclick=()=>{ method=b.dataset.m; document.querySelectorAll('#ck_method button').forEach(x=>x.classList.toggle('on',x===b)); });
   document.getElementById('ck_go').onclick=async()=>{
+    const goBtn=document.getElementById('ck_go');
+    if(goBtn.disabled) return; goBtn.disabled=true; // double-tap creates two sales
     const total=currentTotal();
     let custId=document.getElementById('ck_cust').value, custName=t('walkIn');
     const paid=Math.max(0,Number(paidInp.value||0));
     const paidApplied=Math.min(paid,total);
     const willOwe = paidApplied < total;
-    if(willOwe && !custId){ toast(t('needCustomerForDebt'),'err'); document.getElementById('ck_cust').focus(); return; }
+    if(willOwe && !custId){ toast(t('needCustomerForDebt'),'err'); document.getElementById('ck_cust').focus(); goBtn.disabled=false; return; }
     if(custId==='__new'){
-      const nm=document.getElementById('nc_name').value.trim(); if(!nm){ toast(t('required'),'err'); return; }
+      const nm=document.getElementById('nc_name').value.trim(); if(!nm){ toast(t('required'),'err'); goBtn.disabled=false; return; }
       const phone=document.getElementById('nc_phone').value.trim();
       const dup=await findDupByPhone(phone);
       if(dup && await confirmDupCustomer(dup)){ custId=dup.id; custName=dup.name; }
@@ -2140,12 +2148,6 @@ async function openCheckout(subtotal){
     offerReceipt(()=>buildSaleReceiptHtml(sale,cartCopy), t('saleDone'));
     viewPOS();
   };
-}
-function receiptHead(){
-  return `<div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:6px;margin-bottom:6px">
-    <div style="font-weight:800;font-size:15px">${esc(State.storeName||t('app'))}</div>
-    <div style="font-size:10px">${new Date().toLocaleString(State.lang)}</div>
-  </div>`;
 }
 function money2(n){ return Number(n||0).toLocaleString('en-US',{maximumFractionDigits:2})+' DZD'; }
 
@@ -2200,7 +2202,7 @@ function buildSaleReceiptHtml(sale,items){
     <span style="text-align:right;flex-shrink:0">${money2(l.price*l.qty)}</span>
   </div>${l.qty>1?`<div style="font-size:10px;color:#666;text-align:right;margin-bottom:2px">${money2(l.price)} ${esc(t('each'))}</div>`:''}`).join('');
   return `<div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:4px">${esc(State.storeName||t('app'))}</div>
-    <div style="text-align:center;font-size:9px;margin-bottom:6px;color:#666">${new Date().toLocaleString(State.lang)}</div>
+    <div style="text-align:center;font-size:9px;margin-bottom:6px;color:#666">${new Date(sale.createdAt||Date.now()).toLocaleString(State.lang)}</div>
     <div style="border-bottom:1px dashed #000;padding-bottom:4px;margin-bottom:6px;text-align:center;font-weight:700;font-size:11px">${esc(t('customer'))}: ${esc(sale.customerName||t('walkIn'))}</div>
     <div style="font-size:12px;margin-bottom:8px">
       ${productRows}
@@ -2324,7 +2326,7 @@ async function buildRentalCalendar(rentals){
   for(let i=0;i<startWeekday;i++) cells+=`<div class="cal-cell empty"></div>`;
   const todayStr=todayISO();
   for(let day=1;day<=daysInMonth;day++){
-    const cellDate=new Date(calYear,calMonth,day).toISOString().slice(0,10);
+    const cellDate=localISO(new Date(calYear,calMonth,day));
     const items=byDay[day]||[];
     const isToday=cellDate===todayStr;
     cells+=`<div class="cal-cell${isToday?' today':''}">
@@ -2494,17 +2496,19 @@ async function openRentalModal(){
     if(measure){ mBox.textContent=`${t('measurements')}: ${measure}`; mBox.classList.remove('hidden'); } else { mBox.classList.add('hidden'); }
   };
   document.getElementById('r_go').onclick=async()=>{
-    const pid=itemSel.value; if(!pid){ toast(t('required'),'err'); return; }
+    const goBtn=document.getElementById('r_go');
+    if(goBtn.disabled) return; goBtn.disabled=true; // double-tap creates two rentals
+    const pid=itemSel.value; if(!pid){ toast(t('required'),'err'); goBtn.disabled=false; return; }
     let cid=document.getElementById('r_cust').value, cname='';
     if(cid==='__new'){
-      const nm=document.getElementById('rc_name').value.trim(); if(!nm){ toast(t('required'),'err'); return; }
+      const nm=document.getElementById('rc_name').value.trim(); if(!nm){ toast(t('required'),'err'); goBtn.disabled=false; return; }
       const phone=document.getElementById('rc_phone').value.trim();
       const dup=await findDupByPhone(phone);
       if(dup && await confirmDupCustomer(dup)){ cid=dup.id; cname=dup.name; }
       else { const c={id:uid(),name:nm,phone,createdAt:now()}; await idbPut('customers',c); cid=c.id; cname=nm; }
     }
-    else if(cid){ const c=custs.find(x=>x.id===cid); cname=c?c.name:''; } else { toast(t('required'),'err'); return; }
-    const price=Number(priceI.value||0); if(price<=0){ toast(t('required'),'err'); return; }
+    else if(cid){ const c=custs.find(x=>x.id===cid); cname=c?c.name:''; } else { toast(t('required'),'err'); goBtn.disabled=false; return; }
+    const price=Number(priceI.value||0); if(price<=0){ toast(t('required'),'err'); goBtn.disabled=false; return; }
     const isReserve=document.getElementById('r_reserve').checked;
     const p=await idbGet('products',pid);
     if(!isReserve){ p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
@@ -2758,13 +2762,15 @@ async function openPaymentModal(cust){
   let method='cash';
   document.querySelectorAll('#pay_method button').forEach(b=>b.onclick=()=>{ method=b.dataset.m; document.querySelectorAll('#pay_method button').forEach(x=>x.classList.toggle('on',x===b)); });
   document.getElementById('pay_go').onclick=async()=>{
+    const goBtn=document.getElementById('pay_go');
+    if(goBtn.disabled) return; goBtn.disabled=true; // double-tap records two payments
     const amt=Math.min(bal,Math.max(0,Number(document.getElementById('pay_amt').value||0)));
-    if(amt<=0){ toast(t('required'),'err'); return; }
+    if(amt<=0){ toast(t('required'),'err'); goBtn.disabled=false; return; }
     // apply FIFO to sales then rentals balances
     let remain=amt;
-    const sales=(await idbAll('sales')).filter(s=>s.customerId===cust.id && (s.total-(s.paid||0))>0).sort((a,b)=>a.createdAt-b.createdAt);
+    const sales=(await idbAll('sales')).filter(s=>s.customerId===cust.id && !s.voided && (s.total-(s.paid||0))>0).sort((a,b)=>a.createdAt-b.createdAt);
     for(const s of sales){ if(remain<=0)break; const d=Math.min(remain,s.total-(s.paid||0)); s.paid=(s.paid||0)+d; s.balance=s.total-s.paid; remain-=d; await idbPut('sales',s); }
-    const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cust.id && ((r.price+(r.lateFee||0))-(r.paid||0))>0).sort((a,b)=>a.createdAt-b.createdAt);
+    const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cust.id && r.status!=='cancelled' && ((r.price+(r.lateFee||0))-(r.paid||0))>0).sort((a,b)=>a.createdAt-b.createdAt);
     for(const r of rentals){ if(remain<=0)break; const d=Math.min(remain,(r.price+(r.lateFee||0))-(r.paid||0)); r.paid=(r.paid||0)+d; remain-=d; await idbPut('rentals',r); }
     const pay={id:uid(),customerId:cust.id,refType:'repayment',amount:amt,method,createdAt:now(),userId:State.user.id};
     await idbPut('payments',pay);
@@ -3015,7 +3021,7 @@ async function viewReports(){
     expDaily.push(expenses.filter(x=>x.createdAt>=dStart&&x.createdAt<dEnd).reduce((a,x)=>a+(x.amount||0),0));
   }
   const profit=revenue-exp-cogs;
-  const custs=await getCustomers(); let owed=0; for(const c of custs) owed+=await customerBalance(c.id);
+  const owed=(await allCustomerStats()).reduce((a,m)=>a+m.balance,0);
 
   view.innerHTML=pageHead(t('reports'),'',
     `<div class="seg" id="repSeg">
@@ -3496,6 +3502,7 @@ function setupAutoLock(minutes){
     await fsGetHandle(); // reconnect the Store Data folder if one was linked before
     const meta=await idbGet('meta','app');
     if(meta && meta.lang) State.lang=meta.lang;
+    if(meta && meta.printPref) State.printPref=meta.printPref;
     if(meta) setupAutoLock(meta.autoLockMin);
     render();
   }catch(err){
