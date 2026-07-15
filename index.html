@@ -313,9 +313,10 @@ kbd{background:#EEEDEA;border-radius:5px;padding:1px 6px;font-size:11px;font-fam
 .bc-svg{display:block;max-width:100%;height:auto;margin:0 auto}
 
 @media print{
-  body *{visibility:hidden}
-  #printArea,#printArea *{visibility:visible}
-  #printArea{position:absolute;inset-inline-start:0;top:0;width:76mm;box-sizing:border-box;padding:0}
+  /* Remove the app UI from layout entirely (not just visibility:hidden, which keeps
+     its height and spilled the receipt across 5-6 pages, most of them blank). */
+  #app,#modalRoot,#toasts{display:none !important}
+  #printArea{position:static;margin:0;width:76mm;box-sizing:border-box;padding:0}
   #printArea.report{width:100%}
   @page{size:76mm auto;margin:1mm}
   @page report-page{size:auto;margin:14mm}
