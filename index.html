@@ -436,7 +436,7 @@ const I18N = {
     storeDetails:"Business details (invoices)", addr:"Address", nifLbl:"NIF", rcLbl:"RC", artLbl:"AI",
     logoLbl:"Receipt logo",
     licenseKey:"License key", licenseBad:"Invalid license key for this store name",
-    fsReconnect:"Reconnect the Store Data folder", fsReconnectMsg:"Click to reconnect your Store Data folder so every change keeps saving to the file on this computer.",
+    availableFrom:"Available from", fsReconnect:"Reconnect the Store Data folder", fsReconnectMsg:"Click to reconnect your Store Data folder so every change keeps saving to the file on this computer.",
     // checkout modal
     completeSale:"Complete sale", customer:"Customer", walkIn:"Walk-in (no name)",
     amountPaid:"Amount paid", payFull:"Pay full", change:"Change", balanceDue:"Balance due",
@@ -594,7 +594,7 @@ const I18N = {
     storeDetails:"Coordonnées (factures)", addr:"Adresse", nifLbl:"NIF", rcLbl:"RC", artLbl:"AI",
     logoLbl:"Logo du reçu",
     licenseKey:"Clé de licence", licenseBad:"Clé de licence invalide pour ce nom de boutique",
-    fsReconnect:"Reconnecter le dossier Store Data", fsReconnectMsg:"Cliquez pour reconnecter le dossier Store Data afin que chaque modification continue d'être enregistrée dans le fichier sur cet ordinateur.",
+    availableFrom:"Disponible à partir du", fsReconnect:"Reconnecter le dossier Store Data", fsReconnectMsg:"Cliquez pour reconnecter le dossier Store Data afin que chaque modification continue d'être enregistrée dans le fichier sur cet ordinateur.",
     completeSale:"Finaliser la vente", customer:"Client", walkIn:"Client de passage",
     amountPaid:"Montant payé", payFull:"Payer tout", change:"Rendu", balanceDue:"Reste à payer",
     onCredit:"Enregistré à crédit", saleDone:"Vente finalisée", printReceipt:"Imprimer reçu",
@@ -744,7 +744,7 @@ const I18N = {
     storeDetails:"بيانات المحل (للفواتير)", addr:"العنوان", nifLbl:"NIF", rcLbl:"RC", artLbl:"AI",
     logoLbl:"شعار الإيصال",
     licenseKey:"مفتاح الترخيص", licenseBad:"مفتاح ترخيص غير صالح لاسم المحل",
-    fsReconnect:"إعادة ربط مجلد بيانات المحل", fsReconnectMsg:"انقر لإعادة ربط مجلد بيانات المحل حتى يستمر حفظ كل تغيير في الملف على هذا الجهاز.",
+    availableFrom:"متاح ابتداءً من", fsReconnect:"إعادة ربط مجلد بيانات المحل", fsReconnectMsg:"انقر لإعادة ربط مجلد بيانات المحل حتى يستمر حفظ كل تغيير في الملف على هذا الجهاز.",
     completeSale:"إتمام البيع", customer:"العميل", walkIn:"عميل عابر",
     amountPaid:"المبلغ المدفوع", payFull:"دفع الكامل", change:"الباقي", balanceDue:"المتبقي",
     onCredit:"سُجّل كدين", saleDone:"تم البيع", printReceipt:"طباعة الإيصال",
@@ -2521,7 +2521,10 @@ function rowRental(r){
   </tr>`;
 }
 async function openRentalModal(){
-  const products=(await getProducts()).filter(p=>(p.mode==='rent'||p.mode==='both') && (p.qty||0)>0);
+  // Include items whose every set is currently out (qty 0 on shelf but units on
+  // active rentals) — they can still be reserved for a future date.
+  const outOnRental=new Set((await idbAll('rentals')).filter(r=>r.status==='active').map(r=>r.productId));
+  const products=(await getProducts()).filter(p=>(p.mode==='rent'||p.mode==='both') && ((p.qty||0)>0 || outOnRental.has(p.id)));
   const custs=await getCustomers();
   if(!products.length){ toast(t('rentableOnly'),'err'); }
   modal(t('newRentalT'),
@@ -2561,21 +2564,42 @@ async function openRentalModal(){
   const itemSel=document.getElementById('r_item'), daysI=document.getElementById('r_days'), priceI=document.getElementById('r_price'), paidI=document.getElementById('r_paid');
   const startI=document.getElementById('r_start'), dueI=document.getElementById('r_due'), availBox=document.getElementById('r_avail');
   function recalc(){ const opt=itemSel.selectedOptions[0]; if(!opt||!opt.value) return; const rate=Number(opt.dataset.rate||0), unit=opt.dataset.unit; const d=Math.max(1,parseInt(daysI.value||1)); priceI.value = unit==='day'? rate*d : rate; }
+  /* Unit-aware availability: a product can have several identical sets.
+     Total units = on-shelf qty + units currently out on active rentals.
+     A date window is available while overlapping bookings < total units. */
   async function checkAvailability(){
     const pid=itemSel.value; if(!pid){ availBox.innerHTML=''; return; }
-    const s=Date.parse(startI.value)||Date.now(), d=Date.parse(dueI.value)||s;
-    const existing=(await idbAll('rentals')).filter(x=>x.productId===pid && (x.status==='active'||x.status==='reserved'));
-    const conflict=existing.find(x=>{
-      const xs=Date.parse(x.startDate)||0, xd=Date.parse(x.dueDate)||xs+86400000;
-      return s<=xd && d>=xs;
-    });
-    availBox.innerHTML = conflict
-      ? `<span class="badge red">${esc(t('availability'))}: ${esc(conflict.customerName||'')} ${conflict.dueDate?'· '+fmtDate(Date.parse(conflict.dueDate)):''}</span>`
-      : `<span class="badge green">${esc(t('available'))}</span>`;
+    const DAY=86400000, today=Date.parse(todayISO());
+    const s=Date.parse(startI.value)||today, d=Date.parse(dueI.value)||s;
+    const p=await idbGet('products',pid);
+    const bookings=(await idbAll('rentals'))
+      .filter(x=>x.productId===pid && (x.status==='active'||x.status==='reserved'))
+      .map(x=>{
+        let xs=Date.parse(x.startDate)||x.createdAt, xd=Date.parse(x.dueDate)||xs+DAY;
+        if(x.status==='active' && xd<today) xd=today; // overdue: the unit is still out
+        return {...x,xs,xd};
+      }).sort((a,b)=>a.xs-b.xs);
+    const activeCount=bookings.filter(b=>b.status==='active').length;
+    const totalUnits=(p?p.qty||0:0)+activeCount;
+    const overlap=bookings.filter(x=>s<=x.xd && d>=x.xs).length;
+    const freeInWindow=Math.max(0,totalUnits-overlap);
+    // sweep the timeline from today for the first day a unit comes free
+    const events=[]; bookings.forEach(b=>{ events.push([b.xs,1],[b.xd+DAY,-1]); });
+    events.sort((a,b)=>a[0]-b[0]);
+    let busy=events.filter(e=>e[0]<=today).reduce((a,e)=>a+e[1],0), freeFrom=today;
+    if(busy>=totalUnits){ for(const [t0,delta] of events){ if(t0<=today) continue; busy+=delta; if(busy<totalUnits){ freeFrom=t0; break; } } }
+    const upcoming=bookings.filter(b=>b.xd>=today).slice(0,3);
+    availBox.innerHTML =
+      (freeInWindow>0
+        ? `<span class="badge green">${esc(t('available'))}${totalUnits>1?` · ${freeInWindow}/${totalUnits}`:''}</span>`
+        : `<span class="badge red">${esc(t('availability'))}: 0/${totalUnits}</span>`)
+      +(freeFrom>today?` <span class="badge gold">${esc(t('availableFrom'))} ${fmtDate(freeFrom)}</span>`:'')
+      +(upcoming.length?`<div class="subtle" style="margin-top:4px;font-size:11.5px;line-height:1.6">${upcoming.map(b=>
+          `${esc(b.customerName||'—')} · ${fmtDate(b.xs)} → ${fmtDate(b.xd)}${b.status==='reserved'?' · '+esc(t('reserved')):''}`).join('<br>')}</div>`:'');
   }
   itemSel.onchange=()=>{ recalc(); checkAvailability(); }; daysI.oninput=recalc;
   startI.onchange=checkAvailability;
-  document.getElementById('r_due').onchange=e=>{ const s=Date.parse(document.getElementById('r_start').value), d=Date.parse(e.target.value); if(s&&d&&d>=s){ daysI.value=Math.max(1,Math.round((d-s)/86400000)); recalc(); } };
+  document.getElementById('r_due').onchange=e=>{ const s=Date.parse(document.getElementById('r_start').value), d=Date.parse(e.target.value); if(s&&d&&d>=s){ daysI.value=Math.max(1,Math.round((d-s)/86400000)); recalc(); } checkAvailability(); };
   document.getElementById('r_payFull').onclick=()=>{ paidI.value=priceI.value||0; };
   let rMethod='cash';
   document.querySelectorAll('#r_method button').forEach(b=>b.onclick=()=>{ rMethod=b.dataset.m; document.querySelectorAll('#r_method button').forEach(x=>x.classList.toggle('on',x===b)); });
@@ -2601,6 +2625,7 @@ async function openRentalModal(){
     const price=Number(priceI.value||0); if(price<=0){ toast(t('required'),'err'); goBtn.disabled=false; return; }
     const isReserve=document.getElementById('r_reserve').checked;
     const p=await idbGet('products',pid);
+    if(!isReserve && (p.qty||0)<=0){ toast(t('outOfStock'),'err'); goBtn.disabled=false; return; } // every set is out — reserve instead
     if(!isReserve){ p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
     const rental={id:uid(),productId:pid,name:p.name,customerId:cid,customerName:cname,
       startDate:document.getElementById('r_start').value,dueDate:document.getElementById('r_due').value||'',
