@@ -436,6 +436,7 @@ const I18N = {
     storeDetails:"Business details (invoices)", addr:"Address", nifLbl:"NIF", rcLbl:"RC", artLbl:"AI",
     logoLbl:"Receipt logo",
     licenseKey:"License key", licenseBad:"Invalid license key for this store name",
+    fsReconnect:"Reconnect the Store Data folder", fsReconnectMsg:"Click to reconnect your Store Data folder so every change keeps saving to the file on this computer.",
     // checkout modal
     completeSale:"Complete sale", customer:"Customer", walkIn:"Walk-in (no name)",
     amountPaid:"Amount paid", payFull:"Pay full", change:"Change", balanceDue:"Balance due",
@@ -593,6 +594,7 @@ const I18N = {
     storeDetails:"Coordonnées (factures)", addr:"Adresse", nifLbl:"NIF", rcLbl:"RC", artLbl:"AI",
     logoLbl:"Logo du reçu",
     licenseKey:"Clé de licence", licenseBad:"Clé de licence invalide pour ce nom de boutique",
+    fsReconnect:"Reconnecter le dossier Store Data", fsReconnectMsg:"Cliquez pour reconnecter le dossier Store Data afin que chaque modification continue d'être enregistrée dans le fichier sur cet ordinateur.",
     completeSale:"Finaliser la vente", customer:"Client", walkIn:"Client de passage",
     amountPaid:"Montant payé", payFull:"Payer tout", change:"Rendu", balanceDue:"Reste à payer",
     onCredit:"Enregistré à crédit", saleDone:"Vente finalisée", printReceipt:"Imprimer reçu",
@@ -742,6 +744,7 @@ const I18N = {
     storeDetails:"بيانات المحل (للفواتير)", addr:"العنوان", nifLbl:"NIF", rcLbl:"RC", artLbl:"AI",
     logoLbl:"شعار الإيصال",
     licenseKey:"مفتاح الترخيص", licenseBad:"مفتاح ترخيص غير صالح لاسم المحل",
+    fsReconnect:"إعادة ربط مجلد بيانات المحل", fsReconnectMsg:"انقر لإعادة ربط مجلد بيانات المحل حتى يستمر حفظ كل تغيير في الملف على هذا الجهاز.",
     completeSale:"إتمام البيع", customer:"العميل", walkIn:"عميل عابر",
     amountPaid:"المبلغ المدفوع", payFull:"دفع الكامل", change:"الباقي", balanceDue:"المتبقي",
     onCredit:"سُجّل كدين", saleDone:"تم البيع", printReceipt:"طباعة الإيصال",
@@ -3509,7 +3512,8 @@ async function fsGetHandle(){
   return null;
 }
 async function fsHasPermission(handle,prompt){
-  if(!handle||!handle.queryPermission) return false;
+  if(!handle) return false;
+  if(!handle.queryPermission) return true; // handle types without a permission model are always writable
   const opts={mode:'readwrite'};
   try{
     if((await handle.queryPermission(opts))==='granted') return true;
@@ -3601,19 +3605,40 @@ function fsInstallAutoSave(){
   window.addEventListener('pagehide',flush);
   window.addEventListener('beforeunload',flush);
 }
-/* One-time prompt (after first setup) to create the Store Data folder. */
+/* Prompt (once per session, until a folder is linked) to create the Store Data
+   folder — the app should always be saving to a real file on the Desktop. */
 async function maybePromptFolderSetup(){
   if(!FS_SUPPORTED || _fsPrompted) return; _fsPrompted=true;
-  if(await fsGetHandle()) return;
-  const m=await idbGet('meta','app'); if(!m || m.fsPromptDone) return;
+  const dir=await fsGetHandle();
+  if(dir){ maybeReconnectFolder(dir); return; }
+  const m=await idbGet('meta','app'); if(!m) return;
   modal(t('fsSetupTitle'),
     `<p style="margin:2px 0 8px">${esc(t('fsSetupMsg'))}</p>
      <p class="subtle" style="font-size:12.5px">${esc(t('fsFolderHint'))}</p>`,
     `<button class="btn secondary" id="fsLater">${esc(t('later'))}</button>
      <button class="btn" id="fsNow">${svg(IC.down,'ic')}${esc(t('fsCreateFolder'))}</button>`);
-  const markDone=async()=>{ const mm=await idbGet('meta','app'); if(mm){ mm.fsPromptDone=true; await idbPut('meta',mm); } };
-  document.getElementById('fsLater').onclick=async()=>{ await markDone(); closeModal(); };
-  document.getElementById('fsNow').onclick=async()=>{ const ok=await fsChooseFolder(); if(ok){ await markDone(); closeModal(); } };
+  document.getElementById('fsLater').onclick=()=>closeModal();
+  document.getElementById('fsNow').onclick=async()=>{ const ok=await fsChooseFolder(); if(ok) closeModal(); };
+}
+/* The browser dropped the folder permission across a restart: one click re-grants
+   it, then we immediately write a fresh save so the file on disk is current. */
+async function maybeReconnectFolder(dir){
+  if(!State._fsNeedsRegrant) return;
+  modal(t('fsReconnect'),
+    `<p style="margin:2px 0 8px">${esc(t('fsReconnectMsg'))}</p>
+     <p class="subtle" style="font-size:12.5px">${esc(State.dirHandle&&State.dirHandle.name?State.dirHandle.name:'Store Data')}</p>`,
+    `<button class="btn" id="fsRegrant">${svg(IC.down,'ic')}${esc(t('fsReconnect'))}</button>`);
+  document.getElementById('fsRegrant').onclick=async()=>{
+    if(await fsHasPermission(dir,true)){
+      State._fsNeedsRegrant=false;
+      closeModal();
+      // If this browser profile is empty but the file has data, load it; else save fresh.
+      const m=await idbGet('meta','app');
+      if((!m || !m.setupDone) && await fsFileExists(dir,'store-data.json')) await fsLoadAll(true);
+      else await fsSaveAll(true);
+      toast(t('fsLinked'),'ok');
+    } else toast(t('fsUnsupported'),'err');
+  };
 }
 
 /* ============================================================
@@ -3646,7 +3671,18 @@ function setupAutoLock(minutes){
     State.db=await openDB();
     try{ if(navigator.storage && navigator.storage.persist){ await navigator.storage.persist(); } }catch(e){}
     fsInstallAutoSave();
-    await fsGetHandle(); // reconnect the Store Data folder if one was linked before
+    const dir=await fsGetHandle(); // reconnect the Store Data folder if one was linked before
+    if(dir){
+      if(await fsHasPermission(dir,false)){
+        // Browser data empty (fresh machine / cleared browser) but the Store Data
+        // file exists on disk -> restore from it automatically.
+        const m0=await idbGet('meta','app');
+        if((!m0 || !m0.setupDone) && await fsFileExists(dir,'store-data.json')){ await fsLoadAll(false); }
+      } else {
+        // The browser dropped folder permission (needs a click to re-grant).
+        State._fsNeedsRegrant=true;
+      }
+    }
     const meta=await idbGet('meta','app');
     if(meta && meta.lang) State.lang=meta.lang;
     if(meta && meta.printPref) State.printPref=meta.printPref;
