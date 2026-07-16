@@ -393,7 +393,8 @@ const IC = {
   image:'<rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8.5" cy="9.5" r="1.5" fill="currentColor"/><path d="M4 17l5-5 3 3 3-3 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
   menu:'<path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   chat:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5A8 8 0 1 1 21 12z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
-  doc:'<path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M15 3v4h4M9 12h6M9 16h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
+  doc:'<path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M15 3v4h4M9 12h6M9 16h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+  copy:'<rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>'
 };
 function svg(p,cls){return `<svg class="${cls||''}" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true">${p}</svg>`}
 
@@ -436,7 +437,7 @@ const I18N = {
     storeDetails:"Business details (invoices)", addr:"Address", nifLbl:"NIF", rcLbl:"RC", artLbl:"AI",
     logoLbl:"Receipt logo",
     licenseKey:"License key", licenseBad:"Invalid license key for this store name",
-    availableFrom:"Available from", fsReconnect:"Reconnect the Store Data folder", fsReconnectMsg:"Click to reconnect your Store Data folder so every change keeps saving to the file on this computer.",
+    availableFrom:"Available from", duplicateProd:"Duplicate (new size/color)", fsReconnect:"Reconnect the Store Data folder", fsReconnectMsg:"Click to reconnect your Store Data folder so every change keeps saving to the file on this computer.",
     // checkout modal
     completeSale:"Complete sale", customer:"Customer", walkIn:"Walk-in (no name)",
     amountPaid:"Amount paid", payFull:"Pay full", change:"Change", balanceDue:"Balance due",
@@ -594,7 +595,7 @@ const I18N = {
     storeDetails:"Coordonnées (factures)", addr:"Adresse", nifLbl:"NIF", rcLbl:"RC", artLbl:"AI",
     logoLbl:"Logo du reçu",
     licenseKey:"Clé de licence", licenseBad:"Clé de licence invalide pour ce nom de boutique",
-    availableFrom:"Disponible à partir du", fsReconnect:"Reconnecter le dossier Store Data", fsReconnectMsg:"Cliquez pour reconnecter le dossier Store Data afin que chaque modification continue d'être enregistrée dans le fichier sur cet ordinateur.",
+    availableFrom:"Disponible à partir du", duplicateProd:"Dupliquer (autre taille/couleur)", fsReconnect:"Reconnecter le dossier Store Data", fsReconnectMsg:"Cliquez pour reconnecter le dossier Store Data afin que chaque modification continue d'être enregistrée dans le fichier sur cet ordinateur.",
     completeSale:"Finaliser la vente", customer:"Client", walkIn:"Client de passage",
     amountPaid:"Montant payé", payFull:"Payer tout", change:"Rendu", balanceDue:"Reste à payer",
     onCredit:"Enregistré à crédit", saleDone:"Vente finalisée", printReceipt:"Imprimer reçu",
@@ -744,7 +745,7 @@ const I18N = {
     storeDetails:"بيانات المحل (للفواتير)", addr:"العنوان", nifLbl:"NIF", rcLbl:"RC", artLbl:"AI",
     logoLbl:"شعار الإيصال",
     licenseKey:"مفتاح الترخيص", licenseBad:"مفتاح ترخيص غير صالح لاسم المحل",
-    availableFrom:"متاح ابتداءً من", fsReconnect:"إعادة ربط مجلد بيانات المحل", fsReconnectMsg:"انقر لإعادة ربط مجلد بيانات المحل حتى يستمر حفظ كل تغيير في الملف على هذا الجهاز.",
+    availableFrom:"متاح ابتداءً من", duplicateProd:"نسخ (مقاس/لون آخر)", fsReconnect:"إعادة ربط مجلد بيانات المحل", fsReconnectMsg:"انقر لإعادة ربط مجلد بيانات المحل حتى يستمر حفظ كل تغيير في الملف على هذا الجهاز.",
     completeSale:"إتمام البيع", customer:"العميل", walkIn:"عميل عابر",
     amountPaid:"المبلغ المدفوع", payFull:"دفع الكامل", change:"الباقي", balanceDue:"المتبقي",
     onCredit:"سُجّل كدين", saleDone:"تم البيع", printReceipt:"طباعة الإيصال",
@@ -1627,6 +1628,13 @@ async function viewStock(){
   document.getElementById('reorderBtn')&&(document.getElementById('reorderBtn').onclick=()=>openReorderModal(products));
   document.getElementById('addP2')&&(document.getElementById('addP2').onclick=()=>openProductModal());
   view.querySelectorAll('[data-edit]').forEach(b=>b.onclick=async()=>openProductModal(await idbGet('products',b.dataset.edit)));
+  view.querySelectorAll('[data-dup]').forEach(b=>b.onclick=async()=>{
+    const p=await idbGet('products',b.dataset.dup); if(!p) return;
+    // clone everything except identity: fresh id + barcode, blank size/color to fill in
+    const c={...p}; delete c.id; delete c.createdAt; c.size=''; c.color=''; c.barcode='';
+    openProductModal(c);
+    setTimeout(()=>document.getElementById('f_size')?.focus(),80);
+  });
   view.querySelectorAll('[data-label]').forEach(b=>b.onclick=async()=>openLabelModal(await idbGet('products',b.dataset.label)));
   view.querySelectorAll('[data-restock]').forEach(b=>b.onclick=async()=>openRestockModal(await idbGet('products',b.dataset.restock)));
   view.querySelectorAll('[data-history]').forEach(b=>b.onclick=async()=>openStockHistoryModal(await idbGet('products',b.dataset.history)));
@@ -1708,6 +1716,7 @@ function rowProduct(p,rentCount){
       ${p.mode!=='rent'?`<button class="btn ghost sm" data-restock="${p.id}" title="${esc(t('addStock'))}">${svg(IC.plus,'ic')}</button>`:''}
       <button class="btn ghost sm" data-history="${p.id}" title="${esc(t('stockHistory'))}">${svg(IC.activity,'ic')}</button>
       <button class="btn ghost sm" data-label="${p.id}" title="${esc(t('printLabel'))}">${svg(IC.barcode,'ic')}</button>
+      <button class="btn ghost sm" data-dup="${p.id}" title="${esc(t('duplicateProd'))}">${svg(IC.copy,'ic')}</button>
       <button class="btn ghost sm" data-edit="${p.id}" title="${esc(t('editProduct'))}">${svg(IC.edit,'ic')}</button>
       <button class="btn ghost sm" data-del="${p.id}" title="${esc(t('del'))}" style="color:var(--danger)">${svg(IC.trash,'ic')}</button>
     </td>
@@ -1715,7 +1724,7 @@ function rowProduct(p,rentCount){
 }
 function openProductModal(p){
   const e=p||{}; const mode=e.mode||'sale';
-  modal(p?t('editProduct'):t('addNew'),
+  modal((p&&p.id)?t('editProduct'):t('addNew'),
    `<div class="field"><label>${esc(t('photo'))}</label>
       <div class="photoRow">
         <div class="photoPrev" id="photoPrev">${e.photo?`<img src="${e.photo}" alt="">`:svg(IC.box)}</div>
