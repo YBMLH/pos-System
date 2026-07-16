@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<!-- SELLER TOOL — DO NOT GIVE TO CUSTOMERS.
+     Generates the license key for a store name. Keep this file private;
+     deploy only index.html + sw.js to customers. -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kaftan Store Manager — License Key Generator (PRIVATE)</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#0E4D45;color:#fff;display:grid;place-items:center;min-height:100vh;margin:0}
+.card{background:#fff;color:#1A1B1A;border-radius:16px;padding:32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+h1{font-size:18px;margin:0 0 4px}
+p{color:#6B7280;font-size:13px;margin:0 0 18px}
+.warn{background:#F6E1E1;color:#B23A3A;border-radius:8px;padding:8px 12px;font-size:12.5px;font-weight:600;margin-bottom:18px}
+label{font-size:13px;font-weight:600;display:block;margin-bottom:6px}
+input{width:100%;box-sizing:border-box;font-size:16px;padding:10px 12px;border:1px solid #E4E2DD;border-radius:10px}
+.key{margin-top:18px;text-align:center;font-family:monospace;font-size:32px;font-weight:800;letter-spacing:4px;color:#0E4D45;background:#DCEAE7;border-radius:10px;padding:14px;user-select:all}
+.hint{text-align:center;font-size:12px;color:#6B7280;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>License Key Generator</h1>
+  <p>Kaftan Store Manager — seller tool</p>
+  <div class="warn">⚠ PRIVATE — never send this file to a customer. The key only works with the exact store name the customer types at setup.</div>
+  <label for="store">Store name (exactly as the customer will type it)</label>
+  <input id="store" type="text" placeholder="Kaftan El Bahdja" autofocus>
+  <div class="key" id="key">—</div>
+  <div class="hint">Click the key to select it · case and extra spaces are ignored</div>
+</div>
+<script>
+// Must match licenseKeyFor() in index.html exactly.
+function licenseKeyFor(name){
+  const n=String(name||'').trim().toLowerCase().replace(/\s+/g,' ');
+  let h=5381; const s='LIC$'+n; for(let i=0;i<s.length;i++){h=((h<<5)+h)+s.charCodeAt(i);h=h&0xffffffff;}
+  const hex=(h>>>0).toString(16).padStart(8,'0').toUpperCase();
+  return hex.slice(0,4)+'-'+hex.slice(4);
+}
+const inp=document.getElementById('store'), out=document.getElementById('key');
+inp.oninput=()=>{ out.textContent = inp.value.trim()? licenseKeyFor(inp.value) : '—'; };
+</script>
+</body>
+</html>

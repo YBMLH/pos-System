@@ -391,7 +391,9 @@ const IC = {
   lock:'<rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.7"/>',
   cam:'<path d="M4 8h3l1.4-2h7.2L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.1" fill="none" stroke="currentColor" stroke-width="1.6"/>',
   image:'<rect x="3" y="4" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8.5" cy="9.5" r="1.5" fill="currentColor"/><path d="M4 17l5-5 3 3 3-3 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
-  menu:'<path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
+  menu:'<path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  chat:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5A8 8 0 1 1 21 12z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
+  doc:'<path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M15 3v4h4M9 12h6M9 16h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'
 };
 function svg(p,cls){return `<svg class="${cls||''}" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true">${p}</svg>`}
 
@@ -427,6 +429,13 @@ const I18N = {
     subtotal:"Subtotal", total:"Total", checkout:"Checkout", clear:"Clear",
     scanHint:"Scan a barcode or search", scanNotFound:"No product with that barcode", addedToCart:"added to cart",
     dupBarcode:"Another product already uses this barcode",
+    waRemind:"WhatsApp", noPhone:"No phone number saved for this customer",
+    waDueMsg:'Hello {name}, a reminder from {store}: "{item}" is due back on {date}. Thank you!',
+    sendBackup:"Send to phone / Drive",
+    invoiceA4:"Invoice (A4)", invoiceTitle:"INVOICE", invoiceNo:"Invoice No.",
+    storeDetails:"Business details (invoices)", addr:"Address", nifLbl:"NIF", rcLbl:"RC", artLbl:"AI",
+    logoLbl:"Receipt logo",
+    licenseKey:"License key", licenseBad:"Invalid license key for this store name",
     // checkout modal
     completeSale:"Complete sale", customer:"Customer", walkIn:"Walk-in (no name)",
     amountPaid:"Amount paid", payFull:"Pay full", change:"Change", balanceDue:"Balance due",
@@ -577,6 +586,13 @@ const I18N = {
     subtotal:"Sous-total", total:"Total", checkout:"Encaisser", clear:"Vider",
     scanHint:"Scanner un code ou rechercher", scanNotFound:"Aucun produit avec ce code-barres", addedToCart:"ajouté au panier",
     dupBarcode:"Un autre produit utilise déjà ce code-barres",
+    waRemind:"WhatsApp", noPhone:"Pas de numéro de téléphone pour ce client",
+    waDueMsg:'Bonjour {name}, rappel de {store} : « {item} » doit être retourné le {date}. Merci !',
+    sendBackup:"Envoyer vers téléphone / Drive",
+    invoiceA4:"Facture (A4)", invoiceTitle:"FACTURE", invoiceNo:"Facture N°",
+    storeDetails:"Coordonnées (factures)", addr:"Adresse", nifLbl:"NIF", rcLbl:"RC", artLbl:"AI",
+    logoLbl:"Logo du reçu",
+    licenseKey:"Clé de licence", licenseBad:"Clé de licence invalide pour ce nom de boutique",
     completeSale:"Finaliser la vente", customer:"Client", walkIn:"Client de passage",
     amountPaid:"Montant payé", payFull:"Payer tout", change:"Rendu", balanceDue:"Reste à payer",
     onCredit:"Enregistré à crédit", saleDone:"Vente finalisée", printReceipt:"Imprimer reçu",
@@ -719,6 +735,13 @@ const I18N = {
     subtotal:"المجموع الفرعي", total:"الإجمالي", checkout:"الدفع", clear:"تفريغ",
     scanHint:"امسح باركود أو ابحث", scanNotFound:"لا يوجد منتج بهذا الباركود", addedToCart:"أُضيف إلى السلة",
     dupBarcode:"منتج آخر يستخدم هذا الباركود بالفعل",
+    waRemind:"واتساب", noPhone:"لا يوجد رقم هاتف لهذا العميل",
+    waDueMsg:'مرحباً {name}، تذكير من {store}: يجب إرجاع "{item}" بتاريخ {date}. شكراً!',
+    sendBackup:"إرسال إلى الهاتف / درايف",
+    invoiceA4:"فاتورة (A4)", invoiceTitle:"فاتورة", invoiceNo:"فاتورة رقم",
+    storeDetails:"بيانات المحل (للفواتير)", addr:"العنوان", nifLbl:"NIF", rcLbl:"RC", artLbl:"AI",
+    logoLbl:"شعار الإيصال",
+    licenseKey:"مفتاح الترخيص", licenseBad:"مفتاح ترخيص غير صالح لاسم المحل",
     completeSale:"إتمام البيع", customer:"العميل", walkIn:"عميل عابر",
     amountPaid:"المبلغ المدفوع", payFull:"دفع الكامل", change:"الباقي", balanceDue:"المتبقي",
     onCredit:"سُجّل كدين", saleDone:"تم البيع", printReceipt:"طباعة الإيصال",
@@ -872,6 +895,14 @@ function idbClear(store){ return new Promise((res,rej)=>{ const r=tx(store,'read
 /* ---------------- Helpers ---------------- */
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 function hashPin(pin){ let h=5381; const s='kf7$'+pin; for(let i=0;i<s.length;i++){h=((h<<5)+h)+s.charCodeAt(i);h=h&0xffffffff;} return (h>>>0).toString(16); }
+/* License key derived from the store name (deters casual copying; the seller
+   generates keys with keygen.html — do not distribute that file). */
+function licenseKeyFor(name){
+  const n=String(name||'').trim().toLowerCase().replace(/\s+/g,' ');
+  let h=5381; const s='LIC$'+n; for(let i=0;i<s.length;i++){h=((h<<5)+h)+s.charCodeAt(i);h=h&0xffffffff;}
+  const hex=(h>>>0).toString(16).padStart(8,'0').toUpperCase();
+  return hex.slice(0,4)+'-'+hex.slice(4);
+}
 function money(n){ n=Number(n||0); const s=n.toLocaleString('en-US',{maximumFractionDigits:2}); return isRTL()? s+' دج' : s+' DZD'; }
 /* Local-timezone YYYY-MM-DD (toISOString is UTC and shifts the date for UTC+ zones) */
 function localISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
@@ -1038,7 +1069,9 @@ async function render(){
   document.documentElement.dir=isRTL()?'rtl':'ltr';
   const meta=await idbGet('meta','app');
   if(!meta || !meta.setupDone){ renderSetup(); return; }
+  if(!meta.license){ meta.license=licenseKeyFor(meta.storeName||''); await idbPut('meta',meta); } // grandfather pre-license installs
   State.storeName=meta.storeName||t('app');
+  State.logo=meta.logo||'';
   document.body.classList.toggle('dark',!!meta.darkMode);
   document.body.classList.toggle('tablet',!!meta.tabletMode);
   if(!State.user){ renderLogin(); return; }
@@ -1063,6 +1096,7 @@ function renderSetup(){
           <div class="field"><label>${esc(t('createPin'))}</label><input id="p1" type="password" inputmode="numeric" maxlength="6" placeholder="••••"></div>
           <div class="field"><label>${esc(t('confirmPin'))}</label><input id="p2" type="password" inputmode="numeric" maxlength="6" placeholder="••••"></div>
         </div>
+        <div class="field"><label>${esc(t('licenseKey'))} *</label><input id="sLic" type="text" maxlength="12" placeholder="XXXX-XXXX" style="text-transform:uppercase;letter-spacing:2px"></div>
         <button class="btn block" id="setupGo" style="margin-top:6px">${esc(t('startUsing'))}</button>
         <div style="text-align:center;margin-top:14px">${langInline()}</div>
       </div>
@@ -1076,9 +1110,11 @@ function renderSetup(){
     if(!oName){ toast(t('required'),'err'); return; }
     if(!/^\d{4,6}$/.test(p1)){ toast(t('pinShort'),'err'); return; }
     if(p1!==p2){ toast(t('pinMismatch'),'err'); return; }
+    const lic=(document.getElementById('sLic').value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(lic!==licenseKeyFor(sName).replace('-','')){ toast(t('licenseBad'),'err'); return; }
     const owner={id:uid(),name:oName,role:'owner',pin:hashPin(p1),active:true,createdAt:now()};
     await idbPut('users',owner);
-    await idbPut('meta',{id:'app',setupDone:true,storeName:sName,lang:State.lang,currency:'DZD'});
+    await idbPut('meta',{id:'app',setupDone:true,storeName:sName,lang:State.lang,currency:'DZD',license:licenseKeyFor(sName)});
     State.storeName=sName; State.user=owner;
     toast(t('saved'),'ok'); render();
   };
@@ -2153,6 +2189,8 @@ async function openCheckout(subtotal){
   };
 }
 function money2(n){ return Number(n||0).toLocaleString('en-US',{maximumFractionDigits:2})+' DZD'; }
+/* Optional store logo at the top of receipts (grayscale/contrast for thermal print). */
+function receiptLogo(){ return State.logo?`<div style="text-align:center;margin-bottom:3px"><img src="${State.logo}" style="max-height:52px;max-width:60mm;filter:grayscale(1) contrast(1.4)"></div>`:''; }
 
 /* -------- Lightweight inline SVG charts (no external library, fully offline) -------- */
 function barChartSvg(labels,series,opts){
@@ -2204,7 +2242,7 @@ function buildSaleReceiptHtml(sale,items){
     <span>${esc(l.name)} ×${l.qty}</span>
     <span style="text-align:right;flex-shrink:0">${money2(l.price*l.qty)}</span>
   </div>${l.qty>1?`<div style="font-size:10px;color:#666;text-align:right;margin-bottom:2px">${money2(l.price)} ${esc(t('each'))}</div>`:''}`).join('');
-  return `<div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:4px">${esc(State.storeName||t('app'))}</div>
+  return `${receiptLogo()}<div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:4px">${esc(State.storeName||t('app'))}</div>
     <div style="text-align:center;font-size:9px;margin-bottom:6px;color:#666">${new Date(sale.createdAt||Date.now()).toLocaleString(State.lang)}</div>
     <div style="border-bottom:1px dashed #000;padding-bottom:4px;margin-bottom:6px;text-align:center;font-weight:700;font-size:11px">${esc(t('customer'))}: ${esc(sale.customerName||t('walkIn'))}</div>
     <div style="font-size:12px;margin-bottom:8px">
@@ -2225,6 +2263,50 @@ function buildSaleReceiptHtml(sale,items){
       </div>`:''}
     </div>
     <div style="text-align:center;font-size:10px;color:#666">${esc(isRTL()?'شكراً لتسوقكم':'Merci · Thank you')}</div>`;
+}
+
+/* Official A4 invoice for a sale — header uses meta.biz (address/NIF/RC/AI) from Settings. */
+function buildInvoiceHtml(sale,meta){
+  const b=(meta&&meta.biz)||{};
+  const cell='border:1px solid #000;padding:5px 8px';
+  const rows=(sale.items||[]).map((l,i)=>`<tr>
+    <td style="${cell};text-align:center">${i+1}</td>
+    <td style="${cell}">${esc(l.name)}</td>
+    <td style="${cell};text-align:center">${l.qty}</td>
+    <td style="${cell};text-align:right">${money2(l.price)}</td>
+    <td style="${cell};text-align:right">${money2(l.price*l.qty)}</td>
+  </tr>`).join('');
+  const invNo=(sale.id||'').replace(/[^a-z0-9]/gi,'').slice(-6).toUpperCase();
+  const ids=[['nifLbl',b.nif],['rcLbl',b.rc],['artLbl',b.art]].filter(x=>x[1]);
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#000">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:16px;gap:16px">
+      <div>
+        ${State.logo?`<img src="${State.logo}" style="max-height:64px;margin-bottom:6px">`:''}
+        <div style="font-size:20px;font-weight:800">${esc(State.storeName||'')}</div>
+        ${b.addr?`<div>${esc(b.addr)}</div>`:''}
+        ${b.phone?`<div>${esc(t('phone'))}: ${esc(b.phone)}</div>`:''}
+        ${ids.length?`<div style="font-size:12px">${ids.map(([k,v])=>`${esc(t(k))}: ${esc(v)}`).join(' · ')}</div>`:''}
+      </div>
+      <div style="text-align:end">
+        <div style="font-size:24px;font-weight:800;letter-spacing:.04em">${esc(t('invoiceTitle'))}</div>
+        <div>${esc(t('invoiceNo'))} ${esc(invNo)}</div>
+        <div>${esc(t('date'))}: ${fmtDate(sale.createdAt)}</div>
+      </div>
+    </div>
+    <div style="margin-bottom:14px"><b>${esc(t('customer'))}:</b> ${esc(sale.customerName||t('walkIn'))}</div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+      <thead><tr>
+        <th style="${cell};width:36px">#</th><th style="${cell};text-align:start">${esc(t('item'))}</th>
+        <th style="${cell};width:60px">${esc(t('qty'))}</th><th style="${cell};width:110px">${esc(t('price'))}</th><th style="${cell};width:120px">${esc(t('total'))}</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <table style="border-collapse:collapse;margin-inline-start:auto">
+      <tr><td style="${cell};font-weight:800">${esc(t('total'))}</td><td style="${cell};text-align:right;font-weight:800">${money2(sale.total)}</td></tr>
+      <tr><td style="${cell}">${esc(t('paid'))}</td><td style="${cell};text-align:right">${money2(sale.paid)}</td></tr>
+      ${sale.balance>0?`<tr><td style="${cell}">${esc(t('balanceDue'))}</td><td style="${cell};text-align:right">${money2(sale.balance)}</td></tr>`:''}
+    </table>
+  </div>`;
 }
 
 /* ============================================================
@@ -2269,6 +2351,18 @@ async function viewRentals(){
   view.querySelectorAll('[data-agr]').forEach(b=>b.onclick=async()=>offerRentalPreview(await idbGet('rentals',b.dataset.agr)));
   view.querySelectorAll('[data-activate]').forEach(b=>b.onclick=async()=>activateReservation(await idbGet('rentals',b.dataset.activate)));
   view.querySelectorAll('[data-extend]').forEach(b=>b.onclick=async()=>openExtendModal(await idbGet('rentals',b.dataset.extend)));
+  view.querySelectorAll('[data-wa]').forEach(b=>b.onclick=async()=>{
+    const r=await idbGet('rentals',b.dataset.wa); if(!r) return;
+    const c=r.customerId? await idbGet('customers',r.customerId) : null;
+    let digits=((c&&c.phone)||'').replace(/\D/g,'');
+    if(!digits){ toast(t('noPhone'),'err'); return; }
+    if(digits.startsWith('00')) digits=digits.slice(2);          // international 00-prefix
+    else if(digits.startsWith('0')) digits='213'+digits.slice(1); // local Algerian number
+    const dateTxt=r.dueDate?fmtDate(Date.parse(r.dueDate)):'—';
+    const msg=t('waDueMsg').replace('{name}',r.customerName||'').replace('{store}',State.storeName||'')
+                           .replace('{item}',r.name||'').replace('{date}',dateTxt);
+    window.open('https://wa.me/'+digits+'?text='+encodeURIComponent(msg),'_blank');
+  });
   document.getElementById('calPrev')&&(document.getElementById('calPrev').onclick=()=>{ calMonth--; if(calMonth<0){calMonth=11;calYear--;} viewRentals(); });
   document.getElementById('calNext')&&(document.getElementById('calNext').onclick=()=>{ calMonth++; if(calMonth>11){calMonth=0;calYear++;} viewRentals(); });
   document.getElementById('calToday')&&(document.getElementById('calToday').onclick=()=>{ calMonth=new Date().getMonth(); calYear=new Date().getFullYear(); viewRentals(); });
@@ -2426,6 +2520,7 @@ function rowRental(r){
     <td>${statusBadge}</td>
     <td class="t-right" style="white-space:nowrap">
       <button class="btn ghost sm" data-agr="${r.id}" title="${esc(t('rentAgreement'))}">${svg(IC.print,'ic')}</button>
+      ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-wa="${r.id}" title="${esc(t('waRemind'))}" style="color:var(--ok)">${svg(IC.chat,'ic')}</button>`:''}
       ${r.status==='reserved'?`<button class="btn secondary sm" data-activate="${r.id}">${esc(t('rentOut'))}</button>`:''}
       ${r.status==='active'?`<button class="btn ghost sm" data-extend="${r.id}" title="${esc(t('extendRental'))}">${svg(IC.plus,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn secondary sm" data-return="${r.id}">${svg(IC.ret,'ic')}${esc(t('markReturned'))}</button>`:''}
@@ -2531,7 +2626,7 @@ function offerRentalAgreement(r){ offerRentalPreview(r); }
 
 function buildRentalAgreementHtml(r){
   const bal=Math.max(0,(r.price||0)+(r.lateFee||0)-(r.paid||0));
-  return `<div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:4px">${esc(State.storeName||t('app'))}</div>
+  return `${receiptLogo()}<div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:4px">${esc(State.storeName||t('app'))}</div>
     <div style="text-align:center;font-size:9px;margin-bottom:6px;color:#666">${new Date().toLocaleString(State.lang)}</div>
     <div style="text-align:center;font-weight:700;font-size:12px;margin-bottom:6px;text-transform:uppercase">${esc(t('rentAgreement'))}</div>
     <div style="font-size:11px;line-height:1.8;margin-bottom:6px">
@@ -2785,7 +2880,7 @@ async function openPaymentModal(cust){
   };
 }
 function buildRepaymentReceiptHtml(cust,amt,bal){
-  return `<div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:4px">${esc(State.storeName||t('app'))}</div>
+  return `${receiptLogo()}<div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:4px">${esc(State.storeName||t('app'))}</div>
     <div style="text-align:center;font-size:9px;margin-bottom:6px;color:#666">${new Date().toLocaleString(State.lang)}</div>
     <div style="text-align:center;font-weight:700;font-size:12px;margin-bottom:6px;text-transform:uppercase">${esc(t('repayment'))}</div>
     <div style="border-bottom:1px dashed #000;padding-bottom:4px;margin-bottom:6px;text-align:center;font-weight:600;font-size:11px">${esc(t('customer'))}: ${esc(cust.name)}</div>
@@ -2915,6 +3010,11 @@ async function viewSales(){
   if(st) st.onchange=()=>{ salesCustomTo=st.value; salesLimit=50; viewSales(); };
   const s=document.getElementById('salesSearch'); if(s){ s.oninput=()=>{ salesSearch=s.value; salesLimit=50; const pos=s.selectionStart; viewSales().then(()=>{ const n=document.getElementById('salesSearch'); if(n){n.focus(); n.setSelectionRange(pos,pos);} }); }; }
   view.querySelectorAll('[data-reprint]').forEach(b=>b.onclick=async()=>{ const sale=await idbGet('sales',b.dataset.reprint); offerReceipt(()=>buildSaleReceiptHtml(sale,sale.items||[]), t('reprint')); });
+  view.querySelectorAll('[data-invoice]').forEach(b=>b.onclick=async()=>{
+    const sale=await idbGet('sales',b.dataset.invoice); if(!sale) return;
+    const meta=await idbGet('meta','app');
+    doPrint(buildInvoiceHtml(sale,meta),'report');
+  });
   view.querySelectorAll('[data-refund]').forEach(b=>b.onclick=async()=>openRefundModal(await idbGet('sales',b.dataset.refund)));
   view.querySelectorAll('[data-void]').forEach(b=>b.onclick=async()=>voidSale(await idbGet('sales',b.dataset.void)));
 }
@@ -2933,6 +3033,7 @@ function rowSale(s){
     <td class="t-right">${s.voided?'—':bal>0?`<span class="badge red">${money(bal)}</span>`:`<span class="badge green">${esc(t('settled'))}</span>`}</td>
     <td class="t-right" style="white-space:nowrap">
       <button class="btn ghost sm" data-reprint="${s.id}" title="${esc(t('reprint'))}">${svg(IC.print,'ic')}</button>
+      ${!s.voided?`<button class="btn ghost sm" data-invoice="${s.id}" title="${esc(t('invoiceA4'))}">${svg(IC.doc,'ic')}</button>`:''}
       ${canVoid?`<button class="btn ghost sm" data-void="${s.id}" title="${esc(t('voidSale'))}" style="color:var(--danger)">${svg(IC.close,'ic')}</button>`:''}
       ${!s.refunded&&!s.voided?`<button class="btn ghost sm" data-refund="${s.id}" title="${esc(t('refundSale'))}" style="color:var(--danger)">${svg(IC.ret,'ic')}</button>`:''}
     </td>
@@ -3242,6 +3343,14 @@ async function viewSettings(){
      <div class="card pad">
        <h3 style="margin-bottom:14px">${esc(t('app'))}</h3>
        <div class="field"><label>${esc(t('storeName'))}</label><input id="set_name" type="text" value="${esc(meta.storeName||'')}"></div>
+       <div class="field"><label>${esc(t('logoLbl'))}</label>
+         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+           <div id="set_logoPrev" style="width:64px;height:64px;border:1px solid var(--line);border-radius:8px;display:grid;place-items:center;overflow:hidden;background:#fff">${meta.logo?`<img src="${meta.logo}" style="max-width:100%;max-height:100%">`:svg(IC.image)}</div>
+           <button type="button" class="btn secondary sm" id="set_logoBtn">${svg(IC.image,'ic')}${esc(t('choosePhoto'))}</button>
+           <button type="button" class="btn ghost sm" id="set_logoRm" style="color:var(--danger);${meta.logo?'':'display:none'}">${esc(t('remove'))}</button>
+         </div>
+         <input type="file" id="set_logoFile" accept="image/*" class="hidden">
+       </div>
        <div class="row2">
          <div class="field"><label>${esc(t('language'))}</label>
            <select id="set_lang"><option value="en" ${State.lang==='en'?'selected':''}>English</option><option value="fr" ${State.lang==='fr'?'selected':''}>Français</option><option value="ar" ${State.lang==='ar'?'selected':''}>العربية</option></select></div>
@@ -3266,6 +3375,19 @@ async function viewSettings(){
          <input id="set_code" type="password" inputmode="numeric" maxlength="6" placeholder="${meta.authCode?'••••':'4–6'}"></div>
        <button class="btn" id="saveCode">${esc(t('save'))}</button>
      </div>`:''}
+     ${isOwner()?`<div class="card pad">
+       <h3 style="margin-bottom:14px">${esc(t('storeDetails'))}</h3>
+       <div class="field"><label>${esc(t('addr'))}</label><input id="biz_addr" type="text" value="${esc((meta.biz||{}).addr||'')}"></div>
+       <div class="row2">
+         <div class="field"><label>${esc(t('phone'))}</label><input id="biz_phone" type="text" value="${esc((meta.biz||{}).phone||'')}"></div>
+         <div class="field"><label>${esc(t('nifLbl'))}</label><input id="biz_nif" type="text" value="${esc((meta.biz||{}).nif||'')}"></div>
+       </div>
+       <div class="row2">
+         <div class="field"><label>${esc(t('rcLbl'))}</label><input id="biz_rc" type="text" value="${esc((meta.biz||{}).rc||'')}"></div>
+         <div class="field"><label>${esc(t('artLbl'))}</label><input id="biz_art" type="text" value="${esc((meta.biz||{}).art||'')}"></div>
+       </div>
+       <button class="btn" id="biz_save">${esc(t('save'))}</button>
+     </div>`:''}
      <div class="card pad">
        <h3 style="margin-bottom:6px">${svg(IC.down,'ic')} ${esc(t('storeDataFolder'))}</h3>
        ${FS_SUPPORTED? `<p class="subtle" style="margin-bottom:12px">${esc(t('fsFolderHint'))}</p>
@@ -3286,6 +3408,7 @@ async function viewSettings(){
        <p class="subtle" style="margin-bottom:14px">${esc(t('aboutData'))}</p>
        <div style="display:flex;gap:10px;flex-wrap:wrap">
          <button class="btn secondary" id="btnBackup">${svg(IC.down,'ic')}${esc(t('backup'))}</button>
+         <button class="btn secondary" id="btnShareBackup">${svg(IC.chat,'ic')}${esc(t('sendBackup'))}</button>
          <button class="btn secondary" id="btnRestore">${svg(IC.up,'ic')}${esc(t('restore'))}</button>
          ${isOwner()?`<button class="btn danger" id="btnReset" style="margin-inline-start:auto">${esc(t('resetApp'))}</button>`:''}
        </div>
@@ -3293,6 +3416,20 @@ async function viewSettings(){
        <p class="subtle" style="font-size:12px;margin-top:12px">${esc(t('backupHint'))}</p>
      </div>
    </div>`;
+  let logoData=meta.logo||'';
+  const logoPrev=document.getElementById('set_logoPrev'), logoRm=document.getElementById('set_logoRm'), logoFile=document.getElementById('set_logoFile');
+  document.getElementById('set_logoBtn').onclick=()=>logoFile.click();
+  logoFile.onchange=async()=>{ const f=logoFile.files[0]; if(!f) return;
+    try{ logoData=await processImage(f); logoPrev.innerHTML=`<img src="${logoData}" style="max-width:100%;max-height:100%">`; logoRm.style.display=''; }catch(e){ toast('⚠︎','err'); }
+    logoFile.value='';
+  };
+  logoRm.onclick=()=>{ logoData=''; logoPrev.innerHTML=svg(IC.image); logoRm.style.display='none'; };
+  document.getElementById('biz_save')&&(document.getElementById('biz_save').onclick=async()=>{
+    const m=await idbGet('meta','app');
+    m.biz={addr:document.getElementById('biz_addr').value.trim(),phone:document.getElementById('biz_phone').value.trim(),
+           nif:document.getElementById('biz_nif').value.trim(),rc:document.getElementById('biz_rc').value.trim(),art:document.getElementById('biz_art').value.trim()};
+    await idbPut('meta',m); toast(t('saved'),'ok'); await logAct('logSettings','');
+  });
   document.getElementById('fsChoose')&&(document.getElementById('fsChoose').onclick=async()=>{ if(await fsChooseFolder()) viewSettings(); });
   document.getElementById('fsSaveNow')&&(document.getElementById('fsSaveNow').onclick=async()=>{ const ok=await fsSaveAll(true); toast(ok?t('backupDone'):t('fsUnsupported'), ok?'ok':'err'); viewSettings(); });
   document.getElementById('fsLoadNow')&&(document.getElementById('fsLoadNow').onclick=()=>confirmDialog(t('restoreConfirm'),()=>fsLoadAll(true)));
@@ -3302,7 +3439,8 @@ async function viewSettings(){
     meta.darkMode=document.getElementById('set_dark').checked;
     meta.tabletMode=document.getElementById('set_tablet').checked;
     const lockSel=document.getElementById('set_lock'); if(lockSel) meta.autoLockMin=Number(lockSel.value||0);
-    State.storeName=meta.storeName;
+    meta.logo=logoData;
+    State.storeName=meta.storeName; State.logo=logoData;
     document.body.classList.toggle('dark',!!meta.darkMode);
     document.body.classList.toggle('tablet',!!meta.tabletMode);
     await idbPut('meta',meta); toast(t('saved'),'ok'); await logAct('logSettings',''); setupAutoLock(meta.autoLockMin); renderApp();
@@ -3315,6 +3453,7 @@ async function viewSettings(){
     await logAct('logCode',''); toast(t('codeSaved'),'ok'); viewSettings();
   }; }
   document.getElementById('btnBackup').onclick=doBackup;
+  document.getElementById('btnShareBackup').onclick=shareBackup;
   document.getElementById('btnRestore').onclick=()=>document.getElementById('restoreFile').click();
   document.getElementById('restoreFile').onchange=doRestore;
   document.getElementById('btnReset')&&(document.getElementById('btnReset').onclick=()=>confirmDialog(t('resetConfirm'),async()=>{ for(const s of STORES) await idbClear(s); State.user=null; State.cart=[]; toast(t('deleted'),'ok'); render(); },true));
@@ -3333,6 +3472,21 @@ async function doBackup(){
   logAct('logBackup','');
   const m=await idbGet('meta','app'); if(m){ m.lastBackup=now(); await idbPut('meta',m); }
   toast(t('backupDone'),'ok');
+}
+/* Share the backup file via the system share sheet (WhatsApp, Drive, email…).
+   Falls back to a plain download where sharing files isn't supported. */
+async function shareBackup(){
+  const data=await buildSnapshot();
+  const file=new File([JSON.stringify(data)],`kaftan-backup-${todayISO()}.json`,{type:'application/json'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({files:[file],title:'Kaftan backup'});
+      const m=await idbGet('meta','app'); if(m){ m.lastBackup=now(); await idbPut('meta',m); }
+      logAct('logBackup',''); toast(t('backupDone'),'ok');
+      return;
+    }catch(e){ if(e && e.name==='AbortError') return; } // user closed the share sheet
+  }
+  doBackup();
 }
 function doRestore(e){
   const file=e.target.files[0]; if(!file) return;
