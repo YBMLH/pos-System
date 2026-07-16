@@ -1709,7 +1709,11 @@ function rowProduct(p,rentCount){
     </div></td>
     <td>${modeBadge(p.mode)}</td>
     ${isOwner()?`<td class="t-right mono subtle">${p.costPrice?money(p.costPrice):'—'}</td>`:''}
-    <td class="t-right mono">${p.mode==='rent'?'—':money(p.salePrice)}</td>
+    <td class="t-right mono">${
+      p.mode==='rent'
+        ? (p.rentRate? `${money(p.rentRate)}${p.rentUnit==='day'?`<div class="subtle" style="font-size:11px">${esc(t('perDay'))}</div>`:''}` : '—')
+        : `${money(p.salePrice)}${(p.mode==='both'&&p.rentRate)?`<div class="subtle" style="font-size:11px">${money(p.rentRate)}${p.rentUnit==='day'?' '+esc(t('perDay')):''}</div>`:''}`
+    }</td>
     <td class="t-right">${qBadge||'—'}${rentedTag}</td>
     <td><span class="mono subtle" style="font-size:12px">${esc(p.barcode||'')}</span></td>
     <td class="t-right" style="white-space:nowrap">
