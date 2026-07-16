@@ -1815,6 +1815,11 @@ function openLabelModal(p){
     const nameF=is60x40?13:13, metaF=is60x40?8:8, codeF=is60x40?10:10;
     const bcStyle = is60x40 ? 'max-width:50mm;margin:0 auto' : 'max-width:70mm;margin:0 auto';
     const bcHtml = renderBarcodeHtml(p.barcode, {height:bh, style:bcStyle}).html;
+    // meta line: size · color · sale price · rental rate ("per day" when daily)
+    const priceBits=[];
+    if(p.mode!=='rent' && (p.salePrice||0)>0) priceBits.push(money2(p.salePrice));
+    if((p.mode==='rent'||p.mode==='both') && (p.rentRate||0)>0) priceBits.push(money2(p.rentRate)+(p.rentUnit==='day'?' '+t('perDay'):''));
+    const metaLine=[[p.size,p.color].filter(Boolean).map(esc).join(' · '), ...priceBits.map(esc)].filter(Boolean).join(' · ');
     let rows='';
     for(let i=0;i<count;i++){
       const last=i===count-1;
@@ -1823,7 +1828,7 @@ function openLabelModal(p){
       rows+=`<div style="text-align:center;padding:2px 0 4px;${is60x40?'width:58mm;margin:0 auto;':''}${sep}">
         <div style="font-weight:800;font-size:${is60x40?9:11}px;letter-spacing:.06em;text-transform:uppercase;border-bottom:1px solid #000;padding-bottom:1px;margin-bottom:2px">${esc(State.storeName||t('app'))}</div>
         <div style="font-weight:800;font-size:${nameF}px;line-height:1.15">${esc(p.name)}</div>
-        <div style="font-size:${metaF}px;color:#333;margin:1px 0 2px;font-weight:500">${[p.size,p.color].filter(Boolean).map(esc).join(' · ')}${p.mode!=='rent'?' · '+money2(p.salePrice):''}</div>
+        <div style="font-size:${metaF}px;color:#333;margin:1px 0 2px;font-weight:500">${metaLine}</div>
         ${bcHtml}
         <div style="font-family:monospace;font-weight:600;font-size:${codeF}px;letter-spacing:${is60x40?0.5:2}px;margin-top:2px">${esc(p.barcode)}</div>
       </div>`;
