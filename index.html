@@ -896,7 +896,10 @@ function idbClear(store){ return new Promise((res,rej)=>{ const r=tx(store,'read
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 function hashPin(pin){ let h=5381; const s='kf7$'+pin; for(let i=0;i<s.length;i++){h=((h<<5)+h)+s.charCodeAt(i);h=h&0xffffffff;} return (h>>>0).toString(16); }
 /* License key derived from the store name (deters casual copying; the seller
-   generates keys with keygen.html — do not distribute that file). */
+   generates keys with keygen.html — do not distribute that file).
+   LICENSE_ENFORCED=false disables the setup prompt entirely — flip to true to
+   require a key on new installs again. */
+const LICENSE_ENFORCED=false;
 function licenseKeyFor(name){
   const n=String(name||'').trim().toLowerCase().replace(/\s+/g,' ');
   let h=5381; const s='LIC$'+n; for(let i=0;i<s.length;i++){h=((h<<5)+h)+s.charCodeAt(i);h=h&0xffffffff;}
@@ -1096,7 +1099,7 @@ function renderSetup(){
           <div class="field"><label>${esc(t('createPin'))}</label><input id="p1" type="password" inputmode="numeric" maxlength="6" placeholder="••••"></div>
           <div class="field"><label>${esc(t('confirmPin'))}</label><input id="p2" type="password" inputmode="numeric" maxlength="6" placeholder="••••"></div>
         </div>
-        <div class="field"><label>${esc(t('licenseKey'))} *</label><input id="sLic" type="text" maxlength="12" placeholder="XXXX-XXXX" style="text-transform:uppercase;letter-spacing:2px"></div>
+        ${LICENSE_ENFORCED?`<div class="field"><label>${esc(t('licenseKey'))} *</label><input id="sLic" type="text" maxlength="12" placeholder="XXXX-XXXX" style="text-transform:uppercase;letter-spacing:2px"></div>`:''}
         <button class="btn block" id="setupGo" style="margin-top:6px">${esc(t('startUsing'))}</button>
         <div style="text-align:center;margin-top:14px">${langInline()}</div>
       </div>
@@ -1110,8 +1113,10 @@ function renderSetup(){
     if(!oName){ toast(t('required'),'err'); return; }
     if(!/^\d{4,6}$/.test(p1)){ toast(t('pinShort'),'err'); return; }
     if(p1!==p2){ toast(t('pinMismatch'),'err'); return; }
-    const lic=(document.getElementById('sLic').value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
-    if(lic!==licenseKeyFor(sName).replace('-','')){ toast(t('licenseBad'),'err'); return; }
+    if(LICENSE_ENFORCED){
+      const lic=(document.getElementById('sLic').value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+      if(lic!==licenseKeyFor(sName).replace('-','')){ toast(t('licenseBad'),'err'); return; }
+    }
     const owner={id:uid(),name:oName,role:'owner',pin:hashPin(p1),active:true,createdAt:now()};
     await idbPut('users',owner);
     await idbPut('meta',{id:'app',setupDone:true,storeName:sName,lang:State.lang,currency:'DZD',license:licenseKeyFor(sName)});
