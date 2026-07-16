@@ -431,6 +431,7 @@ const I18N = {
     scanHint:"Scan a barcode or search", scanNotFound:"No product with that barcode", addedToCart:"added to cart",
     dupBarcode:"Another product already uses this barcode",
     waRemind:"WhatsApp", noPhone:"No phone number saved for this customer",
+    scanChoice:"Sale or rental?",
     waDueMsg:'Hello {name}, a reminder from {store}: "{item}" is due back on {date}. Thank you!',
     sendBackup:"Send to phone / Drive",
     invoiceA4:"Invoice", invoiceTitle:"INVOICE", invoiceNo:"Invoice No.",
@@ -589,6 +590,7 @@ const I18N = {
     scanHint:"Scanner un code ou rechercher", scanNotFound:"Aucun produit avec ce code-barres", addedToCart:"ajouté au panier",
     dupBarcode:"Un autre produit utilise déjà ce code-barres",
     waRemind:"WhatsApp", noPhone:"Pas de numéro de téléphone pour ce client",
+    scanChoice:"Vente ou location ?",
     waDueMsg:'Bonjour {name}, rappel de {store} : « {item} » doit être retourné le {date}. Merci !',
     sendBackup:"Envoyer vers téléphone / Drive",
     invoiceA4:"Facture", invoiceTitle:"FACTURE", invoiceNo:"Facture N°",
@@ -739,6 +741,7 @@ const I18N = {
     scanHint:"امسح باركود أو ابحث", scanNotFound:"لا يوجد منتج بهذا الباركود", addedToCart:"أُضيف إلى السلة",
     dupBarcode:"منتج آخر يستخدم هذا الباركود بالفعل",
     waRemind:"واتساب", noPhone:"لا يوجد رقم هاتف لهذا العميل",
+    scanChoice:"بيع أم كراء؟",
     waDueMsg:'مرحباً {name}، تذكير من {store}: يجب إرجاع "{item}" بتاريخ {date}. شكراً!',
     sendBackup:"إرسال إلى الهاتف / درايف",
     invoiceA4:"فاتورة", invoiceTitle:"فاتورة", invoiceNo:"فاتورة رقم",
@@ -2057,7 +2060,9 @@ async function viewPOS(){
    </div>`;
   const s=document.getElementById('posSearch');
   s.oninput=()=>{ posSearch=s.value; };
-  s.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); const code=s.value.trim(); const hit=products.find(p=>p.barcode===code); if(hit && (hit.qty||0)>0){ addToCart(hit); posSearch=''; s.value=''; drawCart(products);} else { posSearch=s.value; refilterPOS(); } } };
+  s.onkeydown=async e=>{ if(e.key==='Enter'){ e.preventDefault(); const code=s.value.trim();
+    const hit=code? (await getProducts()).find(p=>p.barcode===code) : null; // all products: rent/both get the sale-or-rental routing
+    if(hit){ posSearch=''; s.value=''; handleGlobalScan(code); } else { posSearch=s.value; refilterPOS(); } } };
   // live filter with debounce-ish
   s.addEventListener('input',()=>{ clearTimeout(window._pt); window._pt=setTimeout(()=>refilterPOS(),160); });
   view.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{ const p=products.find(x=>x.id===b.dataset.add); addToCart(p); drawCart(products); });
@@ -2091,15 +2096,37 @@ function addToCart(p){
   if(line){ if(line.qty<inStock){ line.qty++; } else { toast(t('outOfStock'),'err'); } }
   else State.cart.push({id:p.id,name:p.name,size:p.size,color:p.color,price:p.salePrice,qty:1,stock:inStock});
 }
-/* Global scan-to-cart: a barcode scanned anywhere in the app adds 1 to the cart. */
+/* Global scan: a barcode scanned anywhere routes by product type —
+   sale-only -> straight to the cart; rent-only -> rental form preselected;
+   both -> ask Sale or Rental. */
 async function handleGlobalScan(code){
   const hit=(await getProducts()).find(p=>p.barcode===code);
-  if(!hit || hit.mode==='rent'){ toast(t('scanNotFound'),'err'); return; }  // unknown or not sellable
+  if(!hit){ toast(t('scanNotFound'),'err'); return; }
+  const canSell=hit.mode!=='rent', canRent=(hit.mode==='rent'||hit.mode==='both');
+  if(canSell && canRent){ scanChoiceModal(hit); return; }
+  if(canRent){ scanRent(hit); return; }
+  scanSale(hit);
+}
+async function scanSale(hit){
   if((hit.qty||0)<=0){ toast(t('outOfStock'),'err'); return; }
   addToCart(hit);
   toast(hit.name+' · '+t('addedToCart'),'ok');
   if(State.route!=='pos'){ State.route='pos'; renderApp(); }  // viewPOS() redraws the cart
   else { drawCart(await getProducts()); }
+}
+function scanRent(hit){
+  State.route='rentals'; renderApp();
+  setTimeout(()=>openRentalModal(hit.id),80);
+}
+function scanChoiceModal(p){
+  modal(t('scanChoice'),
+   `<p style="font-weight:700;font-size:16px;text-align:center;margin:4px 0 14px">${esc(p.name)}${p.size?' · '+esc(p.size):''}${p.color?' · '+esc(p.color):''}</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button class="btn" id="sc_sale" style="padding:18px 10px;font-size:16px;justify-content:center">${svg(IC.cart,'ic')}${esc(t('saleType'))}</button>
+      <button class="btn secondary" id="sc_rent" style="padding:18px 10px;font-size:16px;justify-content:center">${svg(IC.rent,'ic')}${esc(t('rentalType'))}</button>
+    </div>`,'');
+  document.getElementById('sc_sale').onclick=()=>{ closeModal(); scanSale(p); };
+  document.getElementById('sc_rent').onclick=()=>{ closeModal(); scanRent(p); };
 }
 function drawCart(products){
   const wrap=document.getElementById('cartItems'), foot=document.getElementById('cartFoot');
@@ -2538,7 +2565,7 @@ function rowRental(r){
     </td>
   </tr>`;
 }
-async function openRentalModal(){
+async function openRentalModal(presetPid){
   // Include items whose every set is currently out (qty 0 on shelf but units on
   // active rentals) — they can still be reserved for a future date.
   const outOnRental=new Set((await idbAll('rentals')).filter(r=>r.status==='active').map(r=>r.productId));
@@ -2617,6 +2644,7 @@ async function openRentalModal(){
   }
   itemSel.onchange=()=>{ recalc(); checkAvailability(); }; daysI.oninput=recalc;
   startI.onchange=checkAvailability;
+  if(presetPid && products.some(x=>x.id===presetPid)){ itemSel.value=presetPid; recalc(); checkAvailability(); }
   document.getElementById('r_due').onchange=e=>{ const s=Date.parse(document.getElementById('r_start').value), d=Date.parse(e.target.value); if(s&&d&&d>=s){ daysI.value=Math.max(1,Math.round((d-s)/86400000)); recalc(); } checkAvailability(); };
   document.getElementById('r_payFull').onclick=()=>{ paidI.value=priceI.value||0; };
   let rMethod='cash';
