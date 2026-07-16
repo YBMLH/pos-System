@@ -432,7 +432,7 @@ const I18N = {
     waRemind:"WhatsApp", noPhone:"No phone number saved for this customer",
     waDueMsg:'Hello {name}, a reminder from {store}: "{item}" is due back on {date}. Thank you!',
     sendBackup:"Send to phone / Drive",
-    invoiceA4:"Invoice (A4)", invoiceTitle:"INVOICE", invoiceNo:"Invoice No.",
+    invoiceA4:"Invoice", invoiceTitle:"INVOICE", invoiceNo:"Invoice No.",
     storeDetails:"Business details (invoices)", addr:"Address", nifLbl:"NIF", rcLbl:"RC", artLbl:"AI",
     logoLbl:"Receipt logo",
     licenseKey:"License key", licenseBad:"Invalid license key for this store name",
@@ -589,7 +589,7 @@ const I18N = {
     waRemind:"WhatsApp", noPhone:"Pas de numéro de téléphone pour ce client",
     waDueMsg:'Bonjour {name}, rappel de {store} : « {item} » doit être retourné le {date}. Merci !',
     sendBackup:"Envoyer vers téléphone / Drive",
-    invoiceA4:"Facture (A4)", invoiceTitle:"FACTURE", invoiceNo:"Facture N°",
+    invoiceA4:"Facture", invoiceTitle:"FACTURE", invoiceNo:"Facture N°",
     storeDetails:"Coordonnées (factures)", addr:"Adresse", nifLbl:"NIF", rcLbl:"RC", artLbl:"AI",
     logoLbl:"Logo du reçu",
     licenseKey:"Clé de licence", licenseBad:"Clé de licence invalide pour ce nom de boutique",
@@ -738,7 +738,7 @@ const I18N = {
     waRemind:"واتساب", noPhone:"لا يوجد رقم هاتف لهذا العميل",
     waDueMsg:'مرحباً {name}، تذكير من {store}: يجب إرجاع "{item}" بتاريخ {date}. شكراً!',
     sendBackup:"إرسال إلى الهاتف / درايف",
-    invoiceA4:"فاتورة (A4)", invoiceTitle:"فاتورة", invoiceNo:"فاتورة رقم",
+    invoiceA4:"فاتورة", invoiceTitle:"فاتورة", invoiceNo:"فاتورة رقم",
     storeDetails:"بيانات المحل (للفواتير)", addr:"العنوان", nifLbl:"NIF", rcLbl:"RC", artLbl:"AI",
     logoLbl:"شعار الإيصال",
     licenseKey:"مفتاح الترخيص", licenseBad:"مفتاح ترخيص غير صالح لاسم المحل",
@@ -2270,48 +2270,32 @@ function buildSaleReceiptHtml(sale,items){
     <div style="text-align:center;font-size:10px;color:#666">${esc(isRTL()?'شكراً لتسوقكم':'Merci · Thank you')}</div>`;
 }
 
-/* Official A4 invoice for a sale — header uses meta.biz (address/NIF/RC/AI) from Settings. */
+/* Official invoice for a sale, laid out for the 76mm receipt roll — header uses
+   meta.biz (address/NIF/RC/AI) from Settings. */
 function buildInvoiceHtml(sale,meta){
   const b=(meta&&meta.biz)||{};
-  const cell='border:1px solid #000;padding:5px 8px';
-  const rows=(sale.items||[]).map((l,i)=>`<tr>
-    <td style="${cell};text-align:center">${i+1}</td>
-    <td style="${cell}">${esc(l.name)}</td>
-    <td style="${cell};text-align:center">${l.qty}</td>
-    <td style="${cell};text-align:right">${money2(l.price)}</td>
-    <td style="${cell};text-align:right">${money2(l.price*l.qty)}</td>
-  </tr>`).join('');
   const invNo=(sale.id||'').replace(/[^a-z0-9]/gi,'').slice(-6).toUpperCase();
   const ids=[['nifLbl',b.nif],['rcLbl',b.rc],['artLbl',b.art]].filter(x=>x[1]);
-  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#000">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #000;padding-bottom:12px;margin-bottom:16px;gap:16px">
-      <div>
-        ${State.logo?`<img src="${State.logo}" style="max-height:64px;margin-bottom:6px">`:''}
-        <div style="font-size:20px;font-weight:800">${esc(State.storeName||'')}</div>
-        ${b.addr?`<div>${esc(b.addr)}</div>`:''}
-        ${b.phone?`<div>${esc(t('phone'))}: ${esc(b.phone)}</div>`:''}
-        ${ids.length?`<div style="font-size:12px">${ids.map(([k,v])=>`${esc(t(k))}: ${esc(v)}`).join(' · ')}</div>`:''}
-      </div>
-      <div style="text-align:end">
-        <div style="font-size:24px;font-weight:800;letter-spacing:.04em">${esc(t('invoiceTitle'))}</div>
-        <div>${esc(t('invoiceNo'))} ${esc(invNo)}</div>
-        <div>${esc(t('date'))}: ${fmtDate(sale.createdAt)}</div>
-      </div>
+  const rows=(sale.items||[]).map(l=>`<div style="display:flex;justify-content:space-between;gap:6px;font-size:12px;font-weight:600;padding:1px 0">
+      <span>${esc(l.name)} ×${l.qty}</span><span style="flex-shrink:0;text-align:right">${money2(l.price*l.qty)}</span>
+    </div>${l.qty>1?`<div style="font-size:10px;color:#444;text-align:right">${l.qty} × ${money2(l.price)}</div>`:''}`).join('');
+  return `${receiptLogo()}
+    <div style="text-align:center;font-weight:800;font-size:14px">${esc(State.storeName||t('app'))}</div>
+    ${b.addr?`<div style="text-align:center;font-size:10px">${esc(b.addr)}</div>`:''}
+    ${b.phone?`<div style="text-align:center;font-size:10px">${esc(t('phone'))}: ${esc(b.phone)}</div>`:''}
+    ${ids.length?`<div style="text-align:center;font-size:9.5px;font-weight:600">${ids.map(([k,v])=>`${esc(t(k))}: ${esc(v)}`).join(' · ')}</div>`:''}
+    <div style="text-align:center;font-weight:800;font-size:13px;margin:6px 0 2px;text-transform:uppercase;letter-spacing:.08em;border-top:1px dashed #000;border-bottom:1px dashed #000;padding:3px 0">${esc(t('invoiceTitle'))}</div>
+    <div style="display:flex;justify-content:space-between;font-size:10.5px;font-weight:600;margin:4px 0 6px">
+      <span>${esc(t('invoiceNo'))} ${esc(invNo)}</span><span>${fmtDate(sale.createdAt)}</span>
     </div>
-    <div style="margin-bottom:14px"><b>${esc(t('customer'))}:</b> ${esc(sale.customerName||t('walkIn'))}</div>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
-      <thead><tr>
-        <th style="${cell};width:36px">#</th><th style="${cell};text-align:start">${esc(t('item'))}</th>
-        <th style="${cell};width:60px">${esc(t('qty'))}</th><th style="${cell};width:110px">${esc(t('price'))}</th><th style="${cell};width:120px">${esc(t('total'))}</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <table style="border-collapse:collapse;margin-inline-start:auto">
-      <tr><td style="${cell};font-weight:800">${esc(t('total'))}</td><td style="${cell};text-align:right;font-weight:800">${money2(sale.total)}</td></tr>
-      <tr><td style="${cell}">${esc(t('paid'))}</td><td style="${cell};text-align:right">${money2(sale.paid)}</td></tr>
-      ${sale.balance>0?`<tr><td style="${cell}">${esc(t('balanceDue'))}</td><td style="${cell};text-align:right">${money2(sale.balance)}</td></tr>`:''}
-    </table>
-  </div>`;
+    <div style="font-size:11px;font-weight:700;border-bottom:1px dashed #000;padding-bottom:4px;margin-bottom:4px">${esc(t('customer'))}: ${esc(sale.customerName||t('walkIn'))}</div>
+    ${rows}
+    <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:4px 0;margin:6px 0">
+      <div style="display:flex;justify-content:space-between;font-weight:800;font-size:14px;gap:8px"><span>${esc(t('total'))}</span><span style="flex-shrink:0">${money2(sale.total)}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;gap:8px"><span>${esc(t('paid'))}</span><span style="flex-shrink:0">${money2(sale.paid)}</span></div>
+      ${sale.balance>0?`<div style="display:flex;justify-content:space-between;font-weight:700;font-size:11px;gap:8px"><span>${esc(t('balanceDue'))}</span><span style="flex-shrink:0">${money2(sale.balance)}</span></div>`:''}
+    </div>
+    <div style="text-align:center;font-size:10px;color:#666">${esc(isRTL()?'شكراً لتسوقكم':'Merci · Thank you')}</div>`;
 }
 
 /* ============================================================
@@ -3018,7 +3002,7 @@ async function viewSales(){
   view.querySelectorAll('[data-invoice]').forEach(b=>b.onclick=async()=>{
     const sale=await idbGet('sales',b.dataset.invoice); if(!sale) return;
     const meta=await idbGet('meta','app');
-    doPrint(buildInvoiceHtml(sale,meta),'report');
+    offerReceipt(()=>buildInvoiceHtml(sale,meta), t('invoiceA4'));
   });
   view.querySelectorAll('[data-refund]').forEach(b=>b.onclick=async()=>openRefundModal(await idbGet('sales',b.dataset.refund)));
   view.querySelectorAll('[data-void]').forEach(b=>b.onclick=async()=>voidSale(await idbGet('sales',b.dataset.void)));
