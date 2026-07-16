@@ -3496,6 +3496,9 @@ function setupAutoLock(minutes){
   reset();
 }
 (async function boot(){
+  // Cache the app shell so it opens with no internet after the first visit.
+  // (Fails harmlessly on file:// / Electron, where the page is already local.)
+  if('serviceWorker' in navigator){ try{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }catch(e){} }
   try{
     State.db=await openDB();
     try{ if(navigator.storage && navigator.storage.persist){ await navigator.storage.persist(); } }catch(e){}
