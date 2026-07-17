@@ -1464,7 +1464,6 @@ async function viewDash(){
   const activeR=rentals.filter(r=>r.status==='active');
   const active=activeR.length;
   const owed=(await allCustomerStats()).reduce((a,m)=>a+m.balance,0);
-  const low=products.filter(p=>(p.qty||0)<=(p.lowStock??3) && (p.mode!=='rent')).length;
   const inStock=products.reduce((a,p)=>a+(p.qty||0),0);
   // date buckets by calendar day (dueDate is a YYYY-MM-DD string, compared as strings)
   const todayStr=todayISO(), tomorrowStr=localISO(new Date(Date.now()+86400000));
@@ -1472,7 +1471,6 @@ async function viewDash(){
   const dueTodayR=activeR.filter(r=>r.dueDate===todayStr);
   const dueTomorrowR=activeR.filter(r=>r.dueDate===tomorrowStr);
   const depositsHeld=activeR.reduce((a,r)=>a+(r.deposit||0),0);
-  const lowItems=products.filter(p=>(p.qty||0)<=(p.lowStock??3) && (p.mode!=='rent'));
 
   // recent
   let acts=[];
@@ -1481,7 +1479,7 @@ async function viewDash(){
   acts.sort((a,b)=>b.ts-a.ts); acts=acts.slice(0,8);
 
   const canOwner=isOwner();
-  const alertCount = overdueR.length+dueTodayR.length+dueTomorrowR.length+lowItems.length;
+  const alertCount = overdueR.length+dueTodayR.length+dueTomorrowR.length;
   const hasAlerts = alertCount>0;
   const metaApp=await idbGet('meta','app');
   const daysSinceBackup = metaApp&&metaApp.lastBackup ? Math.floor((Date.now()-metaApp.lastBackup)/86400000) : null;
@@ -1495,7 +1493,7 @@ async function viewDash(){
     <div class="stat gold"><div class="corner">${svg(IC.cart)}</div><div class="k">${esc(t('todaySales'))}</div><div class="v mono">${money(todaySales)}</div></div>
     <div class="stat"><div class="corner">${svg(IC.rent)}</div><div class="k">${esc(t('activeRentals'))}</div><div class="v">${active}</div></div>
     <div class="stat ${owed>0?'danger':''}"><div class="corner">${svg(IC.debt)}</div><div class="k">${esc(t('outstanding'))}</div><div class="v mono">${money(owed)}</div></div>
-    <div class="stat ${low>0?'warn':''}"><div class="corner">${svg(IC.box)}</div><div class="k">${esc(t('lowStock'))}</div><div class="v">${low}<span class="sub" style="margin-inline-start:8px">${inStock} ${esc(t('inStock'))}</span></div></div>
+    <div class="stat"><div class="corner">${svg(IC.box)}</div><div class="k">${esc(t('inStock'))}</div><div class="v">${inStock}</div></div>
   </div>
   <div class="card pad" style="margin-bottom:18px">
     <div style="display:flex;align-items:center;gap:10px"><h3>${esc(t('alertsHub'))}</h3>
@@ -1515,11 +1513,6 @@ async function viewDash(){
         <span class="badge brand"><span class="dot"></span>${esc(t('dueTomorrow'))}</span>
         <span>${esc(r.name)} · ${esc(r.customerName||'')}</span>
         <span class="subtle mono" style="margin-inline-start:auto">${fmtDate(Date.parse(r.dueDate))}</span>
-      </div>`).join('')}
-      ${lowItems.slice(0,4).map(p=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--warn-100);border-radius:8px">
-        <span class="badge warnb">${esc(t('lowStockLabel'))}</span>
-        <span>${esc(p.name)}</span>
-        <span class="subtle mono" style="margin-inline-start:auto">${p.qty||0} ${esc(t('inStock'))}</span>
       </div>`).join('')}
     </div>` : `<p class="subtle" style="padding:10px 0">${esc(t('noAlerts'))}</p>`}
   </div>
@@ -1571,9 +1564,11 @@ async function viewDash(){
 ============================================================ */
 let stockSearch='', stockCat='';
 async function openReorderModal(products){
-  const low=products.filter(p=>p.mode!=='rent' && (p.qty||0)<=(p.lowStock??3)).sort((a,b)=>(a.qty||0)-(b.qty||0));
+  // Default threshold 0: with mostly one-of-a-kind stock, only sold-out items
+  // belong on the reorder list (an explicit per-product lowStock still works).
+  const low=products.filter(p=>p.mode!=='rent' && (p.qty||0)<=(p.lowStock??0)).sort((a,b)=>(a.qty||0)-(b.qty||0));
   const listText=low.map(p=>{
-    const need=Math.max(1,((p.lowStock??3)*2)-(p.qty||0));
+    const need=Math.max(1,((p.lowStock??0)*2)-(p.qty||0));
     return `• ${p.name}${p.size?' ('+p.size+')':''} — ${t('inStock')}: ${p.qty||0}${p.supplier?' — '+p.supplier:''}`;
   }).join('\n');
   const header=`${State.storeName} — ${t('reorderList')} — ${fmtDate(now())}`;
@@ -1606,7 +1601,7 @@ async function viewStock(){
   const q=stockSearch.toLowerCase();
   const cats=[...new Set(products.map(p=>p.category).filter(Boolean))].sort();
   const filtered=products.filter(p=>(!q || [p.name,p.color,p.size,p.fabric,p.barcode].some(x=>String(x||'').toLowerCase().includes(q))) && (!stockCat || p.category===stockCat));
-  const lowCount=products.filter(p=>p.mode!=='rent' && (p.qty||0)<=(p.lowStock??3)).length;
+  const lowCount=products.filter(p=>p.mode!=='rent' && (p.qty||0)<=(p.lowStock??0)).length;
   view.innerHTML=pageHead(t('stock'),t('products'),
     `${lowCount?`<button class="btn secondary" id="reorderBtn">${svg(IC.box,'ic')}${esc(t('reorderList'))} (${lowCount})</button>`:''}
      <button class="btn" id="addP">${svg(IC.plus,'ic')}${esc(t('addNew'))}</button>`)+
@@ -1704,7 +1699,7 @@ function modeBadge(m){
 function rowProduct(p,rentCount){
   const q=p.qty||0;
   const rentedTag = (p.mode==='rent'||p.mode==='both') && rentCount>0 ? `<div class="subtle" style="font-size:11px;margin-top:2px">${esc(t('rentedTimes').replace('{n}',rentCount))}</div>` : '';
-  const qBadge = p.mode==='rent' ? '' : (q<=0? `<span class="badge red">${esc(t('outOfStock'))}</span>` : q<=(p.lowStock??3)? `<span class="badge warnb">${q} · ${esc(t('lowStockLabel'))}</span>` : `<span class="num">${q}</span>`);
+  const qBadge = p.mode==='rent' ? '' : (q<=0? `<span class="badge red">${esc(t('outOfStock'))}</span>` : q<=(p.lowStock??0)? `<span class="badge warnb">${q} · ${esc(t('lowStockLabel'))}</span>` : `<span class="num">${q}</span>`);
   return `<tr>
     <td><div style="display:flex;align-items:center;gap:11px">
       <span class="pthumb">${p.photo?`<img src="${p.photo}" alt="">`:svg(IC.box)}</span>
