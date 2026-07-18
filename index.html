@@ -245,13 +245,19 @@ body.tablet table td,body.tablet table th{padding:12px 10px;font-size:15px}
 .sig-img-wrap{margin-top:6px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
 .cart{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);position:sticky;top:78px;display:flex;flex-direction:column;max-height:calc(100vh - 100px)}
 .cart h3{padding:15px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.cart h3 .cartCount{margin-inline-start:auto;background:var(--brand);color:#fff;font-size:12px;font-weight:800;padding:2px 9px;border-radius:999px;min-width:20px;text-align:center}
 .cart .items{flex:1;overflow:auto;padding:6px 8px;min-height:60px}
 .citem{display:flex;align-items:center;gap:8px;padding:8px;border-radius:9px}
 .citem:hover{background:#FBFAF8}
 .citem .nm{flex:1;font-size:13.5px;font-weight:600;line-height:1.2}
 .citem .nm small{display:block;color:var(--muted);font-weight:500}
-.qbtn{width:26px;height:26px;border-radius:7px;background:#EEEDEA;display:grid;place-items:center;font-weight:800;color:var(--brand-700)}
+.qbtn{width:30px;height:30px;border-radius:8px;background:#EEEDEA;display:grid;place-items:center;font-weight:800;color:var(--brand-700)}
 .qbtn:hover{background:var(--brand-100)}
+.qbtn.rm{color:var(--danger)}
+.qbtn.rm:hover{background:var(--danger-100)}
+.qbtn.rm svg{width:15px;height:15px}
+@keyframes cartFlash{0%{background:var(--gold-soft)}100%{background:transparent}}
+.citem.flash{animation:cartFlash 900ms ease-out}
 .cart .foot{border-top:1px solid var(--line);padding:14px 16px}
 .cart .line{display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:6px;color:var(--muted)}
 .cart .line.total{font-size:19px;font-weight:800;color:var(--ink);margin-top:6px}
@@ -2041,6 +2047,7 @@ function processImage(file){
    POS / SALES
 ============================================================ */
 let posSearch='';
+let _cartFlashId=null; // productId to briefly highlight on next drawCart() — set by addToCart
 async function viewPOS(){
   const view=document.getElementById('view');
   const products=(await getProducts()).filter(p=>p.mode!=='rent');
@@ -2064,7 +2071,7 @@ async function viewPOS(){
         : emptyState(IC.cart, t('nothingYet'), '')}
      </div>
      <div class="cart">
-       <h3>${svg(IC.cart)} ${esc(t('cart'))}</h3>
+       <h3>${svg(IC.cart)} ${esc(t('cart'))}<span class="cartCount hidden" id="cartCount">0</span></h3>
        <div class="items" id="cartItems"></div>
        <div class="foot" id="cartFoot"></div>
      </div>
@@ -2076,7 +2083,11 @@ async function viewPOS(){
     if(hit){ posSearch=''; s.value=''; handleGlobalScan(code); } else { posSearch=s.value; refilterPOS(); } } };
   // live filter with debounce-ish
   s.addEventListener('input',()=>{ clearTimeout(window._pt); window._pt=setTimeout(()=>refilterPOS(),160); });
-  view.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{ const p=products.find(x=>x.id===b.dataset.add); addToCart(p); drawCart(products); });
+  view.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
+    const p=products.find(x=>x.id===b.dataset.add);
+    if(addToCart(p)) toast(p.name+' · '+t('addedToCart'),'ok'); // same confirmation as a barcode scan, so tapping a card is never a silent no-op
+    drawCart(products);
+  });
   document.getElementById('viewParked')&&(document.getElementById('viewParked').onclick=()=>openParkedModal(products));
   drawCart(products);
   setTimeout(()=>document.getElementById('posSearch')?.focus(),40);
@@ -2100,12 +2111,22 @@ async function openParkedModal(products){
   document.querySelectorAll('[data-delpark]').forEach(b=>b.onclick=async()=>{ await idbDel('parked',b.dataset.delpark); closeModal(); openParkedModal(products); });
 }
 function refilterPOS(){ const s=document.getElementById('posSearch'); const pos=s?s.selectionStart:0; viewPOS().then(()=>{ const n=document.getElementById('posSearch'); if(n){n.focus(); try{n.setSelectionRange(pos,pos);}catch(e){}} }); }
+/* Returns true if a unit was actually added/incremented (false = blocked by
+   stock), so callers can show one consistent "added to cart" toast instead of
+   each guessing whether it worked. Also flags the line for a brief highlight
+   in drawCart() so the cashier sees exactly which row just changed. */
 function addToCart(p){
-  if(!p) return;
+  if(!p) return false;
   const line=State.cart.find(l=>l.id===p.id);
   const inStock=p.qty||0;
-  if(line){ if(line.qty<inStock){ line.qty++; } else { toast(t('outOfStock'),'err'); } }
-  else State.cart.push({id:p.id,name:p.name,size:p.size,color:p.color,price:p.salePrice,qty:1,stock:inStock});
+  if(line){
+    if(line.qty<inStock){ line.qty++; } else { toast(t('outOfStock'),'err'); return false; }
+  } else {
+    if(inStock<=0){ toast(t('outOfStock'),'err'); return false; }
+    State.cart.push({id:p.id,name:p.name,size:p.size,color:p.color,price:p.salePrice,qty:1,stock:inStock});
+  }
+  _cartFlashId=p.id;
+  return true;
 }
 /* Global scan: a barcode scanned anywhere routes by product type —
    sale-only -> straight to the cart; rent-only -> rental form preselected;
@@ -2140,15 +2161,22 @@ function scanChoiceModal(p){
   document.getElementById('sc_rent').onclick=()=>{ closeModal(); scanRent(p); };
 }
 function drawCart(products){
-  const wrap=document.getElementById('cartItems'), foot=document.getElementById('cartFoot');
+  const wrap=document.getElementById('cartItems'), foot=document.getElementById('cartFoot'), countBadge=document.getElementById('cartCount');
   if(!wrap) return;
-  if(!State.cart.length){ wrap.innerHTML=`<p class="subtle" style="padding:16px;text-align:center">${esc(t('cartEmpty'))}</p>`; foot.innerHTML=''; return; }
-  wrap.innerHTML=State.cart.map(l=>`<div class="citem">
+  const unitCount=State.cart.reduce((a,l)=>a+l.qty,0);
+  if(countBadge){ countBadge.textContent=unitCount; countBadge.classList.toggle('hidden',unitCount===0); }
+  if(!State.cart.length){ wrap.innerHTML=`<p class="subtle" style="padding:16px;text-align:center">${esc(t('cartEmpty'))}</p>`; foot.innerHTML=''; _cartFlashId=null; return; }
+  // qty 1 shows a trash icon (explicit remove) instead of "−", which used to
+  // silently delete the whole line with no visual difference from decrementing.
+  wrap.innerHTML=State.cart.map(l=>`<div class="citem${l.id===_cartFlashId?' flash':''}">
      <div class="nm">${esc(l.name)}<small>${l.qty>1?`${money(l.price)} × ${l.qty} = ${money(l.price*l.qty)}`:money(l.price)}</small></div>
-     <button class="qbtn" data-dec="${l.id}">−</button>
+     ${l.qty>1
+       ? `<button class="qbtn" data-dec="${l.id}" title="${esc(t('quantity'))} −">−</button>`
+       : `<button class="qbtn rm" data-remove="${l.id}" title="${esc(t('del'))}">${svg(IC.trash)}</button>`}
      <span class="num" style="min-width:20px;text-align:center">${l.qty}</span>
-     <button class="qbtn" data-inc="${l.id}">+</button>
+     <button class="qbtn" data-inc="${l.id}" title="${esc(t('quantity'))} +">+</button>
    </div>`).join('');
+  _cartFlashId=null; // only the line that just changed flashes; consume it so later re-renders don't replay it
   const total=State.cart.reduce((a,l)=>a+l.price*l.qty,0);
   foot.innerHTML=`<div class="line total"><span>${esc(t('total'))}</span><span class="mono">${money(total)}</span></div>
     <div style="display:flex;gap:8px;margin-top:8px">
@@ -2157,8 +2185,9 @@ function drawCart(products){
       <button class="btn block" id="checkout">${svg(IC.check,'ic')}${esc(t('checkout'))}</button>
     </div>
     <p class="subtle" style="font-size:11px;margin-top:8px;text-align:center"><kbd>${esc(t('enterKey'))}</kbd> ${esc(t('checkout'))} · <kbd>${esc(t('escKey'))}</kbd> ${esc(t('clear'))}</p>`;
-  wrap.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>{ const l=State.cart.find(x=>x.id===b.dataset.inc); if(l.qty<l.stock) l.qty++; else toast(t('outOfStock'),'err'); drawCart(products); });
-  wrap.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>{ const l=State.cart.find(x=>x.id===b.dataset.dec); l.qty--; if(l.qty<=0) State.cart=State.cart.filter(x=>x.id!==l.id); drawCart(products); });
+  wrap.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>{ const l=State.cart.find(x=>x.id===b.dataset.inc); if(l.qty<l.stock){ l.qty++; _cartFlashId=l.id; } else toast(t('outOfStock'),'err'); drawCart(products); });
+  wrap.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>{ const l=State.cart.find(x=>x.id===b.dataset.dec); l.qty--; _cartFlashId=l.id; drawCart(products); });
+  wrap.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{ State.cart=State.cart.filter(x=>x.id!==b.dataset.remove); drawCart(products); });
   document.getElementById('clearCart').onclick=()=>{ State.cart=[]; drawCart(products); };
   document.getElementById('parkSale').onclick=async()=>{
     await idbPut('parked',{id:uid(),ts:now(),cart:State.cart,userId:State.user.id});
