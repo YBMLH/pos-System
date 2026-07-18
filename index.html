@@ -477,6 +477,7 @@ const I18N = {
     confirmReturn:"Confirm return", returnItem:"Return item", refundDeposit:"Refund deposit",
     rentalDone:"Rental created", itemReturned:"Item returned",
     noRentals:"No rentals yet", rentAgreement:"Rental agreement",
+    bundle:"Bundle", alsoRented:"Also rented together:", noItemsAdded:"No items added yet",
     // ledger
     customers:"Customers", owes:"Owes", settled:"Settled", addPayment:"Add payment",
     balance:"Balance", history:"History", payToward:"Payment toward balance",
@@ -634,6 +635,7 @@ const I18N = {
     confirmReturn:"Confirmer retour", returnItem:"Retourner l'article", refundDeposit:"Rembourser caution",
     rentalDone:"Location créée", itemReturned:"Article retourné",
     noRentals:"Aucune location", rentAgreement:"Contrat de location",
+    bundle:"Lot", alsoRented:"Également loué avec :", noItemsAdded:"Aucun article ajouté",
     customers:"Clients", owes:"Doit", settled:"Réglé", addPayment:"Ajouter paiement",
     balance:"Solde", history:"Historique", payToward:"Paiement sur solde",
     paymentSaved:"Paiement enregistré", allSettled:"Tout réglé — aucune dette.",
@@ -785,6 +787,7 @@ const I18N = {
     confirmReturn:"تأكيد الإرجاع", returnItem:"إرجاع الصنف", refundDeposit:"إعادة التأمين",
     rentalDone:"تم إنشاء الإيجار", itemReturned:"تم إرجاع الصنف",
     noRentals:"لا توجد إيجارات", rentAgreement:"عقد الإيجار",
+    bundle:"مجموعة", alsoRented:"مُستأجر أيضاً مع:", noItemsAdded:"لم تتم إضافة عناصر بعد",
     customers:"العملاء", owes:"مدين بـ", settled:"مُسدّد", addPayment:"إضافة دفعة",
     balance:"الرصيد", history:"السجل", payToward:"دفعة على الرصيد",
     paymentSaved:"تم تسجيل الدفعة", allSettled:"كل الديون مسدّدة.",
@@ -1980,11 +1983,12 @@ function showReceiptPreview(opts){
 
   /* ---- Print button ---- */
   document.getElementById('doPrintBtn').onclick = async ()=>{
-    // If rental + has signature, save it to the rental record first
+    // If rental(s) + has signature, save it to every rental record covered by
+    // this agreement (rentalId may be a single id or an array for a bundle).
     if(rentalId && sigDataUrl){
       try{
-        const r = await idbGet('rentals', rentalId);
-        if(r){ r.signature = sigDataUrl; await idbPut('rentals', r); }
+        const ids = Array.isArray(rentalId) ? rentalId : [rentalId];
+        for(const id of ids){ const r = await idbGet('rentals', id); if(r){ r.signature = sigDataUrl; await idbPut('rentals', r); } }
       }catch(e){}
     }
     closeModal();
@@ -2007,13 +2011,18 @@ function offerReceipt(buildHtmlFn, title){
 }
 
 /* offerRentalPreview — rental agreement with signature pad */
-function offerRentalPreview(r){
-  const html = buildRentalAgreementHtml(r);
+/* offerRentalPreview — rental agreement with signature pad. Accepts a single
+   rental record OR an array of rentals created together (a bundle: one
+   customer, several items in one transaction) and prints one combined
+   agreement covering all of them. */
+function offerRentalPreview(rOrRentals){
+  const rentals = Array.isArray(rOrRentals) ? rOrRentals : [rOrRentals];
+  const html = rentals.length>1 ? buildGroupRentalAgreementHtml(rentals) : buildRentalAgreementHtml(rentals[0]);
   showReceiptPreview({
     title: t('rentAgreement'),
     receiptHtml: html,
     signature: true,
-    rentalId: r.id,
+    rentalId: rentals.map(r=>r.id),
     onPrint: (sig)=>{
       const sigBlock = sig ? `<div style="margin-top:6px;border-top:1px dashed #000;padding-top:4px">
         <div style="font-size:10px;margin-bottom:2px">${esc(t('signature'))}:</div>
@@ -2405,12 +2414,17 @@ async function viewRentals(){
       <button data-tab="all" class="${rentalTab==='all'?'on':''}">${esc(t('allTab'))}</button>
     </div>`;
     if(rentalTab==='deposits'){ body=tabs+await buildDepositsRegister(rentals); }
-    else{ body=tabs+(filt.length? `<div class="tablewrap"><table><thead><tr>
+    else{
+      // groupId -> sibling item names, for the "Bundle" badge on rows created together
+      const groupNames={};
+      rentals.forEach(r=>{ if(r.groupId){ (groupNames[r.groupId]=groupNames[r.groupId]||[]).push(r.name); } });
+      body=tabs+(filt.length? `<div class="tablewrap"><table><thead><tr>
        <th>${esc(t('item'))}</th><th>${esc(t('customer'))}</th><th>${esc(t('dueDate'))}</th>
        <th class="t-right">${esc(t('rentalPrice'))}</th><th class="t-right">${esc(t('balance'))}</th>
        <th>${esc(t('status'))}</th><th class="t-right">${esc(t('actions'))}</th>
-     </tr></thead><tbody>${filt.map(rowRental).join('')}</tbody></table></div>`
-     : emptyState(IC.rent,t('noRentals'),'',`<button class="btn" id="newRent2">${svg(IC.plus,'ic')}${esc(t('rentOut'))}</button>`)); }
+     </tr></thead><tbody>${filt.map(r=>rowRental(r,groupNames)).join('')}</tbody></table></div>`
+     : emptyState(IC.rent,t('noRentals'),'',`<button class="btn" id="newRent2">${svg(IC.plus,'ic')}${esc(t('rentOut'))}</button>`));
+    }
   }
   view.innerHTML=pageHead(t('rentals'),'',
     `<div class="seg" id="rentViewSeg" style="margin-inline-end:8px">
@@ -2425,7 +2439,7 @@ async function viewRentals(){
   document.getElementById('newRent2')&&(document.getElementById('newRent2').onclick=()=>openRentalModal());
   view.querySelectorAll('[data-return]').forEach(b=>b.onclick=async()=>openReturnModal(await idbGet('rentals',b.dataset.return)));
   view.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=async()=>cancelRental(await idbGet('rentals',b.dataset.cancel)));
-  view.querySelectorAll('[data-agr]').forEach(b=>b.onclick=async()=>offerRentalPreview(await idbGet('rentals',b.dataset.agr)));
+  view.querySelectorAll('[data-agr]').forEach(b=>b.onclick=async()=>{ const r=await idbGet('rentals',b.dataset.agr); if(r) offerRentalPreview(await rentalGroupOf(r)); });
   view.querySelectorAll('[data-activate]').forEach(b=>b.onclick=async()=>activateReservation(await idbGet('rentals',b.dataset.activate)));
   view.querySelectorAll('[data-extend]').forEach(b=>b.onclick=async()=>openExtendModal(await idbGet('rentals',b.dataset.extend)));
   view.querySelectorAll('[data-wa]').forEach(b=>b.onclick=async()=>{
@@ -2436,8 +2450,11 @@ async function viewRentals(){
     if(digits.startsWith('00')) digits=digits.slice(2);          // international 00-prefix
     else if(digits.startsWith('0')) digits='213'+digits.slice(1); // local Algerian number
     const dateTxt=r.dueDate?fmtDate(Date.parse(r.dueDate)):'—';
+    // Bundle rented together: name every sibling due the same date in one message instead of one per item.
+    const group=await rentalGroupOf(r);
+    const itemTxt = group.length>1 ? group.map(x=>x.name).join(', ') : (r.name||'');
     const msg=t('waDueMsg').replace('{name}',r.customerName||'').replace('{store}',State.storeName||'')
-                           .replace('{item}',r.name||'').replace('{date}',dateTxt);
+                           .replace('{item}',itemTxt).replace('{date}',dateTxt);
     window.open('https://wa.me/'+digits+'?text='+encodeURIComponent(msg),'_blank');
   });
   document.getElementById('calPrev')&&(document.getElementById('calPrev').onclick=()=>{ calMonth--; if(calMonth<0){calMonth=11;calYear--;} viewRentals(); });
@@ -2581,15 +2598,18 @@ async function openExtendModal(r){
     closeModal(); toast(t('extended'),'ok'); viewRentals();
   };
 }
-function rowRental(r){
+function rowRental(r,groupNames){
   const bal=Math.max(0,(r.price||0)+(r.lateFee||0)-(r.paid||0));
   const overdue=r.status==='active' && r.dueDate && Date.parse(r.dueDate)<Date.now();
   const statusBadge= r.status==='cancelled'? `<span class="badge grey">${esc(t('cancelled'))}</span>` :
     r.status==='returned'? `<span class="badge grey">${esc(t('returned'))}</span>` :
     r.status==='reserved'? `<span class="badge brand">${esc(t('reserved'))}</span>` :
     overdue? `<span class="badge red"><span class="dot"></span>${esc(t('overdue'))}</span>` : `<span class="badge gold"><span class="dot"></span>${esc(t('rented'))}</span>`;
+  // Rented together in one transaction: show which other items came with it.
+  const siblings=(r.groupId && groupNames && groupNames[r.groupId])? groupNames[r.groupId].filter(n=>n!==r.name) : [];
+  const bundleBadge = siblings.length? `<span class="badge gold" style="margin-inline-start:6px" title="${esc(t('alsoRented'))} ${esc(siblings.join(', '))}">${esc(t('bundle'))}</span>` : '';
   return `<tr>
-    <td><b>${esc(r.name)}</b></td>
+    <td><b>${esc(r.name)}</b>${bundleBadge}</td>
     <td>${esc(r.customerName||'—')}</td>
     <td class="mono">${r.status==='reserved'&&r.startDate?fmtDate(Date.parse(r.startDate)):(r.dueDate?fmtDate(Date.parse(r.dueDate)):'—')}</td>
     <td class="t-right mono">${money(r.price)}</td>
@@ -2605,6 +2625,47 @@ function rowRental(r){
     </td>
   </tr>`;
 }
+/* Unit-aware availability for one product across a date window (shared by the
+   rental modal's per-line checks). Total units = on-shelf qty + units
+   currently out on active rentals; a window is available while overlapping
+   bookings stay below that total. */
+async function computeAvailability(pid,startVal,dueVal){
+  const DAY=86400000, today=Date.parse(todayISO());
+  const s=Date.parse(startVal)||today, d=Date.parse(dueVal)||s;
+  const p=await idbGet('products',pid);
+  const bookings=(await idbAll('rentals'))
+    .filter(x=>x.productId===pid && (x.status==='active'||x.status==='reserved'))
+    .map(x=>{
+      let xs=Date.parse(x.startDate)||x.createdAt, xd=Date.parse(x.dueDate)||xs+DAY;
+      if(x.status==='active' && xd<today) xd=today; // overdue: the unit is still out
+      return {...x,xs,xd};
+    }).sort((a,b)=>a.xs-b.xs);
+  const activeCount=bookings.filter(b=>b.status==='active').length;
+  const totalUnits=(p?p.qty||0:0)+activeCount;
+  const overlap=bookings.filter(x=>s<=x.xd && d>=x.xs).length;
+  const freeInWindow=Math.max(0,totalUnits-overlap);
+  const events=[]; bookings.forEach(b=>{ events.push([b.xs,1],[b.xd+DAY,-1]); });
+  events.sort((a,b)=>a[0]-b[0]);
+  let busy=events.filter(e=>e[0]<=today).reduce((a,e)=>a+e[1],0), freeFrom=today;
+  if(busy>=totalUnits){ for(const [t0,delta] of events){ if(t0<=today) continue; busy+=delta; if(busy<totalUnits){ freeFrom=t0; break; } } }
+  const upcoming=bookings.filter(b=>b.xd>=today).slice(0,3);
+  return {freeInWindow,totalUnits,freeFrom,today,upcoming};
+}
+function availabilityBadgeHtml(av){
+  return (av.freeInWindow>0
+      ? `<span class="badge green">${esc(t('available'))}${av.totalUnits>1?` · ${av.freeInWindow}/${av.totalUnits}`:''}</span>`
+      : `<span class="badge red">${esc(t('availability'))}: 0/${av.totalUnits}</span>`)
+    +(av.freeFrom>av.today?` <span class="badge gold">${esc(t('availableFrom'))} ${fmtDate(av.freeFrom)}</span>`:'')
+    +(av.upcoming.length?`<div class="subtle" style="margin-top:2px;font-size:11px;line-height:1.5">${av.upcoming.map(b=>
+        `${esc(b.customerName||'—')} · ${fmtDate(b.xs)} → ${fmtDate(b.xd)}${b.status==='reserved'?' · '+esc(t('reserved')):''}`).join('<br>')}</div>`:'');
+}
+/* New rental: a cart of one or more items rented to the same customer for the
+   same date window, in one transaction. A single line behaves exactly like
+   the old one-item form (no groupId, unchanged agreement/return/etc. logic).
+   Two or more lines get a shared groupId, one combined printed agreement, one
+   combined WhatsApp reminder, and a "Bundle" badge in the list — but each
+   created rental row is still an independent record: returned, extended or
+   cancelled on its own, since items can legitimately come back separately. */
 async function openRentalModal(presetPid){
   // Include items whose every set is currently out (qty 0 on shelf but units on
   // active rentals) — they can still be reserved for a future date.
@@ -2613,10 +2674,7 @@ async function openRentalModal(presetPid){
   const custs=await getCustomers();
   if(!products.length){ toast(t('rentableOnly'),'err'); }
   modal(t('newRentalT'),
-   `<div class="field"><label>${esc(t('chooseItem'))} *</label>
-     <select id="r_item"><option value="">—</option>${products.map(p=>`<option value="${p.id}" data-rate="${p.rentRate||0}" data-unit="${p.rentUnit||'day'}">${esc(p.name)} ${[p.size,p.color].filter(Boolean).map(esc).join(' ')}</option>`).join('')}</select>
-     <span class="hint">${esc(t('rentableOnly'))}</span></div>
-    <div class="field"><label>${esc(t('customer'))} *</label>
+   `<div class="field"><label>${esc(t('customer'))} *</label>
      <select id="r_cust"><option value="">—</option>${custs.map(c=>`<option value="${c.id}" data-measure="${esc(c.measurements||'')}">${esc(c.name)}</option>`).join('')}<option value="__new">+ ${esc(t('newCustomer'))}</option></select></div>
     <div id="r_measureBox" class="subtle hidden" style="margin-bottom:6px;background:var(--brand-100);padding:6px 10px;border-radius:8px"></div>
     <div id="r_newCust" class="row2 hidden">
@@ -2627,13 +2685,15 @@ async function openRentalModal(presetPid){
       <div class="field"><label>${esc(t('startDate'))}</label><input id="r_start" type="date" value="${todayISO()}"></div>
       <div class="field"><label>${esc(t('dueDate'))}</label><input id="r_due" type="date"></div>
     </div>
-    <div id="r_avail" class="subtle" style="margin-bottom:6px"></div>
     <div class="field"><label class="check"><input type="checkbox" id="r_reserve"> ${esc(t('reserveItem'))}</label></div>
-    <div class="row3">
-      <div class="field"><label>${esc(t('period'))} (${esc(t('days'))})</label><input id="r_days" type="number" min="1" value="1"></div>
-      <div class="field"><label>${esc(t('rentalPrice'))} *</label><input id="r_price" type="number" min="0" step="0.01" value=""></div>
-      <div class="field"><label>${esc(t('depositOpt'))}</label><input id="r_dep" type="number" min="0" step="0.01" value=""></div>
-    </div>
+    <div class="field"><label>${esc(t('chooseItem'))} *</label>
+      <div style="display:flex;gap:8px">
+        <select id="r_itemPicker" style="flex:1"><option value="">—</option>${products.map(p=>`<option value="${p.id}" data-rate="${p.rentRate||0}" data-unit="${p.rentUnit||'day'}">${esc(p.name)} ${[p.size,p.color].filter(Boolean).map(esc).join(' ')}</option>`).join('')}</select>
+        <button class="btn secondary" type="button" id="r_addItem">${svg(IC.plus,'ic')}${esc(t('add'))}</button>
+      </div>
+      <span class="hint">${esc(t('rentableOnly'))}</span></div>
+    <div id="r_lines"></div>
+    <div id="r_linesFoot" style="margin-bottom:10px"></div>
     <div class="field"><label>${esc(t('amountPaid'))}</label><input id="r_paid" type="number" min="0" step="0.01" value="0">
       <div style="display:flex;gap:8px;margin-top:6px"><button class="btn secondary sm" type="button" id="r_payFull">${esc(t('payFull'))}</button></div>
     </div>
@@ -2646,47 +2706,61 @@ async function openRentalModal(presetPid){
     </div>`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
     <button class="btn" id="r_go">${esc(t('rentOut'))}</button>`,{lg:true});
-  const itemSel=document.getElementById('r_item'), daysI=document.getElementById('r_days'), priceI=document.getElementById('r_price'), paidI=document.getElementById('r_paid');
-  const startI=document.getElementById('r_start'), dueI=document.getElementById('r_due'), availBox=document.getElementById('r_avail');
-  function recalc(){ const opt=itemSel.selectedOptions[0]; if(!opt||!opt.value) return; const rate=Number(opt.dataset.rate||0), unit=opt.dataset.unit; const d=Math.max(1,parseInt(daysI.value||1)); priceI.value = unit==='day'? rate*d : rate; }
-  /* Unit-aware availability: a product can have several identical sets.
-     Total units = on-shelf qty + units currently out on active rentals.
-     A date window is available while overlapping bookings < total units. */
-  async function checkAvailability(){
-    const pid=itemSel.value; if(!pid){ availBox.innerHTML=''; return; }
-    const DAY=86400000, today=Date.parse(todayISO());
-    const s=Date.parse(startI.value)||today, d=Date.parse(dueI.value)||s;
-    const p=await idbGet('products',pid);
-    const bookings=(await idbAll('rentals'))
-      .filter(x=>x.productId===pid && (x.status==='active'||x.status==='reserved'))
-      .map(x=>{
-        let xs=Date.parse(x.startDate)||x.createdAt, xd=Date.parse(x.dueDate)||xs+DAY;
-        if(x.status==='active' && xd<today) xd=today; // overdue: the unit is still out
-        return {...x,xs,xd};
-      }).sort((a,b)=>a.xs-b.xs);
-    const activeCount=bookings.filter(b=>b.status==='active').length;
-    const totalUnits=(p?p.qty||0:0)+activeCount;
-    const overlap=bookings.filter(x=>s<=x.xd && d>=x.xs).length;
-    const freeInWindow=Math.max(0,totalUnits-overlap);
-    // sweep the timeline from today for the first day a unit comes free
-    const events=[]; bookings.forEach(b=>{ events.push([b.xs,1],[b.xd+DAY,-1]); });
-    events.sort((a,b)=>a[0]-b[0]);
-    let busy=events.filter(e=>e[0]<=today).reduce((a,e)=>a+e[1],0), freeFrom=today;
-    if(busy>=totalUnits){ for(const [t0,delta] of events){ if(t0<=today) continue; busy+=delta; if(busy<totalUnits){ freeFrom=t0; break; } } }
-    const upcoming=bookings.filter(b=>b.xd>=today).slice(0,3);
-    availBox.innerHTML =
-      (freeInWindow>0
-        ? `<span class="badge green">${esc(t('available'))}${totalUnits>1?` · ${freeInWindow}/${totalUnits}`:''}</span>`
-        : `<span class="badge red">${esc(t('availability'))}: 0/${totalUnits}</span>`)
-      +(freeFrom>today?` <span class="badge gold">${esc(t('availableFrom'))} ${fmtDate(freeFrom)}</span>`:'')
-      +(upcoming.length?`<div class="subtle" style="margin-top:4px;font-size:11.5px;line-height:1.6">${upcoming.map(b=>
-          `${esc(b.customerName||'—')} · ${fmtDate(b.xs)} → ${fmtDate(b.xd)}${b.status==='reserved'?' · '+esc(t('reserved')):''}`).join('<br>')}</div>`:'');
+  const itemPicker=document.getElementById('r_itemPicker'), paidI=document.getElementById('r_paid');
+  const startI=document.getElementById('r_start'), dueI=document.getElementById('r_due');
+  const linesBox=document.getElementById('r_lines'), linesFoot=document.getElementById('r_linesFoot');
+  let lines=[]; // {productId,name,rate,unit,price,deposit,touched}
+
+  function defaultPrice(rate,unit){
+    const s=Date.parse(startI.value), d=Date.parse(dueI.value);
+    const days=(s&&d&&d>=s)? Math.max(1,Math.round((d-s)/86400000)) : 1;
+    return unit==='day'? rate*days : rate;
   }
-  itemSel.onchange=()=>{ recalc(); checkAvailability(); }; daysI.oninput=recalc;
-  startI.onchange=checkAvailability;
-  if(presetPid && products.some(x=>x.id===presetPid)){ itemSel.value=presetPid; recalc(); checkAvailability(); }
-  document.getElementById('r_due').onchange=e=>{ const s=Date.parse(document.getElementById('r_start').value), d=Date.parse(e.target.value); if(s&&d&&d>=s){ daysI.value=Math.max(1,Math.round((d-s)/86400000)); recalc(); } checkAvailability(); };
-  document.getElementById('r_payFull').onclick=()=>{ paidI.value=priceI.value||0; };
+  function totalsLine(){
+    const totalPrice=lines.reduce((a,l)=>a+(l.price||0),0), totalDep=lines.reduce((a,l)=>a+(l.deposit||0),0);
+    linesFoot.innerHTML = lines.length? `<div class="line total" style="font-size:15px"><span>${esc(t('total'))}</span><span class="mono">${money(totalPrice)}</span></div>${totalDep>0?`<div class="line"><span>${esc(t('deposit'))}</span><span class="mono">${money(totalDep)}</span></div>`:''}` : '';
+    return totalPrice;
+  }
+  async function renderLines(){
+    if(!lines.length){ linesBox.innerHTML=`<p class="subtle" style="padding:10px 0;text-align:center;font-size:12.5px">${esc(t('noItemsAdded'))}</p>`; totalsLine(); return; }
+    linesBox.innerHTML = lines.map((l,i)=>`<div class="citem" style="align-items:flex-start;flex-wrap:wrap;padding:8px 4px">
+        <div class="nm" style="flex:1 1 150px">${esc(l.name)}<div class="subtle" id="r_avail_${i}" style="margin-top:2px"></div></div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <input type="number" min="0" step="0.01" value="${l.price}" data-line-price="${i}" style="width:92px" title="${esc(t('rentalPrice'))}">
+          <input type="number" min="0" step="0.01" value="${l.deposit||''}" placeholder="${esc(t('depositOpt'))}" data-line-dep="${i}" style="width:92px" title="${esc(t('depositOpt'))}">
+          <button class="qbtn rm" type="button" data-line-rm="${i}" title="${esc(t('del'))}">${svg(IC.trash)}</button>
+        </div>
+      </div>`).join('');
+    totalsLine();
+    linesBox.querySelectorAll('[data-line-price]').forEach(inp=>inp.oninput=()=>{
+      const i=+inp.dataset.linePrice; lines[i].price=Number(inp.value||0); lines[i].touched=true; totalsLine();
+    });
+    linesBox.querySelectorAll('[data-line-dep]').forEach(inp=>inp.oninput=()=>{
+      lines[+inp.dataset.lineDep].deposit=Number(inp.value||0); totalsLine();
+    });
+    linesBox.querySelectorAll('[data-line-rm]').forEach(b=>b.onclick=()=>{ lines.splice(+b.dataset.lineRm,1); renderLines(); });
+    lines.forEach(async(l,i)=>{
+      const av=await computeAvailability(l.productId,startI.value,dueI.value);
+      const el=document.getElementById('r_avail_'+i); if(el) el.innerHTML=availabilityBadgeHtml(av);
+    });
+  }
+  function addLine(pid){
+    if(!pid || lines.some(l=>l.productId===pid)) return; // no duplicate same-item lines
+    const opt=[...itemPicker.options].find(o=>o.value===pid); if(!opt) return;
+    const rate=Number(opt.dataset.rate||0), unit=opt.dataset.unit;
+    lines.push({productId:pid, name:opt.textContent.trim(), rate, unit, price:defaultPrice(rate,unit), deposit:0, touched:false});
+    renderLines();
+  }
+  document.getElementById('r_addItem').onclick=()=>{ const pid=itemPicker.value; if(!pid){ toast(t('required'),'err'); return; } addLine(pid); itemPicker.value=''; };
+  // Changing the date window re-checks every line's availability, and refreshes
+  // the auto price only for lines the cashier hasn't manually edited yet.
+  async function onDatesChanged(){
+    lines.forEach(l=>{ if(!l.touched) l.price=defaultPrice(l.rate,l.unit); });
+    await renderLines();
+  }
+  startI.onchange=onDatesChanged; dueI.onchange=onDatesChanged;
+  if(presetPid && products.some(x=>x.id===presetPid)) addLine(presetPid);
+  document.getElementById('r_payFull').onclick=()=>{ paidI.value=totalsLine(); };
   let rMethod='cash';
   document.querySelectorAll('#r_method button').forEach(b=>b.onclick=()=>{ rMethod=b.dataset.m; document.querySelectorAll('#r_method button').forEach(x=>x.classList.toggle('on',x===b)); });
   document.getElementById('r_cust').onchange=e=>{
@@ -2697,8 +2771,8 @@ async function openRentalModal(presetPid){
   };
   document.getElementById('r_go').onclick=async()=>{
     const goBtn=document.getElementById('r_go');
-    if(goBtn.disabled) return; goBtn.disabled=true; // double-tap creates two rentals
-    const pid=itemSel.value; if(!pid){ toast(t('required'),'err'); goBtn.disabled=false; return; }
+    if(goBtn.disabled) return; goBtn.disabled=true; // double-tap creates duplicate rentals
+    if(!lines.length){ toast(t('required'),'err'); goBtn.disabled=false; return; }
     let cid=document.getElementById('r_cust').value, cname='';
     if(cid==='__new'){
       const nm=document.getElementById('rc_name').value.trim(); if(!nm){ toast(t('required'),'err'); goBtn.disabled=false; return; }
@@ -2708,24 +2782,84 @@ async function openRentalModal(presetPid){
       else { const c={id:uid(),name:nm,phone,createdAt:now()}; await idbPut('customers',c); cid=c.id; cname=nm; }
     }
     else if(cid){ const c=custs.find(x=>x.id===cid); cname=c?c.name:''; } else { toast(t('required'),'err'); goBtn.disabled=false; return; }
-    const price=Number(priceI.value||0); if(price<=0){ toast(t('required'),'err'); goBtn.disabled=false; return; }
     const isReserve=document.getElementById('r_reserve').checked;
-    const p=await idbGet('products',pid);
-    if(!isReserve && (p.qty||0)<=0){ toast(t('outOfStock'),'err'); goBtn.disabled=false; return; } // every set is out — reserve instead
-    if(!isReserve){ p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
-    const rental={id:uid(),productId:pid,name:p.name,customerId:cid,customerName:cname,
-      startDate:document.getElementById('r_start').value,dueDate:document.getElementById('r_due').value||'',
-      days:Math.max(1,parseInt(daysI.value||1)),price,deposit:Number(document.getElementById('r_dep').value||0),
-      paid:Math.min(Number(paidI.value||0),price),lateFee:0,status:isReserve?'reserved':'active',method:rMethod,createdAt:now(),userId:State.user.id};
-    await idbPut('rentals',rental);
-    if(rental.paid>0) await idbPut('payments',{id:uid(),customerId:cid,refType:'rental',amount:rental.paid,method:rMethod,createdAt:now(),userId:State.user.id});
-    if(rental.deposit>0) await idbPut('payments',{id:uid(),customerId:cid,refType:'deposit',amount:rental.deposit,method:rMethod,createdAt:now(),userId:State.user.id});
+    const start=startI.value, due=dueI.value||'';
+    const s=Date.parse(start), d=Date.parse(due);
+    const days=(s&&d&&d>=s)? Math.max(1,Math.round((d-s)/86400000)) : 1;
+    // Validate stock for every line before writing anything — all-or-nothing.
+    if(!isReserve){
+      for(const l of lines){
+        const p=await idbGet('products',l.productId);
+        if((p.qty||0)<=0){ toast(l.name+' — '+t('outOfStock'),'err'); goBtn.disabled=false; return; }
+      }
+    }
+    const totalPrice=lines.reduce((a,l)=>a+(l.price||0),0);
+    const paidEntered=Math.max(0,Math.min(Number(paidI.value||0),totalPrice));
+    const groupId=lines.length>1? uid() : null;
+    const createdRentals=[]; let allocated=0;
+    for(let i=0;i<lines.length;i++){
+      const l=lines[i];
+      const p=await idbGet('products',l.productId);
+      if(!isReserve){ p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
+      const share = i===lines.length-1 ? Math.max(0,paidEntered-allocated) : Math.round(paidEntered*(l.price/(totalPrice||1)));
+      allocated+=share;
+      const rental={id:uid(),groupId,productId:l.productId,name:l.name,customerId:cid,customerName:cname,
+        startDate:start,dueDate:due,days,price:l.price,deposit:Number(l.deposit||0),
+        paid:share,lateFee:0,status:isReserve?'reserved':'active',method:rMethod,createdAt:now(),userId:State.user.id};
+      await idbPut('rentals',rental);
+      if(rental.paid>0) await idbPut('payments',{id:uid(),customerId:cid,refType:'rental',amount:rental.paid,method:rMethod,createdAt:now(),userId:State.user.id});
+      if(rental.deposit>0) await idbPut('payments',{id:uid(),customerId:cid,refType:'deposit',amount:rental.deposit,method:rMethod,createdAt:now(),userId:State.user.id});
+      createdRentals.push(rental);
+    }
     closeModal(); toast(isReserve?t('reserved'):t('rentalDone'),'ok');
-    await logAct('logRental', rental.name+' · '+cname+(isReserve?' · '+t('reserved'):''));
-    if(!isReserve) offerRentalAgreement(rental); viewRentals();
+    await logAct('logRental', createdRentals.map(r=>r.name).join(', ')+' · '+cname+(isReserve?' · '+t('reserved'):''));
+    if(!isReserve) offerRentalPreview(createdRentals);
+    viewRentals();
   };
+  renderLines();
 }
-function offerRentalAgreement(r){ offerRentalPreview(r); }
+/* All rental records created together in one multi-item transaction share a
+   groupId. Returns every sibling (including r itself), or just [r] for a
+   normal single-item rental (groupId null). Used to print one combined
+   agreement and send one combined WhatsApp reminder for a bundle. */
+async function rentalGroupOf(r){
+  if(!r) return [];
+  if(!r.groupId) return [r];
+  const all=await idbAll('rentals');
+  return all.filter(x=>x.groupId===r.groupId).sort((a,b)=>a.createdAt-b.createdAt);
+}
+/* Combined agreement for a bundle: shared customer/dates from the first
+   record, each item listed with its own price (and its own due date if it has
+   since diverged via an individual extend), then totals summed across all. */
+function buildGroupRentalAgreementHtml(rentals){
+  const first=rentals[0];
+  const totalPrice=rentals.reduce((a,r)=>a+(r.price||0),0);
+  const totalPaid=rentals.reduce((a,r)=>a+(r.paid||0),0);
+  const totalDeposit=rentals.reduce((a,r)=>a+(r.deposit||0),0);
+  const totalLate=rentals.reduce((a,r)=>a+(r.lateFee||0),0);
+  const bal=Math.max(0,totalPrice+totalLate-totalPaid);
+  const itemRows=rentals.map(r=>`<div style="display:flex;justify-content:space-between;gap:6px;font-size:11px;padding:1px 0">
+      <span>${esc(r.name)}${r.dueDate!==first.dueDate?` <span style="color:#666">(${esc(t('dueDate'))} ${esc(r.dueDate||'—')})</span>`:''}</span>
+      <span style="flex-shrink:0">${money2(r.price)}</span>
+    </div>`).join('');
+  return `${receiptLogo()}<div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:4px">${esc(State.storeName||t('app'))}</div>
+    <div style="text-align:center;font-size:9px;margin-bottom:6px;color:#666">${new Date().toLocaleString(State.lang)}</div>
+    <div style="text-align:center;font-weight:700;font-size:12px;margin-bottom:6px;text-transform:uppercase">${esc(t('rentAgreement'))} · ${rentals.length} ${esc(t('item'))}</div>
+    <div style="font-size:11px;line-height:1.8;margin-bottom:6px">
+      <div>${esc(t('customer'))}: <span style="font-weight:700">${esc(first.customerName||'—')}</span></div>
+      <div>${esc(t('startDate'))}: <span style="font-weight:600">${esc(first.startDate||'—')}</span></div>
+      <div>${esc(t('dueDate'))}: <span style="font-weight:600">${esc(first.dueDate||'—')}</span></div>
+    </div>
+    <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:4px 0;margin:6px 0">${itemRows}</div>
+    <div style="font-size:11px">
+      <div style="display:flex;justify-content:space-between;font-weight:700;margin-bottom:2px"><span>${esc(t('rentalPrice'))}</span><span>${money2(totalPrice)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('paid'))}</span><span>${money2(totalPaid)}</span></div>
+      ${totalDeposit?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('deposit'))}</span><span>${money2(totalDeposit)}</span></div>`:''}
+      ${totalDeposit?`<div style="display:flex;justify-content:space-between;font-weight:800"><span>${esc(t('totalCollected'))}</span><span>${money2(totalPaid+totalDeposit)}</span></div>`:''}
+      ${bal>0?`<div style="display:flex;justify-content:space-between;font-weight:800;border-top:1px dashed #000;margin-top:3px;padding-top:3px"><span>${esc(t('balanceDue'))}</span><span>${money2(bal)}</span></div>`:''}
+    </div>
+    ${totalDeposit?`<div style="text-align:center;font-size:10px;margin-top:4px;color:#666">${esc(t('depositRefundable'))}</div>`:''}`;
+}
 
 function buildRentalAgreementHtml(r){
   const bal=Math.max(0,(r.price||0)+(r.lateFee||0)-(r.paid||0));
@@ -2753,9 +2887,11 @@ async function openReturnModal(r){
   const p = r.productId? await idbGet('products',r.productId) : null;
   const perDay = (p && p.rentUnit==='day' && p.rentRate) ? p.rentRate : Math.round((r.price||0)/Math.max(1,r.days||1));
   const suggested = daysOver>0 ? Math.round(perDay*daysOver) : 0;
+  const siblings=(await rentalGroupOf(r)).filter(x=>x.id!==r.id);
   modal(t('returnItem'),
    `<p style="font-weight:700;font-size:16px;margin-bottom:2px">${esc(r.name)}</p>
     <p class="subtle" style="margin-bottom:14px">${esc(r.customerName||'')} · ${esc(t('dueDate'))}: ${r.dueDate?fmtDate(Date.parse(r.dueDate)):'—'}${daysOver>0?` · <span style="color:var(--danger)">${daysOver}d ${esc(t('overdue'))}</span>`:''}</p>
+    ${siblings.length?`<p class="subtle" style="margin-top:-10px;margin-bottom:14px;font-size:12.5px">${esc(t('alsoRented'))} ${esc(siblings.map(s=>s.name).join(', '))}</p>`:''}
     <div class="field"><label class="check"><input type="checkbox" id="rt_late" ${daysOver>0?'checked':''}> ${esc(t('applyLateFee'))}${daysOver>0?` (${esc(t('suggestedLateFee'))}: ${money(suggested)})`:''}</label></div>
     <div class="field ${daysOver>0?'':'hidden'}" id="rt_lateBox"><label>${esc(t('lateFee'))}</label><input id="rt_lateAmt" type="number" min="0" step="0.01" value="${suggested}"></div>
     <div class="field"><label class="check"><input type="checkbox" id="rt_pay"> ${esc(t('amountPaid'))} (${esc(t('balance'))}: ${money(bal)})</label></div>
