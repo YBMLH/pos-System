@@ -550,6 +550,7 @@ const I18N = {
     rent:"Rent", electricity:"Electricity Bill", water:"Water Bill", cleaningSupplies:"Cleaning Supplies",
     specificItem:"Specific Item", other:"Other", specifyItem:"What was it?", todayExpenses:"Today's Expenses",
     extendRental:"Extend Rental", extendBy:"Extend by", newDueDate:"New due date", additionalCharge:"Additional charge",
+    editDates:"Edit dates", datesUpdated:"Dates updated", logEditDates:"Rental dates changed", dueBeforeStart:"Due date can't be before the start date",
     extended:"Rental extended", logExtend:"Rental extended", measureHint:"e.g. Height 165cm, Chest 90cm...",
     stockHistory:"Stock History", detail:"Detail", staff:"Staff", bestCustomer:"Best Repeat Customer",
     mostPopularItem:"Most Popular Item", purchases:"purchases", soldTimes:"Sold {n} times",
@@ -703,6 +704,7 @@ const I18N = {
     rent:"Loyer", electricity:"Facture d'électricité", water:"Facture d'eau", cleaningSupplies:"Produits d'entretien",
     specificItem:"Article spécifique", other:"Autre", specifyItem:"C'était quoi ?", todayExpenses:"Dépenses du jour",
     extendRental:"Prolonger la location", extendBy:"Prolonger de", newDueDate:"Nouvelle date de retour", additionalCharge:"Supplément",
+    editDates:"Modifier les dates", datesUpdated:"Dates mises à jour", logEditDates:"Dates de location modifiées", dueBeforeStart:"La date de retour ne peut pas précéder la date de début",
     extended:"Location prolongée", logExtend:"Location prolongée", measureHint:"ex. Taille 165cm, Poitrine 90cm...",
     stockHistory:"Historique du stock", detail:"Détail", staff:"Employé", bestCustomer:"Meilleur client fidèle",
     mostPopularItem:"Article le plus populaire", purchases:"achats", soldTimes:"Vendu {n} fois",
@@ -856,6 +858,7 @@ const I18N = {
     rent:"الإيجار", electricity:"فاتورة الكهرباء", water:"فاتورة الماء", cleaningSupplies:"مستلزمات التنظيف",
     specificItem:"عنصر محدد", other:"أخرى", specifyItem:"ما هو؟", todayExpenses:"مصاريف اليوم",
     extendRental:"تمديد الإيجار", extendBy:"تمديد لمدة", newDueDate:"تاريخ الإرجاع الجديد", additionalCharge:"رسوم إضافية",
+    editDates:"تعديل التواريخ", datesUpdated:"تم تحديث التواريخ", logEditDates:"تغيير تواريخ الإيجار", dueBeforeStart:"لا يمكن أن يكون تاريخ الإرجاع قبل تاريخ البدء",
     extended:"تم تمديد الإيجار", logExtend:"تم تمديد الإيجار", measureHint:"مثال: الطول 165سم، الصدر 90سم...",
     stockHistory:"سجل المخزون", detail:"التفاصيل", staff:"الموظف", bestCustomer:"أفضل عميل متكرر",
     mostPopularItem:"العنصر الأكثر مبيعاً", purchases:"عملية شراء", soldTimes:"بيع {n} مرة",
@@ -2469,6 +2472,7 @@ async function viewRentals(){
   view.querySelectorAll('[data-activate]').forEach(b=>b.onclick=async()=>activateReservation(await idbGet('rentals',b.dataset.activate)));
   view.querySelectorAll('[data-unactivate]').forEach(b=>b.onclick=async()=>revertToReserved(await idbGet('rentals',b.dataset.unactivate)));
   view.querySelectorAll('[data-extend]').forEach(b=>b.onclick=async()=>openExtendModal(await idbGet('rentals',b.dataset.extend)));
+  view.querySelectorAll('[data-editdates]').forEach(b=>b.onclick=async()=>openEditDatesModal(await idbGet('rentals',b.dataset.editdates)));
   view.querySelectorAll('[data-wa]').forEach(b=>b.onclick=async()=>{
     const r=await idbGet('rentals',b.dataset.wa); if(!r) return;
     const c=r.customerId? await idbGet('customers',r.customerId) : null;
@@ -2642,6 +2646,38 @@ async function openExtendModal(r){
     closeModal(); toast(t('extended'),'ok'); viewRentals();
   };
 }
+/* Correct the start/due dates of an active rental or reservation, without
+   charging (unlike Extend). Recomputes the day count; shows a live availability
+   check for the new window (excluding this rental itself). */
+async function openEditDatesModal(r){
+  if(!r || (r.status!=='active' && r.status!=='reserved')) return;
+  modal(t('editDates'),
+   `<p style="font-weight:700;font-size:16px;margin-bottom:14px">${esc(r.name)}<span class="subtle" style="font-weight:400"> · ${esc(r.customerName||'')}</span></p>
+    <div class="row2">
+      <div class="field"><label>${esc(t('startDate'))}</label><input id="ed_start" type="date" value="${esc(r.startDate||'')}"></div>
+      <div class="field"><label>${esc(t('dueDate'))}</label><input id="ed_due" type="date" value="${esc(r.dueDate||'')}"></div>
+    </div>
+    <div id="ed_avail" class="subtle" style="margin-bottom:4px"></div>`,
+   `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
+    <button class="btn" id="ed_go">${esc(t('save'))}</button>`);
+  const startI=document.getElementById('ed_start'), dueI=document.getElementById('ed_due'), availBox=document.getElementById('ed_avail');
+  async function refreshAvail(){
+    if(!r.productId){ availBox.innerHTML=''; return; }
+    const av=await computeAvailability(r.productId,startI.value,dueI.value,r.id); // exclude self
+    availBox.innerHTML=availabilityBadgeHtml(av);
+  }
+  startI.onchange=refreshAvail; dueI.onchange=refreshAvail; refreshAvail();
+  document.getElementById('ed_go').onclick=async()=>{
+    const start=startI.value, due=dueI.value;
+    const s=Date.parse(start), d=Date.parse(due);
+    if(s&&d&&d<s){ toast(t('dueBeforeStart'),'err'); return; }
+    r.startDate=start; r.dueDate=due;
+    if(s&&d) r.days=Math.max(1,Math.round((d-s)/86400000));
+    await idbPut('rentals',r);
+    await logAct('logEditDates', r.name+(r.customerName?' · '+r.customerName:'')+' · '+(start||'—')+' → '+(due||'—'));
+    closeModal(); toast(t('datesUpdated'),'ok'); viewRentals();
+  };
+}
 function rowRental(r,groupNames){
   const bal=Math.max(0,(r.price||0)+(r.lateFee||0)-(r.paid||0));
   const overdue=r.status==='active' && r.dueDate && Date.parse(r.dueDate)<Date.now();
@@ -2663,6 +2699,7 @@ function rowRental(r,groupNames){
       <button class="btn ghost sm" data-agr="${r.id}" title="${esc(t('rentAgreement'))}">${svg(IC.print,'ic')}</button>
       ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-wa="${r.id}" title="${esc(t('waRemind'))}" style="color:var(--ok)">${svg(IC.chat,'ic')}</button>`:''}
       ${r.status==='reserved'?`<button class="btn secondary sm" data-activate="${r.id}">${esc(t('rentOut'))}</button>`:''}
+      ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-editdates="${r.id}" title="${esc(t('editDates'))}">${svg(IC.edit,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn ghost sm" data-unactivate="${r.id}" title="${esc(t('backToReserved'))}">${svg(IC.back,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn ghost sm" data-extend="${r.id}" title="${esc(t('extendRental'))}">${svg(IC.plus,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn secondary sm" data-return="${r.id}">${svg(IC.ret,'ic')}${esc(t('markReturned'))}</button>`:''}
@@ -2674,12 +2711,12 @@ function rowRental(r,groupNames){
    rental modal's per-line checks). Total units = on-shelf qty + units
    currently out on active rentals; a window is available while overlapping
    bookings stay below that total. */
-async function computeAvailability(pid,startVal,dueVal){
+async function computeAvailability(pid,startVal,dueVal,excludeId){
   const DAY=86400000, today=Date.parse(todayISO());
   const s=Date.parse(startVal)||today, d=Date.parse(dueVal)||s;
   const p=await idbGet('products',pid);
   const bookings=(await idbAll('rentals'))
-    .filter(x=>x.productId===pid && (x.status==='active'||x.status==='reserved'))
+    .filter(x=>x.productId===pid && x.id!==excludeId && (x.status==='active'||x.status==='reserved'))
     .map(x=>{
       let xs=Date.parse(x.startDate)||x.createdAt, xd=Date.parse(x.dueDate)||xs+DAY;
       if(x.status==='active' && xd<today) xd=today; // overdue: the unit is still out
