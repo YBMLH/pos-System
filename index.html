@@ -2710,10 +2710,8 @@ async function openRentalModal(presetPid){
     </div>
     <div class="field"><label class="check"><input type="checkbox" id="r_reserve"> ${esc(t('reserveItem'))}</label></div>
     <div class="field"><label>${esc(t('chooseItem'))} *</label>
-      <div style="display:flex;gap:8px">
-        <select id="r_itemPicker" style="flex:1"><option value="">—</option>${products.map(p=>`<option value="${p.id}" data-rate="${p.rentRate||0}" data-unit="${p.rentUnit||'day'}">${esc(p.name)} ${[p.size,p.color].filter(Boolean).map(esc).join(' ')}</option>`).join('')}</select>
-        <button class="btn secondary" type="button" id="r_addItem">${svg(IC.plus,'ic')}${esc(t('add'))}</button>
-      </div>
+      <div class="searchbar">${svg(IC.search,'ic')}<input id="r_itemSearch" type="search" placeholder="${esc(t('searchProducts'))}" autocomplete="off"></div>
+      <div id="r_itemResults" style="max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:9px;margin-top:5px;display:none"></div>
       <span class="hint">${esc(t('rentableOnly'))}</span></div>
     <div id="r_lines"></div>
     <div id="r_linesFoot" style="margin-bottom:10px"></div>
@@ -2729,7 +2727,7 @@ async function openRentalModal(presetPid){
     </div>`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
     <button class="btn" id="r_go">${esc(t('rentOut'))}</button>`,{lg:true});
-  const itemPicker=document.getElementById('r_itemPicker'), paidI=document.getElementById('r_paid');
+  const itemSearch=document.getElementById('r_itemSearch'), itemResults=document.getElementById('r_itemResults'), paidI=document.getElementById('r_paid');
   const startI=document.getElementById('r_start'), dueI=document.getElementById('r_due');
   const linesBox=document.getElementById('r_lines'), linesFoot=document.getElementById('r_linesFoot');
   let lines=[]; // {productId,name,rate,unit,price,deposit,touched}
@@ -2768,13 +2766,30 @@ async function openRentalModal(presetPid){
     });
   }
   function addLine(pid){
-    if(!pid || lines.some(l=>l.productId===pid)) return; // no duplicate same-item lines
-    const opt=[...itemPicker.options].find(o=>o.value===pid); if(!opt) return;
-    const rate=Number(opt.dataset.rate||0), unit=opt.dataset.unit;
-    lines.push({productId:pid, name:opt.textContent.trim(), rate, unit, price:defaultPrice(rate,unit), deposit:0, touched:false});
+    if(!pid || lines.some(l=>l.productId===pid)){ return; } // no duplicate same-item lines
+    const p=products.find(x=>x.id===pid); if(!p) return;
+    const rate=Number(p.rentRate||0), unit=p.rentUnit||'day';
+    const label=(p.name+' '+[p.size,p.color].filter(Boolean).join(' ')).trim();
+    lines.push({productId:pid, name:label, rate, unit, price:defaultPrice(rate,unit), deposit:0, touched:false});
     renderLines();
   }
-  document.getElementById('r_addItem').onclick=()=>{ const pid=itemPicker.value; if(!pid){ toast(t('required'),'err'); return; } addLine(pid); itemPicker.value=''; };
+  // Type to find a dress by name / color / size / barcode; tap a result to add it.
+  function renderItemResults(){
+    const q=itemSearch.value.trim().toLowerCase();
+    if(!q){ itemResults.style.display='none'; itemResults.innerHTML=''; return; }
+    const matches=products.filter(p=>[p.name,p.color,p.size,p.barcode].some(x=>String(x||'').toLowerCase().includes(q))).slice(0,8);
+    itemResults.style.display='block';
+    if(!matches.length){ itemResults.innerHTML=`<div class="subtle" style="padding:12px;text-align:center;font-size:12.5px">${esc(t('nothingYet'))}</div>`; return; }
+    itemResults.innerHTML=matches.map(p=>{
+      const inCart=lines.some(l=>l.productId===p.id);
+      const rateTxt=p.rentRate?money(p.rentRate)+(p.rentUnit==='day'?' '+t('perDay'):''):'';
+      return `<button type="button" class="citem" data-pick="${p.id}" ${inCart?'disabled':''} style="width:100%;text-align:start;border:none;background:${inCart?'var(--brand-100)':'none'};border-bottom:1px solid var(--line);opacity:${inCart?'.6':'1'}">
+        <div class="nm">${esc(p.name)}<small>${[p.size,p.color].filter(Boolean).map(esc).join(' · ')}${rateTxt?(([p.size,p.color].filter(Boolean).length?' · ':'')+rateTxt):''}${inCart?' · ✓':''}</small></div>
+      </button>`;
+    }).join('');
+    itemResults.querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{ addLine(b.dataset.pick); itemSearch.value=''; renderItemResults(); itemSearch.focus(); });
+  }
+  itemSearch.oninput=renderItemResults;
   // Changing the date window re-checks every line's availability, and refreshes
   // the auto price only for lines the cashier hasn't manually edited yet.
   async function onDatesChanged(){
