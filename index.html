@@ -3168,9 +3168,9 @@ async function openCustomerLedger(cust){
   const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cust.id);
   const pays=(await idbAll('payments')).filter(p=>p.customerId===cust.id && p.refType==='repayment');
   let rows=[];
-  sales.forEach(s=>rows.push({ts:s.createdAt,type:t('saleType'),amt:s.total,paid:s.paid,cls:'grey'}));
-  rentals.forEach(r=>rows.push({ts:r.createdAt,type:t('rentalType'),amt:(r.price+(r.lateFee||0)),paid:r.paid,cls:'gold'}));
-  pays.forEach(p=>rows.push({ts:p.createdAt,type:t('repayment'),amt:0,paid:p.amount,cls:'green'}));
+  sales.forEach(s=>rows.push({ts:s.createdAt,type:t('saleType'),item:(s.items||[]).map(i=>i.name+(i.qty>1?' ×'+i.qty:'')).join(', '),amt:s.total,paid:s.paid,cls:'grey'}));
+  rentals.forEach(r=>rows.push({ts:r.createdAt,type:t('rentalType'),item:r.name||'',amt:(r.price+(r.lateFee||0)),paid:r.paid,cls:'gold'}));
+  pays.forEach(p=>rows.push({ts:p.createdAt,type:t('repayment'),item:'',amt:0,paid:p.amount,cls:'green'}));
   rows.sort((a,b)=>b.ts-a.ts);
   const bal=await customerBalance(cust.id);
   const points=await customerPoints(cust.id);
@@ -3209,9 +3209,10 @@ async function openCustomerLedger(cust){
       </div>
       <input type="file" id="cust_idFile" accept="image/*" capture="environment" class="hidden">
     </div>
-    <div class="tablewrap"><table><thead><tr><th>${esc(t('date'))}</th><th>${esc(t('type'))}</th><th class="t-right">${esc(t('amount'))}</th><th class="t-right">${esc(t('paid'))}</th></tr></thead>
+    <div class="tablewrap"><table><thead><tr><th>${esc(t('date'))}</th><th>${esc(t('type'))}</th><th>${esc(t('item'))}</th><th class="t-right">${esc(t('amount'))}</th><th class="t-right">${esc(t('paid'))}</th></tr></thead>
     <tbody>${rows.map(r=>`<tr><td class="mono subtle">${fmtDate(r.ts)}</td><td><span class="badge ${r.cls}">${esc(r.type)}</span></td>
-      <td class="t-right mono">${r.amt?money(r.amt):'—'}</td><td class="t-right mono">${money(r.paid)}</td></tr>`).join('')||`<tr><td colspan="4" class="subtle" style="text-align:center;padding:18px">${esc(t('nothingYet'))}</td></tr>`}</tbody></table></div>`,
+      <td>${r.item?esc(r.item):'—'}</td>
+      <td class="t-right mono">${r.amt?money(r.amt):'—'}</td><td class="t-right mono">${money(r.paid)}</td></tr>`).join('')||`<tr><td colspan="5" class="subtle" style="text-align:center;padding:18px">${esc(t('nothingYet'))}</td></tr>`}</tbody></table></div>`,
    `<button class="btn ghost sm" id="cl_del" style="color:var(--danger);margin-inline-end:auto">${svg(IC.trash,'ic')}${esc(t('deleteClient'))}</button>
     <button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>
     <button class="btn secondary" id="cl_save">${esc(t('save'))}</button>
