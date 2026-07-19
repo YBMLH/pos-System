@@ -568,7 +568,7 @@ const I18N = {
     idPhoto:"ID Photo", addPhoto:"Add photo", replacePhoto:"Replace photo", remove:"Remove", rentedTimes:"Rented {n}×",
     clients:"Clients", clientsSub:"All customers, ranked by loyalty score", score:"Score",
     totalSpent:"Total spent", visits:"Visits", lastVisit:"Last visit", addCustomer:"Add customer",
-    customerSaved:"Customer saved", rankBy:"Rank by", byScore:"Score", bySpent:"Spending", byRating:"Rating", byName:"Name",
+    customerSaved:"Customer saved", deleteClient:"Delete client", deleteClientConfirm:"Delete this client profile? Their past sales and rentals stay in history.", clientHasDebt:"This client still owes money — settle the balance before deleting.", logCustDel:"Client deleted", rankBy:"Rank by", byScore:"Score", bySpent:"Spending", byRating:"Rating", byName:"Name",
     noClientsYet:"No customers yet", noClientsMsg:"Customers you add at checkout, on rentals, or here will appear ranked by loyalty.",
     searchClients:"Search by name or phone…", topClient:"Top client", loyalty:"Loyalty", neverVisited:"—",
     refundAmount:"Refund amount", storeKeeps:"Store keeps", refundToCustomer:"Refund to customer",
@@ -720,7 +720,7 @@ const I18N = {
     idPhoto:"Photo d'identité", addPhoto:"Ajouter une photo", replacePhoto:"Remplacer la photo", remove:"Supprimer", rentedTimes:"Loué {n}×",
     clients:"Clients", clientsSub:"Tous les clients, classés par score de fidélité", score:"Score",
     totalSpent:"Total dépensé", visits:"Visites", lastVisit:"Dernière visite", addCustomer:"Ajouter un client",
-    customerSaved:"Client enregistré", rankBy:"Classer par", byScore:"Score", bySpent:"Dépenses", byRating:"Évaluation", byName:"Nom",
+    customerSaved:"Client enregistré", deleteClient:"Supprimer le client", deleteClientConfirm:"Supprimer ce profil client ? Ses ventes et locations passées restent dans l'historique.", clientHasDebt:"Ce client doit encore de l'argent — réglez le solde avant de supprimer.", logCustDel:"Client supprimé", rankBy:"Classer par", byScore:"Score", bySpent:"Dépenses", byRating:"Évaluation", byName:"Nom",
     noClientsYet:"Aucun client", noClientsMsg:"Les clients ajoutés à la caisse, sur les locations ou ici apparaîtront classés par fidélité.",
     searchClients:"Rechercher par nom ou téléphone…", topClient:"Meilleur client", loyalty:"Fidélité", neverVisited:"—",
     refundAmount:"Montant remboursé", storeKeeps:"La boutique garde", refundToCustomer:"Rembourser au client",
@@ -872,7 +872,7 @@ const I18N = {
     idPhoto:"صورة الهوية", addPhoto:"إضافة صورة", replacePhoto:"استبدال الصورة", remove:"إزالة", rentedTimes:"أُجّر {n}×",
     clients:"العملاء", clientsSub:"كل العملاء، مرتبون حسب نقاط الولاء", score:"النقاط",
     totalSpent:"إجمالي الإنفاق", visits:"الزيارات", lastVisit:"آخر زيارة", addCustomer:"إضافة عميل",
-    customerSaved:"تم حفظ العميل", rankBy:"الترتيب حسب", byScore:"النقاط", bySpent:"الإنفاق", byRating:"التقييم", byName:"الاسم",
+    customerSaved:"تم حفظ العميل", deleteClient:"حذف العميل", deleteClientConfirm:"حذف ملف هذا العميل؟ تبقى مبيعاته وإيجاراته السابقة في السجل.", clientHasDebt:"لا يزال على هذا العميل مبلغ مستحق — سوِّ الرصيد قبل الحذف.", logCustDel:"تم حذف العميل", rankBy:"الترتيب حسب", byScore:"النقاط", bySpent:"الإنفاق", byRating:"التقييم", byName:"الاسم",
     noClientsYet:"لا يوجد عملاء بعد", noClientsMsg:"العملاء الذين تضيفهم عند الدفع أو في الإيجارات أو من هنا سيظهرون مرتبين حسب الولاء.",
     searchClients:"ابحث بالاسم أو الهاتف…", topClient:"أفضل عميل", loyalty:"الولاء", neverVisited:"—",
     refundAmount:"مبلغ الاسترجاع", storeKeeps:"يحتفظ المتجر بـ", refundToCustomer:"إرجاع للعميل",
@@ -1077,7 +1077,7 @@ function guardDelete(store,id,actionKey,detail,onDone,msg){
 }
 function actLabel(a){ return t(a)||a; }
 function actBadge(a){
-  const red=['logRefund','logProdDel','logExpDel','logStaffDel'];
+  const red=['logRefund','logProdDel','logExpDel','logStaffDel','logCustDel'];
   const green=['logSale','logPayment','logReturn'];
   const gold=['logRental'];
   const cls=red.includes(a)?'red':green.includes(a)?'green':gold.includes(a)?'gold':(a==='logLogin'?'brand':'grey');
@@ -2144,13 +2144,15 @@ function addToCart(p, priceOverride){
   return true;
 }
 /* Global scan: a barcode scanned anywhere routes by product type —
-   sale-only -> straight to the cart; anything rentable (rent-only OR both) ->
-   ask Buy or Rent, so the cashier decides per transaction. */
+   sale-only -> straight to the cart; rent-only -> rental form preselected;
+   both -> ask Buy or Rent. */
 async function handleGlobalScan(code){
   const hit=(await getProducts()).find(p=>p.barcode===code);
   if(!hit){ toast(t('scanNotFound'),'err'); return; }
-  if(hit.mode==='rent' || hit.mode==='both'){ scanChoiceModal(hit); return; }
-  scanSale(hit);
+  const canSell=hit.mode!=='rent', canRent=(hit.mode==='rent'||hit.mode==='both');
+  if(canSell && canRent){ scanChoiceModal(hit); return; }  // both -> choice
+  if(canRent){ scanRent(hit); return; }                    // rent-only -> rental form
+  scanSale(hit);                                           // sale-only -> cart
 }
 async function refreshCartView(){
   if(State.route!=='pos'){ State.route='pos'; renderApp(); }  // viewPOS() redraws the cart
@@ -3210,7 +3212,8 @@ async function openCustomerLedger(cust){
     <div class="tablewrap"><table><thead><tr><th>${esc(t('date'))}</th><th>${esc(t('type'))}</th><th class="t-right">${esc(t('amount'))}</th><th class="t-right">${esc(t('paid'))}</th></tr></thead>
     <tbody>${rows.map(r=>`<tr><td class="mono subtle">${fmtDate(r.ts)}</td><td><span class="badge ${r.cls}">${esc(r.type)}</span></td>
       <td class="t-right mono">${r.amt?money(r.amt):'—'}</td><td class="t-right mono">${money(r.paid)}</td></tr>`).join('')||`<tr><td colspan="4" class="subtle" style="text-align:center;padding:18px">${esc(t('nothingYet'))}</td></tr>`}</tbody></table></div>`,
-   `<button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>
+   `<button class="btn ghost sm" id="cl_del" style="color:var(--danger);margin-inline-end:auto">${svg(IC.trash,'ic')}${esc(t('deleteClient'))}</button>
+    <button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>
     <button class="btn secondary" id="cl_save">${esc(t('save'))}</button>
     ${bal>0?`<button class="btn" id="cl_pay">${esc(t('addPayment'))}</button>`:''}`,{lg:true});
   let selRating=rating;
@@ -3227,6 +3230,13 @@ async function openCustomerLedger(cust){
   };
   idRemove&&(idRemove.onclick=()=>{ idPhotoData=''; idWrap.innerHTML=''; idRemove.style.display='none'; idBtn.innerHTML=`${svg(IC.camera||IC.box,'ic')}${esc(t('addPhoto'))}`; });
   document.getElementById('cl_pay')&&(document.getElementById('cl_pay').onclick=()=>{ closeModal(); openPaymentModal(cust); });
+  document.getElementById('cl_del').onclick=async()=>{
+    // Never delete someone who still owes money — that would erase a debt.
+    if((await customerBalance(cust.id))>0){ toast(t('clientHasDebt'),'err'); return; }
+    closeModal();
+    // Past sales/rentals keep their stored customerName, so history is preserved.
+    guardDelete('customers',cust.id,'logCustDel',cust.name,()=>{ if(State.route==='customers') viewCustomers(); else if(State.route==='ledger') viewLedger(); });
+  };
   document.getElementById('cl_save').onclick=async()=>{
     cust.tags=document.getElementById('cust_tags').value.trim();
     cust.measurements=document.getElementById('cust_measure').value.trim();
