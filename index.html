@@ -2805,7 +2805,10 @@ function rowRental(group){
 /* Unit-aware availability for one product across a date window (shared by the
    rental modal's per-line checks). Total units = on-shelf qty + units
    currently out on active rentals; a window is available while overlapping
-   bookings stay below that total. */
+   bookings stay below that total. Same-day turnaround is allowed: a rental
+   may start on the very day another ends (one client returns on the 14th,
+   the next takes it that evening), so windows that only touch at the
+   return/pickup day are NOT counted as overlapping. */
 async function computeAvailability(pid,startVal,dueVal,excludeId){
   const DAY=86400000, today=Date.parse(todayISO());
   const s=Date.parse(startVal)||today, d=Date.parse(dueVal)||s;
@@ -2819,9 +2822,10 @@ async function computeAvailability(pid,startVal,dueVal,excludeId){
     }).sort((a,b)=>a.xs-b.xs);
   const activeCount=bookings.filter(b=>b.status==='active').length;
   const totalUnits=(p?p.qty||0:0)+activeCount;
-  const overlap=bookings.filter(x=>s<=x.xd && d>=x.xs).length;
+  // strict boundaries → touching only at the handoff day is free, not a clash
+  const overlap=bookings.filter(x=>s<x.xd && d>x.xs).length;
   const freeInWindow=Math.max(0,totalUnits-overlap);
-  const events=[]; bookings.forEach(b=>{ events.push([b.xs,1],[b.xd+DAY,-1]); });
+  const events=[]; bookings.forEach(b=>{ events.push([b.xs,1],[b.xd,-1]); }); // frees on the due date (same-day turnaround)
   events.sort((a,b)=>a[0]-b[0]);
   let busy=events.filter(e=>e[0]<=today).reduce((a,e)=>a+e[1],0), freeFrom=today;
   if(busy>=totalUnits){ for(const [t0,delta] of events){ if(t0<=today) continue; busy+=delta; if(busy<totalUnits){ freeFrom=t0; break; } } }
