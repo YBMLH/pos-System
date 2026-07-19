@@ -3421,10 +3421,13 @@ async function openCustomerLedger(cust){
   const heldTotal=heldDeposits.reduce((a,r)=>a+(r.deposit||0),0);
   const starRow=[1,2,3,4,5].map(n=>`<span class="star ${n<=rating?'on':''}" data-star="${n}" style="cursor:pointer;font-size:22px;color:${n<=rating?'var(--gold)':'var(--line)'}">★</span>`).join('');
   modal(cust.name,
-   `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+   `<div class="row2">
+      <div class="field"><label>${esc(t('name'))} *</label><input id="cust_name" type="text" value="${esc(cust.name)}"></div>
+      <div class="field"><label>${esc(t('phone'))}</label><input id="cust_phone" type="tel" inputmode="tel" value="${esc(cust.phone||'')}" placeholder="${esc(t('optional'))}"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
       <span class="subtle">${esc(t('balance'))}: <b style="color:${bal>0?'var(--danger)':'var(--ok)'}">${money(bal)}</b></span>
       <span class="badge brand" style="font-size:13px">${points} ${esc(t('points'))}</span>
-      ${cust.phone?`<span class="subtle">${esc(cust.phone)}</span>`:''}
     </div>
     ${heldDeposits.length?`<div class="card pad" style="margin-bottom:12px;padding:12px 14px;background:var(--brand-100);border:none">
       <div style="display:flex;align-items:center;margin-bottom:4px">
@@ -3487,13 +3490,25 @@ async function openCustomerLedger(cust){
     guardDelete('customers',cust.id,'logCustDel',cust.name,()=>{ if(State.route==='customers') viewCustomers(); else if(State.route==='ledger') viewLedger(); });
   };
   document.getElementById('cl_save').onclick=async()=>{
+    const newName=document.getElementById('cust_name').value.trim();
+    if(!newName){ toast(t('required'),'err'); return; }
+    const nameChanged = newName!==cust.name;
+    cust.name=newName;
+    cust.phone=document.getElementById('cust_phone').value.trim();
     cust.tags=document.getElementById('cust_tags').value.trim();
     cust.measurements=document.getElementById('cust_measure').value.trim();
     cust.notes=document.getElementById('cust_notes').value.trim();
     cust.rating=selRating;
     cust.idPhoto=idPhotoData;
-    await idbPut('customers',cust); toast(t('saved')||t('paymentSaved'),'ok'); closeModal();
-    if(State.route==='customers') viewCustomers();
+    await idbPut('customers',cust);
+    // Keep the denormalised name in sync across this client's sales & rentals,
+    // so a corrected name shows everywhere (lists, history) not just the profile.
+    if(nameChanged){
+      for(const s of (await idbAll('sales')).filter(x=>x.customerId===cust.id)){ if(s.customerName!==newName){ s.customerName=newName; await idbPut('sales',s); } }
+      for(const r of (await idbAll('rentals')).filter(x=>x.customerId===cust.id)){ if(r.customerName!==newName){ r.customerName=newName; await idbPut('rentals',r); } }
+    }
+    toast(t('saved')||t('paymentSaved'),'ok'); closeModal();
+    if(State.route==='customers') viewCustomers(); else if(State.route==='ledger') viewLedger();
   };
 }
 
