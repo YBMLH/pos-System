@@ -2599,7 +2599,7 @@ async function revertToReserved(r){
 /* Cancel a rental or reservation: restore stock (only if it was checked out),
    reverse any rent paid + deposit in the till, and mark it cancelled so it
    drops out of balances, points and reports. Cashiers need the manager code. */
-async function cancelRental(r){
+async function cancelRental(r,onDone){
   if(!r || (r.status!=='active' && r.status!=='reserved')) return;
   confirmDialog(t('cancelRentalConfirm'),()=>{
     requireAuth(async(how)=>{
@@ -2612,7 +2612,7 @@ async function cancelRental(r){
       r.status='cancelled'; r.cancelledAt=now(); if((r.deposit||0)>0) r.depositRefunded=true;
       await idbPut('rentals',r);
       await logAct('logCancelRental', r.name+(r.customerName?' · '+r.customerName:'')+(how==='code'?(' · '+t('authorizedBy')):''));
-      toast(t('rentalCancelled'),'ok'); viewRentals();
+      toast(t('rentalCancelled'),'ok'); (onDone||viewRentals)();
     });
   },true);
 }
@@ -3206,7 +3206,8 @@ async function openCustomerLedger(cust){
   const pays=(await idbAll('payments')).filter(p=>p.customerId===cust.id && p.refType==='repayment');
   let rows=[];
   sales.forEach(s=>rows.push({ts:s.createdAt,type:t('saleType'),item:(s.items||[]).map(i=>i.name+(i.qty>1?' ×'+i.qty:'')).join(', '),amt:s.total,paid:s.paid,cls:'grey'}));
-  rentals.forEach(r=>rows.push({ts:r.createdAt,type:t('rentalType'),item:r.name||'',amt:(r.price+(r.lateFee||0)),paid:r.paid,cls:'gold'}));
+  // active/reserved rentals can be cancelled from here (fixes accidental duplicates)
+  rentals.forEach(r=>rows.push({ts:r.createdAt,type:t('rentalType'),item:r.name||'',amt:(r.price+(r.lateFee||0)),paid:r.paid,cls:'gold',cancelId:(r.status==='active'||r.status==='reserved')?r.id:null}));
   pays.forEach(p=>rows.push({ts:p.createdAt,type:t('repayment'),item:'',amt:0,paid:p.amount,cls:'green'}));
   rows.sort((a,b)=>b.ts-a.ts);
   const bal=await customerBalance(cust.id);
@@ -3246,10 +3247,11 @@ async function openCustomerLedger(cust){
       </div>
       <input type="file" id="cust_idFile" accept="image/*" capture="environment" class="hidden">
     </div>
-    <div class="tablewrap"><table><thead><tr><th>${esc(t('date'))}</th><th>${esc(t('type'))}</th><th>${esc(t('item'))}</th><th class="t-right">${esc(t('amount'))}</th><th class="t-right">${esc(t('paid'))}</th></tr></thead>
+    <div class="tablewrap"><table><thead><tr><th>${esc(t('date'))}</th><th>${esc(t('type'))}</th><th>${esc(t('item'))}</th><th class="t-right">${esc(t('amount'))}</th><th class="t-right">${esc(t('paid'))}</th><th></th></tr></thead>
     <tbody>${rows.map(r=>`<tr><td class="mono subtle">${fmtDate(r.ts)}</td><td><span class="badge ${r.cls}">${esc(r.type)}</span></td>
       <td>${r.item?esc(r.item):'—'}</td>
-      <td class="t-right mono">${r.amt?money(r.amt):'—'}</td><td class="t-right mono">${money(r.paid)}</td></tr>`).join('')||`<tr><td colspan="5" class="subtle" style="text-align:center;padding:18px">${esc(t('nothingYet'))}</td></tr>`}</tbody></table></div>`,
+      <td class="t-right mono">${r.amt?money(r.amt):'—'}</td><td class="t-right mono">${money(r.paid)}</td>
+      <td class="t-right">${r.cancelId?`<button class="btn ghost sm" data-cancelrent="${r.cancelId}" title="${esc(t('cancelRental'))}" style="color:var(--danger)">${svg(IC.trash,'ic')}</button>`:''}</td></tr>`).join('')||`<tr><td colspan="6" class="subtle" style="text-align:center;padding:18px">${esc(t('nothingYet'))}</td></tr>`}</tbody></table></div>`,
    `<button class="btn ghost sm" id="cl_del" style="color:var(--danger);margin-inline-end:auto">${svg(IC.trash,'ic')}${esc(t('deleteClient'))}</button>
     <button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>
     <button class="btn secondary" id="cl_save">${esc(t('save'))}</button>
@@ -3268,6 +3270,13 @@ async function openCustomerLedger(cust){
   };
   idRemove&&(idRemove.onclick=()=>{ idPhotoData=''; idWrap.innerHTML=''; idRemove.style.display='none'; idBtn.innerHTML=`${svg(IC.camera||IC.box,'ic')}${esc(t('addPhoto'))}`; });
   document.getElementById('cl_pay')&&(document.getElementById('cl_pay').onclick=()=>{ closeModal(); openPaymentModal(cust); });
+  // Cancel a rental straight from the profile (reverses money, restores stock)
+  // then reopen the profile so the change is visible immediately.
+  document.querySelectorAll('[data-cancelrent]').forEach(b=>b.onclick=async()=>{
+    const r=await idbGet('rentals',b.dataset.cancelrent); if(!r) return;
+    closeModal();
+    cancelRental(r, async()=>{ openCustomerLedger(await idbGet('customers',cust.id)); if(State.route==='customers') viewCustomers(); else if(State.route==='ledger') viewLedger(); });
+  });
   document.getElementById('cl_del').onclick=async()=>{
     // Never delete someone who still owes money — that would erase a debt.
     if((await customerBalance(cust.id))>0){ toast(t('clientHasDebt'),'err'); return; }
