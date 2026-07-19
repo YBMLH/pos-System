@@ -534,7 +534,8 @@ const I18N = {
     cashCount:"Count cash drawer", expectedCash:"Expected cash", actualCash:"Actual cash", difference:"Difference",
     paymentMethod:"Payment method", cash:"Cash", card:"Card", mobile:"Mobile", reprint:"Reprint receipt",
     globalSearch:"Search everything...", undo:"Undo", undone:"Action undone", darkMode:"Dark mode",
-    reserveItem:"Reserve for future date", reserved:"Reserved", availability:"Availability", available:"Available",
+    reserveItem:"Reserve for future date", reserved:"Reserved",
+    activateConfirm:"Mark this reservation as picked up now? This takes the item out of stock.", backToReserved:"Back to reserved", backToReservedConfirm:"Move this rental back to reserved? The item returns to stock — use this if the customer hasn't picked it up yet.", revertedToReserved:"Moved back to reserved", logRevertReserve:"Reverted to reserved", availability:"Availability", available:"Available",
     lateFeePerDay:"Late fee per day", suggestedLateFee:"Suggested late fee", requireReason:"Reason required",
     reasonForAction:"Reason", backupReminder:"It's been a while since your last backup. Back up now?",
     branch:"Branch", branches:"Branches", allBranches:"All branches", switchBranch:"Switch branch",
@@ -686,7 +687,8 @@ const I18N = {
     cashCount:"Compter la caisse", expectedCash:"Attendu", actualCash:"Réel", difference:"Différence",
     paymentMethod:"Mode de paiement", cash:"Espèces", card:"Carte", mobile:"Mobile", reprint:"Réimprimer",
     globalSearch:"Tout rechercher...", undo:"Annuler", undone:"Action annulée", darkMode:"Mode sombre",
-    reserveItem:"Réserver pour plus tard", reserved:"Réservé", availability:"Disponibilité", available:"Disponible",
+    reserveItem:"Réserver pour plus tard", reserved:"Réservé",
+    activateConfirm:"Marquer cette réservation comme retirée maintenant ? L'article sort du stock.", backToReserved:"Remettre en réservé", backToReservedConfirm:"Remettre cette location en réservé ? L'article revient en stock — utilisez ceci si le client n'a pas encore retiré l'article.", revertedToReserved:"Remis en réservé", logRevertReserve:"Remis en réservé", availability:"Disponibilité", available:"Disponible",
     lateFeePerDay:"Pénalité par jour", suggestedLateFee:"Pénalité suggérée", requireReason:"Raison requise",
     reasonForAction:"Raison", backupReminder:"Cela fait longtemps depuis votre dernière sauvegarde. Sauvegarder maintenant ?",
     branch:"Filiale", branches:"Filiales", allBranches:"Toutes les filiales", switchBranch:"Changer de filiale",
@@ -838,7 +840,8 @@ const I18N = {
     cashCount:"جرد الصندوق", expectedCash:"المتوقع", actualCash:"الفعلي", difference:"الفرق",
     paymentMethod:"طريقة الدفع", cash:"نقدي", card:"بطاقة", mobile:"محفظة إلكترونية", reprint:"إعادة الطباعة",
     globalSearch:"ابحث في كل شيء...", undo:"تراجع", undone:"تم التراجع", darkMode:"الوضع الداكن",
-    reserveItem:"حجز لتاريخ لاحق", reserved:"محجوز", availability:"التوفر", available:"متاح",
+    reserveItem:"حجز لتاريخ لاحق", reserved:"محجوز",
+    activateConfirm:"تحديد هذا الحجز كمُستلَم الآن؟ سيخرج العنصر من المخزون.", backToReserved:"إرجاع إلى محجوز", backToReservedConfirm:"إرجاع هذا الإيجار إلى محجوز؟ يعود العنصر إلى المخزون — استخدم هذا إذا لم يستلم العميل العنصر بعد.", revertedToReserved:"أُعيد إلى محجوز", logRevertReserve:"أُعيد إلى محجوز", availability:"التوفر", available:"متاح",
     lateFeePerDay:"غرامة التأخير يومياً", suggestedLateFee:"الغرامة المقترحة", requireReason:"السبب مطلوب",
     reasonForAction:"السبب", backupReminder:"مرّ وقت طويل منذ آخر نسخة احتياطية. هل تريد النسخ الآن؟",
     branch:"الفرع", branches:"الفروع", allBranches:"كل الفروع", switchBranch:"تبديل الفرع",
@@ -2464,6 +2467,7 @@ async function viewRentals(){
   view.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=async()=>cancelRental(await idbGet('rentals',b.dataset.cancel)));
   view.querySelectorAll('[data-agr]').forEach(b=>b.onclick=async()=>{ const r=await idbGet('rentals',b.dataset.agr); if(r) offerRentalPreview(await rentalGroupOf(r)); });
   view.querySelectorAll('[data-activate]').forEach(b=>b.onclick=async()=>activateReservation(await idbGet('rentals',b.dataset.activate)));
+  view.querySelectorAll('[data-unactivate]').forEach(b=>b.onclick=async()=>revertToReserved(await idbGet('rentals',b.dataset.unactivate)));
   view.querySelectorAll('[data-extend]').forEach(b=>b.onclick=async()=>openExtendModal(await idbGet('rentals',b.dataset.extend)));
   view.querySelectorAll('[data-wa]').forEach(b=>b.onclick=async()=>{
     const r=await idbGet('rentals',b.dataset.wa); if(!r) return;
@@ -2566,14 +2570,31 @@ async function buildRentalCalendar(rentals){
     </div>
   </div>`;
 }
+/* Activate a reservation (customer picked the item up) — confirm first, since a
+   calendar/list misclick would otherwise silently pull a unit out of stock. */
 async function activateReservation(r){
-  if(!r) return;
-  const p=await idbGet('products',r.productId);
-  if(p){ if((p.qty||0)<=0){ toast(t('outOfStock'),'err'); return; } p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
-  r.status='active';
-  await idbPut('rentals',r);
-  await logAct('logRental', r.name+' · '+(r.customerName||''));
-  toast(t('rentalDone'),'ok'); viewRentals();
+  if(!r || r.status!=='reserved') return;
+  confirmDialog(t('activateConfirm'), async ()=>{
+    const p=await idbGet('products',r.productId);
+    if(p){ if((p.qty||0)<=0){ toast(t('outOfStock'),'err'); return; } p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
+    r.status='active';
+    await idbPut('rentals',r);
+    await logAct('logRental', r.name+' · '+(r.customerName||''));
+    toast(t('rentalDone'),'ok'); viewRentals();
+  });
+}
+/* Undo an activation done by mistake: put an active rental back to reserved and
+   return its unit to stock (the customer hasn't actually taken it). */
+async function revertToReserved(r){
+  if(!r || r.status!=='active') return;
+  confirmDialog(t('backToReservedConfirm'), async ()=>{
+    const p=await idbGet('products',r.productId);
+    if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); }
+    r.status='reserved';
+    await idbPut('rentals',r);
+    await logAct('logRevertReserve', r.name+' · '+(r.customerName||''));
+    toast(t('revertedToReserved'),'ok'); viewRentals();
+  });
 }
 /* Cancel a rental or reservation: restore stock (only if it was checked out),
    reverse any rent paid + deposit in the till, and mark it cancelled so it
@@ -2642,6 +2663,7 @@ function rowRental(r,groupNames){
       <button class="btn ghost sm" data-agr="${r.id}" title="${esc(t('rentAgreement'))}">${svg(IC.print,'ic')}</button>
       ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-wa="${r.id}" title="${esc(t('waRemind'))}" style="color:var(--ok)">${svg(IC.chat,'ic')}</button>`:''}
       ${r.status==='reserved'?`<button class="btn secondary sm" data-activate="${r.id}">${esc(t('rentOut'))}</button>`:''}
+      ${r.status==='active'?`<button class="btn ghost sm" data-unactivate="${r.id}" title="${esc(t('backToReserved'))}">${svg(IC.back,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn ghost sm" data-extend="${r.id}" title="${esc(t('extendRental'))}">${svg(IC.plus,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn secondary sm" data-return="${r.id}">${svg(IC.ret,'ic')}${esc(t('markReturned'))}</button>`:''}
       ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-cancel="${r.id}" title="${esc(t('cancelRental'))}" style="color:var(--danger)">${svg(IC.trash,'ic')}</button>`:''}
