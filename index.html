@@ -2129,7 +2129,7 @@ function refilterPOS(){ const s=document.getElementById('posSearch'); const pos=
    stock), so callers can show one consistent "added to cart" toast instead of
    each guessing whether it worked. Also flags the line for a brief highlight
    in drawCart() so the cashier sees exactly which row just changed. */
-function addToCart(p){
+function addToCart(p, priceOverride){
   if(!p) return false;
   const line=State.cart.find(l=>l.id===p.id);
   const inStock=p.qty||0;
@@ -2137,28 +2137,44 @@ function addToCart(p){
     if(line.qty<inStock){ line.qty++; } else { toast(t('outOfStock'),'err'); return false; }
   } else {
     if(inStock<=0){ toast(t('outOfStock'),'err'); return false; }
-    State.cart.push({id:p.id,name:p.name,size:p.size,color:p.color,price:p.salePrice,qty:1,stock:inStock});
+    const price = (priceOverride!=null) ? priceOverride : p.salePrice; // rent-only items are sold at a price entered at scan time
+    State.cart.push({id:p.id,name:p.name,size:p.size,color:p.color,price,qty:1,stock:inStock});
   }
   _cartFlashId=p.id;
   return true;
 }
 /* Global scan: a barcode scanned anywhere routes by product type —
-   sale-only -> straight to the cart; rent-only -> rental form preselected;
-   both -> ask Sale or Rental. */
+   sale-only -> straight to the cart; anything rentable (rent-only OR both) ->
+   ask Buy or Rent, so the cashier decides per transaction. */
 async function handleGlobalScan(code){
   const hit=(await getProducts()).find(p=>p.barcode===code);
   if(!hit){ toast(t('scanNotFound'),'err'); return; }
-  const canSell=hit.mode!=='rent', canRent=(hit.mode==='rent'||hit.mode==='both');
-  if(canSell && canRent){ scanChoiceModal(hit); return; }
-  if(canRent){ scanRent(hit); return; }
+  if(hit.mode==='rent' || hit.mode==='both'){ scanChoiceModal(hit); return; }
   scanSale(hit);
+}
+async function refreshCartView(){
+  if(State.route!=='pos'){ State.route='pos'; renderApp(); }  // viewPOS() redraws the cart
+  else { drawCart(await getProducts()); }
 }
 async function scanSale(hit){
   if((hit.qty||0)<=0){ toast(t('outOfStock'),'err'); return; }
-  addToCart(hit);
-  toast(hit.name+' · '+t('addedToCart'),'ok');
-  if(State.route!=='pos'){ State.route='pos'; renderApp(); }  // viewPOS() redraws the cart
-  else { drawCart(await getProducts()); }
+  if(hit.salePrice>0){ addToCart(hit); toast(hit.name+' · '+t('addedToCart'),'ok'); refreshCartView(); return; }
+  // No sale price on file (e.g. selling a normally rent-only piece) — ask for one,
+  // since the cart has no per-line price entry.
+  modal(t('saleType'),
+   `<p style="font-weight:700;font-size:15px;margin-bottom:10px">${esc(hit.name)}${hit.size?' · '+esc(hit.size):''}${hit.color?' · '+esc(hit.color):''}</p>
+    <div class="field"><label>${esc(t('price'))} *</label><input id="sp_price" type="number" min="0" step="0.01"></div>`,
+   `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
+    <button class="btn" id="sp_go">${esc(t('add'))}</button>`);
+  setTimeout(()=>document.getElementById('sp_price')?.focus(),40);
+  document.getElementById('sp_go').onclick=()=>{
+    const price=Number(document.getElementById('sp_price').value||0);
+    if(price<=0){ toast(t('required'),'err'); return; }
+    closeModal();
+    addToCart(hit, price);
+    toast(hit.name+' · '+t('addedToCart'),'ok');
+    refreshCartView();
+  };
 }
 function scanRent(hit){
   State.route='rentals'; renderApp();
