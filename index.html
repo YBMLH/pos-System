@@ -3205,11 +3205,11 @@ async function openCustomerLedger(cust){
   const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cust.id);
   const pays=(await idbAll('payments')).filter(p=>p.customerId===cust.id && p.refType==='repayment');
   let rows=[];
-  // Reversed transactions (voided sales, cancelled rentals) drop out of the
-  // profile history — cancelling a duplicate makes its row disappear.
-  sales.filter(s=>!s.voided).forEach(s=>rows.push({ts:s.createdAt,type:t('saleType'),item:(s.items||[]).map(i=>i.name+(i.qty>1?' ×'+i.qty:'')).join(', '),amt:s.total,paid:s.paid,cls:'grey'}));
+  // Reversed transactions stay visible but clearly marked (Voided / Cancelled)
+  // and dimmed, so a cancelled duplicate is obvious rather than silently gone.
+  sales.forEach(s=>rows.push({ts:s.createdAt,type:t('saleType'),item:(s.items||[]).map(i=>i.name+(i.qty>1?' ×'+i.qty:'')).join(', '),amt:s.total,paid:s.paid,cls:'grey',dead:!!s.voided,deadLabel:t('voided')}));
   // active/reserved rentals can be cancelled from here (fixes accidental duplicates)
-  rentals.filter(r=>r.status!=='cancelled').forEach(r=>rows.push({ts:r.createdAt,type:t('rentalType'),item:r.name||'',amt:(r.price+(r.lateFee||0)),paid:r.paid,cls:'gold',cancelId:(r.status==='active'||r.status==='reserved')?r.id:null}));
+  rentals.forEach(r=>rows.push({ts:r.createdAt,type:t('rentalType'),item:r.name||'',amt:(r.price+(r.lateFee||0)),paid:r.paid,cls:'gold',cancelId:(r.status==='active'||r.status==='reserved')?r.id:null,dead:r.status==='cancelled',deadLabel:t('cancelled')}));
   pays.forEach(p=>rows.push({ts:p.createdAt,type:t('repayment'),item:'',amt:0,paid:p.amount,cls:'green'}));
   rows.sort((a,b)=>b.ts-a.ts);
   const bal=await customerBalance(cust.id);
@@ -3250,8 +3250,8 @@ async function openCustomerLedger(cust){
       <input type="file" id="cust_idFile" accept="image/*" capture="environment" class="hidden">
     </div>
     <div class="tablewrap"><table><thead><tr><th>${esc(t('date'))}</th><th>${esc(t('type'))}</th><th>${esc(t('item'))}</th><th class="t-right">${esc(t('amount'))}</th><th class="t-right">${esc(t('paid'))}</th><th></th></tr></thead>
-    <tbody>${rows.map(r=>`<tr><td class="mono subtle">${fmtDate(r.ts)}</td><td><span class="badge ${r.cls}">${esc(r.type)}</span></td>
-      <td>${r.item?esc(r.item):'—'}</td>
+    <tbody>${rows.map(r=>`<tr${r.dead?' style="opacity:.55"':''}><td class="mono subtle">${fmtDate(r.ts)}</td><td><span class="badge ${r.cls}">${esc(r.type)}</span>${r.dead?` <span class="badge red">${esc(r.deadLabel)}</span>`:''}</td>
+      <td>${r.item?(r.dead?`<s>${esc(r.item)}</s>`:esc(r.item)):'—'}</td>
       <td class="t-right mono">${r.amt?money(r.amt):'—'}</td><td class="t-right mono">${money(r.paid)}</td>
       <td class="t-right">${r.cancelId?`<button class="btn ghost sm" data-cancelrent="${r.cancelId}" title="${esc(t('cancelRental'))}" style="color:var(--danger)">${svg(IC.trash,'ic')}</button>`:''}</td></tr>`).join('')||`<tr><td colspan="6" class="subtle" style="text-align:center;padding:18px">${esc(t('nothingYet'))}</td></tr>`}</tbody></table></div>`,
    `<button class="btn ghost sm" id="cl_del" style="color:var(--danger);margin-inline-end:auto">${svg(IC.trash,'ic')}${esc(t('deleteClient'))}</button>
