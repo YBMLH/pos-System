@@ -537,6 +537,7 @@ const I18N = {
     paymentMethod:"Payment method", cash:"Cash", card:"Card", mobile:"Mobile", reprint:"Reprint receipt",
     globalSearch:"Search everything...", undo:"Undo", undone:"Action undone", darkMode:"Dark mode",
     reserveItem:"Reserve for future date", reserved:"Reserved",
+    futureReserveHint:"Pickup is a future date — saved as a reservation until then.",
     activateConfirm:"Mark this reservation as picked up now? This takes the item out of stock.", backToReserved:"Back to reserved", backToReservedConfirm:"Move this rental back to reserved? The item returns to stock — use this if the customer hasn't picked it up yet.", revertedToReserved:"Moved back to reserved", logRevertReserve:"Reverted to reserved", availability:"Availability", available:"Available",
     lateFeePerDay:"Late fee per day", suggestedLateFee:"Suggested late fee", requireReason:"Reason required",
     reasonForAction:"Reason", backupReminder:"It's been a while since your last backup. Back up now?",
@@ -693,6 +694,7 @@ const I18N = {
     paymentMethod:"Mode de paiement", cash:"Espèces", card:"Carte", mobile:"Mobile", reprint:"Réimprimer",
     globalSearch:"Tout rechercher...", undo:"Annuler", undone:"Action annulée", darkMode:"Mode sombre",
     reserveItem:"Réserver pour plus tard", reserved:"Réservé",
+    futureReserveHint:"Le retrait est à une date future — enregistré comme réservation jusque-là.",
     activateConfirm:"Marquer cette réservation comme retirée maintenant ? L'article sort du stock.", backToReserved:"Remettre en réservé", backToReservedConfirm:"Remettre cette location en réservé ? L'article revient en stock — utilisez ceci si le client n'a pas encore retiré l'article.", revertedToReserved:"Remis en réservé", logRevertReserve:"Remis en réservé", availability:"Disponibilité", available:"Disponible",
     lateFeePerDay:"Pénalité par jour", suggestedLateFee:"Pénalité suggérée", requireReason:"Raison requise",
     reasonForAction:"Raison", backupReminder:"Cela fait longtemps depuis votre dernière sauvegarde. Sauvegarder maintenant ?",
@@ -848,6 +850,7 @@ const I18N = {
     paymentMethod:"طريقة الدفع", cash:"نقدي", card:"بطاقة", mobile:"محفظة إلكترونية", reprint:"إعادة الطباعة",
     globalSearch:"ابحث في كل شيء...", undo:"تراجع", undone:"تم التراجع", darkMode:"الوضع الداكن",
     reserveItem:"حجز لتاريخ لاحق", reserved:"محجوز",
+    futureReserveHint:"تاريخ الاستلام مستقبلي — يُحفَظ كحجز حتى ذلك الحين.",
     activateConfirm:"تحديد هذا الحجز كمُستلَم الآن؟ سيخرج العنصر من المخزون.", backToReserved:"إرجاع إلى محجوز", backToReservedConfirm:"إرجاع هذا الإيجار إلى محجوز؟ يعود العنصر إلى المخزون — استخدم هذا إذا لم يستلم العميل العنصر بعد.", revertedToReserved:"أُعيد إلى محجوز", logRevertReserve:"أُعيد إلى محجوز", availability:"التوفر", available:"متاح",
     lateFeePerDay:"غرامة التأخير يومياً", suggestedLateFee:"الغرامة المقترحة", requireReason:"السبب مطلوب",
     reasonForAction:"السبب", backupReminder:"مرّ وقت طويل منذ آخر نسخة احتياطية. هل تريد النسخ الآن؟",
@@ -2866,7 +2869,7 @@ async function openRentalModal(presetPid){
       <div class="field"><label>${esc(t('startDate'))}</label><input id="r_start" type="date" value="${todayISO()}"></div>
       <div class="field"><label>${esc(t('dueDate'))}</label><input id="r_due" type="date"></div>
     </div>
-    <div class="field"><label class="check"><input type="checkbox" id="r_reserve"> ${esc(t('reserveItem'))}</label></div>
+    <div class="field"><label class="check"><input type="checkbox" id="r_reserve"> ${esc(t('reserveItem'))}</label><span class="hint hidden" id="r_reserveHint">${esc(t('futureReserveHint'))}</span></div>
     <div class="field"><label>${esc(t('chooseItem'))} *</label>
       <div class="searchbar">${svg(IC.search,'ic')}<input id="r_itemSearch" type="search" placeholder="${esc(t('searchProducts'))}" autocomplete="off"></div>
       <div id="r_itemResults" style="max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:9px;margin-top:5px;display:none"></div>
@@ -2948,11 +2951,21 @@ async function openRentalModal(presetPid){
   itemSearch.oninput=renderItemResults;
   // Changing the date window re-checks every line's availability, and refreshes
   // the auto price only for lines the cashier hasn't manually edited yet.
+  // A future pickup date can't be a hand-over-now rental — force it to a
+  // reservation so it doesn't wrongly pull a unit out of stock today.
+  const reserveEl=document.getElementById('r_reserve'), reserveHint=document.getElementById('r_reserveHint');
+  function syncReserveForDate(){
+    const future=Date.parse(startI.value) > Date.parse(todayISO());
+    if(future){ reserveEl.checked=true; reserveEl.disabled=true; reserveHint.classList.remove('hidden'); }
+    else{ reserveEl.disabled=false; reserveHint.classList.add('hidden'); }
+  }
   async function onDatesChanged(){
+    syncReserveForDate();
     lines.forEach(l=>{ if(!l.touched) l.price=defaultPrice(l.rate); });
     await renderLines();
   }
   startI.onchange=onDatesChanged; dueI.onchange=onDatesChanged;
+  syncReserveForDate();
   if(presetPid && products.some(x=>x.id===presetPid)) addLine(presetPid);
   document.getElementById('r_payFull').onclick=()=>{ paidI.value=totalsLine(); };
   let rMethod='cash';
@@ -2976,8 +2989,9 @@ async function openRentalModal(presetPid){
       else { const c={id:uid(),name:nm,phone,createdAt:now()}; await idbPut('customers',c); cid=c.id; cname=nm; }
     }
     else if(cid){ const c=custs.find(x=>x.id===cid); cname=c?c.name:''; } else { toast(t('required'),'err'); goBtn.disabled=false; return; }
-    const isReserve=document.getElementById('r_reserve').checked;
     const start=startI.value, due=dueI.value||'';
+    // A future pickup is always a reservation — never hand the item over today.
+    const isReserve=document.getElementById('r_reserve').checked || (Date.parse(start) > Date.parse(todayISO()));
     const s=Date.parse(start), d=Date.parse(due);
     const days=(s&&d&&d>=s)? Math.max(1,Math.round((d-s)/86400000)) : 1;
     // Validate stock for every line before writing anything — all-or-nothing.
