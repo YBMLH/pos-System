@@ -2583,16 +2583,36 @@ async function buildRentalCalendar(rentals){
 async function activateReservation(r){
   if(!r || r.status!=='reserved') return;
   const group=(await rentalGroupOf(r)).filter(x=>x.status==='reserved'); // whole bundle
-  confirmDialog(t('activateConfirm'), async ()=>{
-    for(const it of group){
+  const names=group.map(x=>x.name).join(' + ');
+  const totalBal=group.reduce((a,it)=>a+Math.max(0,(it.price||0)+(it.lateFee||0)-(it.paid||0)),0);
+  // Handing the item over: confirm, and let the customer settle the balance now
+  // (not only at return). Payment is optional and split across the bundle FIFO.
+  modal(t('rentOut'),
+   `<p style="font-weight:700;font-size:16px;margin-bottom:2px">${esc(names)}</p>
+    <p class="subtle" style="margin-bottom:12px">${esc(r.customerName||'')} · ${esc(t('dueDate'))}: ${r.dueDate?fmtDate(Date.parse(r.dueDate)):'—'}</p>
+    <p style="margin-bottom:14px">${esc(t('activateConfirm'))}</p>
+    ${totalBal>0?`<div class="field"><label class="check"><input type="checkbox" id="ac_pay"> ${esc(t('amountPaid'))} (${esc(t('balance'))}: ${money(totalBal)})</label></div>
+     <div class="field hidden" id="ac_payBox"><label>${esc(t('amountPaid'))}</label><input id="ac_payAmt" type="number" min="0" step="0.01" value="${totalBal}"></div>`:''}`,
+   `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
+    <button class="btn" id="ac_go">${esc(t('rentOut'))}</button>`);
+  const payEl=document.getElementById('ac_pay');
+  if(payEl) payEl.onchange=e=>document.getElementById('ac_payBox').classList.toggle('hidden',!e.target.checked);
+  document.getElementById('ac_go').onclick=async()=>{
+    const goBtn=document.getElementById('ac_go');
+    if(goBtn.disabled) return; goBtn.disabled=true; // double-tap guard
+    let payLeft=(payEl && payEl.checked)? Number(document.getElementById('ac_payAmt').value||0) : 0;
+    for(let i=0;i<group.length;i++){ const it=group[i]; const isLast=i===group.length-1;
       const p=await idbGet('products',it.productId);
       if(p){ if((p.qty||0)<=0){ toast(t('outOfStock')+' · '+it.name,'err'); continue; } p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
+      // settle the balance now, FIFO across the bundle's items
+      if(payLeft>0){ const itemBal=Math.max(0,(it.price||0)+(it.lateFee||0)-(it.paid||0)); const payShare=isLast?payLeft:Math.min(payLeft,itemBal);
+        if(payShare>0){ it.paid=(it.paid||0)+payShare; payLeft-=payShare; await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'rental',amount:payShare,method:it.method||'cash',createdAt:now(),userId:State.user.id}); } }
       it.status='active';
       await idbPut('rentals',it);
       await logAct('logRental', it.name+' · '+(it.customerName||''));
     }
-    toast(t('rentalDone'),'ok'); viewRentals();
-  });
+    closeModal(); toast(t('rentalDone'),'ok'); viewRentals();
+  };
 }
 /* Undo an activation done by mistake: put an active rental back to reserved and
    return its unit to stock (the customer hasn't actually taken it). */
