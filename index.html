@@ -1747,8 +1747,8 @@ function rowProduct(p,rentCount){
     ${isOwner()?`<td class="t-right mono subtle">${p.costPrice?money(p.costPrice):'—'}</td>`:''}
     <td class="t-right mono">${
       p.mode==='rent'
-        ? (p.rentRate? `${money(p.rentRate)}${p.rentUnit==='day'?`<div class="subtle" style="font-size:11px">${esc(t('perDay'))}</div>`:''}` : '—')
-        : `${money(p.salePrice)}${(p.mode==='both'&&p.rentRate)?`<div class="subtle" style="font-size:11px">${money(p.rentRate)}${p.rentUnit==='day'?' '+esc(t('perDay')):''}</div>`:''}`
+        ? (p.rentRate? money(p.rentRate) : '—')
+        : `${money(p.salePrice)}${(p.mode==='both'&&p.rentRate)?`<div class="subtle" style="font-size:11px">${money(p.rentRate)}</div>`:''}`
     }</td>
     <td class="t-right">${qBadge||'—'}${rentedTag}</td>
     <td><span class="mono subtle" style="font-size:12px">${esc(p.barcode||'')}</span></td>
@@ -1794,11 +1794,8 @@ function openProductModal(p){
       ${isOwner()?`<div class="field"><label>${esc(t('cost'))}</label><input id="f_cost" type="number" min="0" step="0.01" value="${e.costPrice||''}"></div>`:''}
       <div class="field"><label>${esc(t('price'))}</label><input id="f_price" type="number" min="0" step="0.01" value="${e.salePrice||''}"></div>
     </div>
-    <div class="row2" id="rentFields">
-      <div class="field"><label>${esc(t('rentRate'))}</label><input id="f_rate" type="number" min="0" step="0.01" value="${e.rentRate||''}"></div>
-      <div class="field"><label>${esc(t('rentUnit'))}</label>
-        <select id="f_unit"><option value="flat" ${e.rentUnit==='flat'?'selected':''}>${esc(t('perPeriod'))} (${esc(t('flat'))})</option>
-        <option value="day" ${e.rentUnit==='day'||!e.rentUnit?'selected':''}>${esc(t('perDay'))}</option></select></div>
+    <div id="rentFields">
+      <div class="field"><label>${esc(t('rentRate'))}</label><input id="f_rate" type="number" min="0" step="0.01" value="${e.rentRate||''}"><span class="hint">${esc(t('perPeriod'))}</span></div>
     </div>
     <div class="row2">
       <div class="field"><label>${esc(t('category'))}</label><input id="f_cat" type="text" value="${esc(e.category||'')}" list="catList"><datalist id="catList"></datalist></div>
@@ -1833,7 +1830,7 @@ function openProductModal(p){
       costPrice: isOwner()? Number(document.getElementById('f_cost')?.value||e.costPrice||0) : (e.costPrice||0),
       salePrice: Number(document.getElementById('f_price').value||0),
       rentRate: Number(document.getElementById('f_rate').value||0),
-      rentUnit: document.getElementById('f_unit').value,
+      rentUnit: 'flat', // every rent item is priced per period (flat), no per-day option
       qty: Math.max(0,parseInt(document.getElementById('f_qty').value||0)),
       category: document.getElementById('f_cat').value.trim(),
       barcode: document.getElementById('f_barcode').value.trim(),
@@ -1858,7 +1855,7 @@ function openLabelModal(p){
     // meta line: size · color · sale price · rental rate ("per day" when daily)
     const priceBits=[];
     if(p.mode!=='rent' && (p.salePrice||0)>0) priceBits.push(money2(p.salePrice));
-    if((p.mode==='rent'||p.mode==='both') && (p.rentRate||0)>0) priceBits.push(money2(p.rentRate)+(p.rentUnit==='day'?' '+t('perDay'):''));
+    if((p.mode==='rent'||p.mode==='both') && (p.rentRate||0)>0) priceBits.push(money2(p.rentRate));
     const metaLine=[[p.size,p.color].filter(Boolean).map(esc).join(' · '), ...priceBits.map(esc)].filter(Boolean).join(' · ');
     let rows='';
     for(let i=0;i<count;i++){
@@ -2642,10 +2639,10 @@ async function openExtendModal(r){
   if(!r) return;
   const group=(await rentalGroupOf(r)).filter(x=>x.status===r.status); // whole bundle
   const names=group.map(x=>x.name).join(' + ');
-  // per-day rate for each item; the bundle's default charge is their sum
+  // Flat-priced rentals: the per-extra-day charge is the item's day-equivalent
+  // (its flat price spread over the days it was booked). Default = their sum.
   const perDayOf={};
-  for(const it of group){ const p=it.productId? await idbGet('products',it.productId) : null;
-    perDayOf[it.id]=(p && p.rentUnit==='day' && p.rentRate) ? p.rentRate : Math.round((it.price||0)/Math.max(1,it.days||1)); }
+  for(const it of group){ perDayOf[it.id]=Math.round((it.price||0)/Math.max(1,it.days||1)); }
   const perDayTotal=group.reduce((a,it)=>a+perDayOf[it.id],0);
   modal(t('extendRental'),
    `<p style="font-weight:700;font-size:16px;margin-bottom:2px">${esc(names)}</p>
@@ -2831,11 +2828,9 @@ async function openRentalModal(presetPid){
   const linesBox=document.getElementById('r_lines'), linesFoot=document.getElementById('r_linesFoot');
   let lines=[]; // {productId,name,rate,unit,price,deposit,touched}
 
-  function defaultPrice(rate,unit){
-    const s=Date.parse(startI.value), d=Date.parse(dueI.value);
-    const days=(s&&d&&d>=s)? Math.max(1,Math.round((d-s)/86400000)) : 1;
-    return unit==='day'? rate*days : rate;
-  }
+  // Rent items are priced per period (flat): the rate is the whole-window price,
+  // regardless of how many days the rental spans.
+  function defaultPrice(rate){ return rate; }
   function totalsLine(){
     const totalPrice=lines.reduce((a,l)=>a+(l.price||0),0), totalDep=lines.reduce((a,l)=>a+(l.deposit||0),0);
     linesFoot.innerHTML = lines.length? `<div class="line total" style="font-size:15px"><span>${esc(t('total'))}</span><span class="mono">${money(totalPrice)}</span></div>${totalDep>0?`<div class="line"><span>${esc(t('deposit'))}</span><span class="mono">${money(totalDep)}</span></div>`:''}` : '';
@@ -2867,9 +2862,9 @@ async function openRentalModal(presetPid){
   function addLine(pid){
     if(!pid || lines.some(l=>l.productId===pid)){ return; } // no duplicate same-item lines
     const p=products.find(x=>x.id===pid); if(!p) return;
-    const rate=Number(p.rentRate||0), unit=p.rentUnit||'day';
+    const rate=Number(p.rentRate||0);
     const label=(p.name+' '+[p.size,p.color].filter(Boolean).join(' ')).trim();
-    lines.push({productId:pid, name:label, rate, unit, price:defaultPrice(rate,unit), deposit:0, touched:false});
+    lines.push({productId:pid, name:label, rate, unit:'flat', price:defaultPrice(rate), deposit:0, touched:false});
     renderLines();
   }
   // Type to find a dress by name / color / size / barcode; tap a result to add it.
@@ -2881,7 +2876,7 @@ async function openRentalModal(presetPid){
     if(!matches.length){ itemResults.innerHTML=`<div class="subtle" style="padding:12px;text-align:center;font-size:12.5px">${esc(t('nothingYet'))}</div>`; return; }
     itemResults.innerHTML=matches.map(p=>{
       const inCart=lines.some(l=>l.productId===p.id);
-      const rateTxt=p.rentRate?money(p.rentRate)+(p.rentUnit==='day'?' '+t('perDay'):''):'';
+      const rateTxt=p.rentRate?money(p.rentRate):'';
       return `<button type="button" class="citem" data-pick="${p.id}" ${inCart?'disabled':''} style="width:100%;text-align:start;border:none;background:${inCart?'var(--brand-100)':'none'};border-bottom:1px solid var(--line);opacity:${inCart?'.6':'1'}">
         <div class="nm">${esc(p.name)}<small>${[p.size,p.color].filter(Boolean).map(esc).join(' · ')}${rateTxt?(([p.size,p.color].filter(Boolean).length?' · ':'')+rateTxt):''}${inCart?' · ✓':''}</small></div>
       </button>`;
@@ -2892,7 +2887,7 @@ async function openRentalModal(presetPid){
   // Changing the date window re-checks every line's availability, and refreshes
   // the auto price only for lines the cashier hasn't manually edited yet.
   async function onDatesChanged(){
-    lines.forEach(l=>{ if(!l.touched) l.price=defaultPrice(l.rate,l.unit); });
+    lines.forEach(l=>{ if(!l.touched) l.price=defaultPrice(l.rate); });
     await renderLines();
   }
   startI.onchange=onDatesChanged; dueI.onchange=onDatesChanged;
@@ -3027,8 +3022,7 @@ async function openReturnModal(r){
   const sug={}; let totalSuggested=0, maxDaysOver=0, totalBal=0, totalDeposit=0;
   for(const it of group){
     const dOver=it.dueDate?Math.max(0,Math.ceil((Date.now()-Date.parse(it.dueDate))/86400000)):0;
-    const p=it.productId?await idbGet('products',it.productId):null;
-    const pd=(p&&p.rentUnit==='day'&&p.rentRate)?p.rentRate:Math.round((it.price||0)/Math.max(1,it.days||1));
+    const pd=Math.round((it.price||0)/Math.max(1,it.days||1)); // day-equivalent of the flat price, for the late-fee suggestion
     sug[it.id]=dOver>0?Math.round(pd*dOver):0;
     totalSuggested+=sug[it.id]; maxDaysOver=Math.max(maxDaysOver,dOver);
     totalBal+=Math.max(0,(it.price||0)-(it.paid||0)); totalDeposit+=(it.deposit||0);
