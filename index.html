@@ -2446,14 +2446,18 @@ async function viewRentals(){
     </div>`;
     if(rentalTab==='deposits'){ body=tabs+await buildDepositsRegister(rentals); }
     else{
-      // groupId -> sibling item names, for the "Bundle" badge on rows created together
-      const groupNames={};
-      rentals.forEach(r=>{ if(r.groupId){ (groupNames[r.groupId]=groupNames[r.groupId]||[]).push(r.name); } });
+      // Collapse bundle siblings that share the same status into a single row:
+      // a bundle rented/reserved together shows as one line ("A + B"), while an
+      // item that has since diverged (e.g. one returned early) breaks out on its
+      // own tab. Singles key on their own id, so nothing else groups.
+      const seen=new Set(); const displayGroups=[];
+      const keyOf=x=> x.groupId? ('g:'+x.groupId+'|'+x.status) : ('r:'+x.id);
+      filt.forEach(r=>{ const k=keyOf(r); if(seen.has(k)) return; seen.add(k); displayGroups.push(filt.filter(x=>keyOf(x)===k)); });
       body=tabs+(filt.length? `<div class="tablewrap"><table><thead><tr>
        <th>${esc(t('item'))}</th><th>${esc(t('customer'))}</th><th>${esc(t('dueDate'))}</th>
        <th class="t-right">${esc(t('rentalPrice'))}</th><th class="t-right">${esc(t('balance'))}</th>
        <th>${esc(t('status'))}</th><th class="t-right">${esc(t('actions'))}</th>
-     </tr></thead><tbody>${filt.map(r=>rowRental(r,groupNames)).join('')}</tbody></table></div>`
+     </tr></thead><tbody>${displayGroups.map(g=>rowRental(g)).join('')}</tbody></table></div>`
      : emptyState(IC.rent,t('noRentals'),'',`<button class="btn" id="newRent2">${svg(IC.plus,'ic')}${esc(t('rentOut'))}</button>`));
     }
   }
@@ -2470,7 +2474,7 @@ async function viewRentals(){
   document.getElementById('newRent2')&&(document.getElementById('newRent2').onclick=()=>openRentalModal());
   view.querySelectorAll('[data-return]').forEach(b=>b.onclick=async()=>openReturnModal(await idbGet('rentals',b.dataset.return)));
   view.querySelectorAll('[data-undoreturn]').forEach(b=>b.onclick=async()=>undoReturn(await idbGet('rentals',b.dataset.undoreturn)));
-  view.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=async()=>cancelRental(await idbGet('rentals',b.dataset.cancel)));
+  view.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=async()=>cancelRental(await idbGet('rentals',b.dataset.cancel),null,true));
   view.querySelectorAll('[data-agr]').forEach(b=>b.onclick=async()=>{ const r=await idbGet('rentals',b.dataset.agr); if(r) offerRentalPreview(await rentalGroupOf(r)); });
   view.querySelectorAll('[data-activate]').forEach(b=>b.onclick=async()=>activateReservation(await idbGet('rentals',b.dataset.activate)));
   view.querySelectorAll('[data-unactivate]').forEach(b=>b.onclick=async()=>revertToReserved(await idbGet('rentals',b.dataset.unactivate)));
@@ -2581,12 +2585,15 @@ async function buildRentalCalendar(rentals){
    calendar/list misclick would otherwise silently pull a unit out of stock. */
 async function activateReservation(r){
   if(!r || r.status!=='reserved') return;
+  const group=(await rentalGroupOf(r)).filter(x=>x.status==='reserved'); // whole bundle
   confirmDialog(t('activateConfirm'), async ()=>{
-    const p=await idbGet('products',r.productId);
-    if(p){ if((p.qty||0)<=0){ toast(t('outOfStock'),'err'); return; } p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
-    r.status='active';
-    await idbPut('rentals',r);
-    await logAct('logRental', r.name+' · '+(r.customerName||''));
+    for(const it of group){
+      const p=await idbGet('products',it.productId);
+      if(p){ if((p.qty||0)<=0){ toast(t('outOfStock')+' · '+it.name,'err'); continue; } p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
+      it.status='active';
+      await idbPut('rentals',it);
+      await logAct('logRental', it.name+' · '+(it.customerName||''));
+    }
     toast(t('rentalDone'),'ok'); viewRentals();
   });
 }
@@ -2594,58 +2601,76 @@ async function activateReservation(r){
    return its unit to stock (the customer hasn't actually taken it). */
 async function revertToReserved(r){
   if(!r || r.status!=='active') return;
+  const group=(await rentalGroupOf(r)).filter(x=>x.status==='active'); // whole bundle
   confirmDialog(t('backToReservedConfirm'), async ()=>{
-    const p=await idbGet('products',r.productId);
-    if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); }
-    r.status='reserved';
-    await idbPut('rentals',r);
-    await logAct('logRevertReserve', r.name+' · '+(r.customerName||''));
+    for(const it of group){
+      const p=await idbGet('products',it.productId);
+      if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); }
+      it.status='reserved';
+      await idbPut('rentals',it);
+      await logAct('logRevertReserve', it.name+' · '+(it.customerName||''));
+    }
     toast(t('revertedToReserved'),'ok'); viewRentals();
   });
 }
 /* Cancel a rental or reservation: restore stock (only if it was checked out),
    reverse any rent paid + deposit in the till, and mark it cancelled so it
    drops out of balances, points and reports. Cashiers need the manager code. */
-async function cancelRental(r,onDone){
+async function cancelRental(r,onDone,whole){
   if(!r || (r.status!=='active' && r.status!=='reserved')) return;
+  // From the collapsed rentals list a bundle cancels as one unit; from the
+  // client profile each item is its own row and cancels individually.
+  const group=whole? (await rentalGroupOf(r)).filter(x=>x.status===r.status) : [r];
   confirmDialog(t('cancelRentalConfirm'),()=>{
     requireAuth(async(how)=>{
-      const method=r.method||'cash';
-      // reversing money that came in
-      if((r.paid||0)>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'refund',amount:-(r.paid||0),method,createdAt:now(),userId:State.user.id});
-      if((r.deposit||0)>0 && !r.depositRefunded) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'depositRefund',amount:-(r.deposit||0),method,createdAt:now(),userId:State.user.id});
-      // an active rental had a unit removed from stock; a reservation did not
-      if(r.status==='active' && r.productId){ const p=await idbGet('products',r.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); } }
-      r.status='cancelled'; r.cancelledAt=now(); if((r.deposit||0)>0) r.depositRefunded=true;
-      await idbPut('rentals',r);
-      await logAct('logCancelRental', r.name+(r.customerName?' · '+r.customerName:'')+(how==='code'?(' · '+t('authorizedBy')):''));
+      for(const it of group){
+        const method=it.method||'cash';
+        // reversing money that came in
+        if((it.paid||0)>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-(it.paid||0),method,createdAt:now(),userId:State.user.id});
+        if((it.deposit||0)>0 && !it.depositRefunded) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:-(it.deposit||0),method,createdAt:now(),userId:State.user.id});
+        // an active rental had a unit removed from stock; a reservation did not
+        if(it.status==='active' && it.productId){ const p=await idbGet('products',it.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); } }
+        it.status='cancelled'; it.cancelledAt=now(); if((it.deposit||0)>0) it.depositRefunded=true;
+        await idbPut('rentals',it);
+        await logAct('logCancelRental', it.name+(it.customerName?' · '+it.customerName:'')+(how==='code'?(' · '+t('authorizedBy')):''));
+      }
       toast(t('rentalCancelled'),'ok'); (onDone||viewRentals)();
     });
   },true);
 }
 async function openExtendModal(r){
   if(!r) return;
-  const p=r.productId? await idbGet('products',r.productId) : null;
-  const perDay = (p && p.rentUnit==='day' && p.rentRate) ? p.rentRate : Math.round((r.price||0)/Math.max(1,r.days||1));
+  const group=(await rentalGroupOf(r)).filter(x=>x.status===r.status); // whole bundle
+  const names=group.map(x=>x.name).join(' + ');
+  // per-day rate for each item; the bundle's default charge is their sum
+  const perDayOf={};
+  for(const it of group){ const p=it.productId? await idbGet('products',it.productId) : null;
+    perDayOf[it.id]=(p && p.rentUnit==='day' && p.rentRate) ? p.rentRate : Math.round((it.price||0)/Math.max(1,it.days||1)); }
+  const perDayTotal=group.reduce((a,it)=>a+perDayOf[it.id],0);
   modal(t('extendRental'),
-   `<p style="font-weight:700;font-size:16px;margin-bottom:2px">${esc(r.name)}</p>
+   `<p style="font-weight:700;font-size:16px;margin-bottom:2px">${esc(names)}</p>
     <p class="subtle" style="margin-bottom:14px">${esc(r.customerName||'')} · ${esc(t('dueDate'))}: ${r.dueDate?fmtDate(Date.parse(r.dueDate)):'—'}</p>
     <div class="field"><label>${esc(t('extendBy'))} (${esc(t('days'))})</label><input id="ex_days" type="number" min="1" value="1"></div>
     <div class="field"><label>${esc(t('newDueDate'))}</label><input id="ex_newDue" type="date" readonly></div>
-    <div class="field"><label>${esc(t('additionalCharge'))}</label><input id="ex_charge" type="number" min="0" step="0.01" value="${perDay}"></div>`,
+    <div class="field"><label>${esc(t('additionalCharge'))}</label><input id="ex_charge" type="number" min="0" step="0.01" value="${perDayTotal}"></div>`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
     <button class="btn" id="ex_go">${esc(t('extendRental'))}</button>`);
   const daysI=document.getElementById('ex_days'), newDueI=document.getElementById('ex_newDue'), chargeI=document.getElementById('ex_charge');
-  function sync(){ const d=Math.max(1,parseInt(daysI.value||1)); const base=r.dueDate?Date.parse(r.dueDate):Date.now(); const newDue=new Date(base+d*86400000); newDueI.value=newDue.toISOString().slice(0,10); chargeI.value=perDay*d; }
+  function sync(){ const d=Math.max(1,parseInt(daysI.value||1)); const base=r.dueDate?Date.parse(r.dueDate):Date.now(); const newDue=new Date(base+d*86400000); newDueI.value=newDue.toISOString().slice(0,10); chargeI.value=perDayTotal*d; }
   daysI.oninput=sync; sync();
   document.getElementById('ex_go').onclick=async()=>{
     const d=Math.max(1,parseInt(daysI.value||1));
     const charge=Number(chargeI.value||0);
-    r.dueDate=newDueI.value;
-    r.days=(r.days||1)+d;
-    r.price=(r.price||0)+charge;
-    await idbPut('rentals',r);
-    await logAct('logExtend', r.name+' · +'+d+'d · '+money(charge));
+    const baseTotal=perDayTotal*d; // charge distributed across items by their rate
+    let assigned=0;
+    for(let i=0;i<group.length;i++){ const it=group[i];
+      const share = i===group.length-1 ? (charge-assigned)
+                  : (baseTotal>0 ? Math.round(charge*perDayOf[it.id]*d/baseTotal) : Math.round(charge/group.length));
+      assigned+=share;
+      it.dueDate=newDueI.value; it.days=(it.days||1)+d; it.price=(it.price||0)+share;
+      await idbPut('rentals',it);
+    }
+    await logAct('logExtend', names+' · +'+d+'d · '+money(charge));
     closeModal(); toast(t('extended'),'ok'); viewRentals();
   };
 }
@@ -2654,8 +2679,10 @@ async function openExtendModal(r){
    check for the new window (excluding this rental itself). */
 async function openEditDatesModal(r){
   if(!r || (r.status!=='active' && r.status!=='reserved')) return;
+  const group=(await rentalGroupOf(r)).filter(x=>x.status===r.status); // whole bundle
+  const names=group.map(x=>x.name).join(' + ');
   modal(t('editDates'),
-   `<p style="font-weight:700;font-size:16px;margin-bottom:14px">${esc(r.name)}<span class="subtle" style="font-weight:400"> · ${esc(r.customerName||'')}</span></p>
+   `<p style="font-weight:700;font-size:16px;margin-bottom:14px">${esc(names)}<span class="subtle" style="font-weight:400"> · ${esc(r.customerName||'')}</span></p>
     <div class="row2">
       <div class="field"><label>${esc(t('startDate'))}</label><input id="ed_start" type="date" value="${esc(r.startDate||'')}"></div>
       <div class="field"><label>${esc(t('dueDate'))}</label><input id="ed_due" type="date" value="${esc(r.dueDate||'')}"></div>
@@ -2665,37 +2692,46 @@ async function openEditDatesModal(r){
     <button class="btn" id="ed_go">${esc(t('save'))}</button>`);
   const startI=document.getElementById('ed_start'), dueI=document.getElementById('ed_due'), availBox=document.getElementById('ed_avail');
   async function refreshAvail(){
-    if(!r.productId){ availBox.innerHTML=''; return; }
-    const av=await computeAvailability(r.productId,startI.value,dueI.value,r.id); // exclude self
-    availBox.innerHTML=availabilityBadgeHtml(av);
+    // one availability line per distinct product in the bundle, each excluding its own row
+    const parts=[];
+    for(const it of group){ if(!it.productId) continue; const av=await computeAvailability(it.productId,startI.value,dueI.value,it.id);
+      parts.push((group.length>1?`<b>${esc(it.name)}:</b> `:'')+availabilityBadgeHtml(av)); }
+    availBox.innerHTML=parts.join('<div style="height:4px"></div>');
   }
   startI.onchange=refreshAvail; dueI.onchange=refreshAvail; refreshAvail();
   document.getElementById('ed_go').onclick=async()=>{
     const start=startI.value, due=dueI.value;
     const s=Date.parse(start), d=Date.parse(due);
     if(s&&d&&d<s){ toast(t('dueBeforeStart'),'err'); return; }
-    r.startDate=start; r.dueDate=due;
-    if(s&&d) r.days=Math.max(1,Math.round((d-s)/86400000));
-    await idbPut('rentals',r);
-    await logAct('logEditDates', r.name+(r.customerName?' · '+r.customerName:'')+' · '+(start||'—')+' → '+(due||'—'));
+    const days=(s&&d)?Math.max(1,Math.round((d-s)/86400000)):null;
+    for(const it of group){ it.startDate=start; it.dueDate=due; if(days!=null) it.days=days; await idbPut('rentals',it); }
+    await logAct('logEditDates', names+(r.customerName?' · '+r.customerName:'')+' · '+(start||'—')+' → '+(due||'—'));
     closeModal(); toast(t('datesUpdated'),'ok'); viewRentals();
   };
 }
-function rowRental(r,groupNames){
-  const bal=Math.max(0,(r.price||0)+(r.lateFee||0)-(r.paid||0));
+// A display row is a group of one or more rentals sharing the same status (a
+// bundle collapses to one line; a single item is a group of one). Money is
+// summed across the group; all row actions act on the representative and, via
+// the group-aware handlers, on every sibling in that same-status group.
+function rowRental(group){
+  const r=group[0];
+  const isBundle=group.length>1;
+  const price=group.reduce((a,x)=>a+(x.price||0),0);
+  const late=group.reduce((a,x)=>a+(x.lateFee||0),0);
+  const paid=group.reduce((a,x)=>a+(x.paid||0),0);
+  const bal=Math.max(0,price+late-paid);
   const overdue=r.status==='active' && r.dueDate && Date.parse(r.dueDate)<Date.now();
   const statusBadge= r.status==='cancelled'? `<span class="badge grey">${esc(t('cancelled'))}</span>` :
     r.status==='returned'? `<span class="badge grey">${esc(t('returned'))}</span>` :
     r.status==='reserved'? `<span class="badge brand">${esc(t('reserved'))}</span>` :
     overdue? `<span class="badge red"><span class="dot"></span>${esc(t('overdue'))}</span>` : `<span class="badge gold"><span class="dot"></span>${esc(t('rented'))}</span>`;
-  // Rented together in one transaction: show which other items came with it.
-  const siblings=(r.groupId && groupNames && groupNames[r.groupId])? groupNames[r.groupId].filter(n=>n!==r.name) : [];
-  const bundleBadge = siblings.length? `<span class="badge gold" style="margin-inline-start:6px" title="${esc(t('alsoRented'))} ${esc(siblings.join(', '))}">${esc(t('bundle'))}</span>` : '';
+  const names=group.map(x=>x.name).join(' + ');
+  const bundleBadge = isBundle? `<span class="badge gold" style="margin-inline-start:6px">${esc(t('bundle'))} · ${group.length}</span>` : '';
   return `<tr>
-    <td><b>${esc(r.name)}</b>${bundleBadge}</td>
+    <td><b>${esc(names)}</b>${bundleBadge}</td>
     <td>${esc(r.customerName||'—')}</td>
     <td class="mono">${r.status==='reserved'&&r.startDate?fmtDate(Date.parse(r.startDate)):(r.dueDate?fmtDate(Date.parse(r.dueDate)):'—')}</td>
-    <td class="t-right mono">${money(r.price)}</td>
+    <td class="t-right mono">${money(price)}</td>
     <td class="t-right mono">${bal>0?`<span class="badge red">${money(bal)}</span>`:`<span class="badge green">${esc(t('settled'))}</span>`}</td>
     <td>${statusBadge}</td>
     <td class="t-right" style="white-space:nowrap">
@@ -2983,24 +3019,32 @@ function buildRentalAgreementHtml(r){
     ${r.deposit?`<div style="text-align:center;font-size:10px;margin-bottom:4px;color:#666">${esc(t('depositRefundable'))}</div>`:''}`;
 }
 async function openReturnModal(r){
-  const bal=Math.max(0,(r.price||0)-(r.paid||0));
-  const daysOver = r.dueDate ? Math.max(0,Math.ceil((Date.now()-Date.parse(r.dueDate))/86400000)) : 0;
-  const p = r.productId? await idbGet('products',r.productId) : null;
-  const perDay = (p && p.rentUnit==='day' && p.rentRate) ? p.rentRate : Math.round((r.price||0)/Math.max(1,r.days||1));
-  const suggested = daysOver>0 ? Math.round(perDay*daysOver) : 0;
-  const siblings=(await rentalGroupOf(r)).filter(x=>x.id!==r.id);
+  // A bundle returns together: one modal, one combined late fee / payment /
+  // deposit refund, distributed back across each item on confirm.
+  const group=(await rentalGroupOf(r)).filter(x=>x.status==='active');
+  if(!group.length) return;
+  const names=group.map(x=>x.name).join(' + ');
+  const sug={}; let totalSuggested=0, maxDaysOver=0, totalBal=0, totalDeposit=0;
+  for(const it of group){
+    const dOver=it.dueDate?Math.max(0,Math.ceil((Date.now()-Date.parse(it.dueDate))/86400000)):0;
+    const p=it.productId?await idbGet('products',it.productId):null;
+    const pd=(p&&p.rentUnit==='day'&&p.rentRate)?p.rentRate:Math.round((it.price||0)/Math.max(1,it.days||1));
+    sug[it.id]=dOver>0?Math.round(pd*dOver):0;
+    totalSuggested+=sug[it.id]; maxDaysOver=Math.max(maxDaysOver,dOver);
+    totalBal+=Math.max(0,(it.price||0)-(it.paid||0)); totalDeposit+=(it.deposit||0);
+  }
+  const anyOver=maxDaysOver>0;
   modal(t('returnItem'),
-   `<p style="font-weight:700;font-size:16px;margin-bottom:2px">${esc(r.name)}</p>
-    <p class="subtle" style="margin-bottom:14px">${esc(r.customerName||'')} · ${esc(t('dueDate'))}: ${r.dueDate?fmtDate(Date.parse(r.dueDate)):'—'}${daysOver>0?` · <span style="color:var(--danger)">${daysOver}d ${esc(t('overdue'))}</span>`:''}</p>
-    ${siblings.length?`<p class="subtle" style="margin-top:-10px;margin-bottom:14px;font-size:12.5px">${esc(t('alsoRented'))} ${esc(siblings.map(s=>s.name).join(', '))}</p>`:''}
-    <div class="field"><label class="check"><input type="checkbox" id="rt_late" ${daysOver>0?'checked':''}> ${esc(t('applyLateFee'))}${daysOver>0?` (${esc(t('suggestedLateFee'))}: ${money(suggested)})`:''}</label></div>
-    <div class="field ${daysOver>0?'':'hidden'}" id="rt_lateBox"><label>${esc(t('lateFee'))}</label><input id="rt_lateAmt" type="number" min="0" step="0.01" value="${suggested}"></div>
-    <div class="field"><label class="check"><input type="checkbox" id="rt_pay"> ${esc(t('amountPaid'))} (${esc(t('balance'))}: ${money(bal)})</label></div>
-    <div class="field hidden" id="rt_payBox"><label>${esc(t('amountPaid'))}</label><input id="rt_payAmt" type="number" min="0" step="0.01" value="${bal}"></div>
-    ${r.deposit?`<div class="field"><label class="check"><input type="checkbox" id="rt_refund" checked> ${esc(t('refundDeposit'))} · ${esc(t('deposit'))}: ${money(r.deposit)}</label></div>
+   `<p style="font-weight:700;font-size:16px;margin-bottom:2px">${esc(names)}</p>
+    <p class="subtle" style="margin-bottom:14px">${esc(r.customerName||'')} · ${esc(t('dueDate'))}: ${r.dueDate?fmtDate(Date.parse(r.dueDate)):'—'}${anyOver?` · <span style="color:var(--danger)">${maxDaysOver}d ${esc(t('overdue'))}</span>`:''}</p>
+    <div class="field"><label class="check"><input type="checkbox" id="rt_late" ${anyOver?'checked':''}> ${esc(t('applyLateFee'))}${anyOver?` (${esc(t('suggestedLateFee'))}: ${money(totalSuggested)})`:''}</label></div>
+    <div class="field ${anyOver?'':'hidden'}" id="rt_lateBox"><label>${esc(t('lateFee'))}</label><input id="rt_lateAmt" type="number" min="0" step="0.01" value="${totalSuggested}"></div>
+    <div class="field"><label class="check"><input type="checkbox" id="rt_pay"> ${esc(t('amountPaid'))} (${esc(t('balance'))}: ${money(totalBal)})</label></div>
+    <div class="field hidden" id="rt_payBox"><label>${esc(t('amountPaid'))}</label><input id="rt_payAmt" type="number" min="0" step="0.01" value="${totalBal}"></div>
+    ${totalDeposit?`<div class="field"><label class="check"><input type="checkbox" id="rt_refund" checked> ${esc(t('refundDeposit'))} · ${esc(t('deposit'))}: ${money(totalDeposit)}</label></div>
      <div class="field" id="rt_refBox" style="margin-inline-start:26px">
        <label>${esc(t('refundAmount'))}</label>
-       <input id="rt_refAmt" type="number" min="0" max="${r.deposit}" step="0.01" value="${r.deposit}">
+       <input id="rt_refAmt" type="number" min="0" max="${totalDeposit}" step="0.01" value="${totalDeposit}">
        <span class="hint">${esc(t('depositKeepHint'))}</span>
        <div id="rt_keepLine" class="subtle" style="margin-top:6px"></div>
      </div>`:''}`,
@@ -3013,8 +3057,8 @@ async function openReturnModal(r){
     if(!refEl) return;
     const on=refEl.checked;
     if(refBox) refBox.classList.toggle('hidden',!on);
-    const amt=on?Math.min(r.deposit,Math.max(0,Number(refAmtI.value||0))):0;
-    const kept=(r.deposit||0)-amt;
+    const amt=on?Math.min(totalDeposit,Math.max(0,Number(refAmtI.value||0))):0;
+    const kept=totalDeposit-amt;
     if(keepLine) keepLine.innerHTML=`${esc(t('refundToCustomer'))}: <b>${money(amt)}</b>${kept>0?` · ${esc(t('storeKeeps'))}: <b style="color:var(--warn)">${money(kept)}</b>`:''}`;
   }
   if(refEl){ refEl.onchange=syncKeep; refAmtI&&(refAmtI.oninput=syncKeep); syncKeep(); }
@@ -3022,24 +3066,36 @@ async function openReturnModal(r){
     const late=document.getElementById('rt_late').checked?Number(document.getElementById('rt_lateAmt').value||0):0;
     const payChecked=document.getElementById('rt_pay').checked;
     const payAmt=payChecked?Number(document.getElementById('rt_payAmt').value||0):0;
-    const refundOn=!!(refEl && refEl.checked && r.deposit>0);
-    const refundAmt=refundOn?Math.min(r.deposit,Math.max(0,Number(refAmtI.value||0))):0;
-    const kept=(r.deposit||0)-refundAmt;
+    const refundOn=!!(refEl && refEl.checked && totalDeposit>0);
+    const refundAmt=refundOn?Math.min(totalDeposit,Math.max(0,Number(refAmtI.value||0))):0;
     const finalize=async(how)=>{
-      const priorLate=r.lateFee||0;
-      r.lateFee=late;
-      if(payChecked){ r.paid=(r.paid||0)+payAmt; }
-      r.status='returned'; r.returnedAt=now();
-      // deltas this return applied, so "Undo return" can reverse them exactly
-      r.returnTxn={ lateFeeAdded:late-priorLate, payAmtAdded:(payChecked?payAmt:0), refundAmt };
-      if(r.deposit>0){ r.depositRefunded=refundAmt>0; r.depositRefundedAmount=refundAmt; r.depositKept=kept; if(refundAmt>0) r.depositRefundedAt=now(); }
-      await idbPut('rentals',r);
-      if(payChecked && payAmt>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'rental',amount:payAmt,method:r.method||'cash',createdAt:now(),userId:State.user.id});
-      if(refundAmt>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'depositRefund',amount:-refundAmt,method:r.method||'cash',createdAt:now(),userId:State.user.id});
-      const p=await idbGet('products',r.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); }
-      await logAct('logReturn', r.name+(r.customerName?' · '+r.customerName:''));
-      if(refundAmt>0){ await logAct('logRefund', r.name+' · '+money(refundAmt)+(how==='code'?(' · '+t('authorizedBy')):'')); }
-      if(kept>0){ await logAct('logDepositKept', r.name+(r.customerName?' · '+r.customerName:'')+' · '+money(kept)); }
+      // late fee splits by each item's own overdue suggestion (fallback: by price);
+      // payment goes FIFO across item balances; deposit refund splits by each deposit.
+      let lateBasis=totalSuggested;
+      const lateW=group.map(it=>sug[it.id]);
+      if(lateBasis<=0){ group.forEach((it,i)=>lateW[i]=it.price||0); lateBasis=lateW.reduce((a,x)=>a+x,0); }
+      let payLeft=payChecked?payAmt:0, lateAssigned=0, refundAssigned=0;
+      for(let i=0;i<group.length;i++){ const it=group[i]; const isLast=i===group.length-1;
+        const lateShare = late<=0?0 : isLast ? (late-lateAssigned) : (lateBasis>0?Math.round(late*lateW[i]/lateBasis):Math.round(late/group.length));
+        lateAssigned+=lateShare;
+        const refShare = (totalDeposit<=0||refundAmt<=0)?0 : isLast ? (refundAmt-refundAssigned) : Math.round(refundAmt*(it.deposit||0)/totalDeposit);
+        refundAssigned+=refShare;
+        const priorLate=it.lateFee||0; it.lateFee=lateShare;
+        const itemBal=Math.max(0,(it.price||0)+lateShare-(it.paid||0));
+        let payShare=0;
+        if(payLeft>0){ payShare=isLast?payLeft:Math.min(payLeft,itemBal); it.paid=(it.paid||0)+payShare; payLeft-=payShare; }
+        const kept=(it.deposit||0)-refShare;
+        it.status='returned'; it.returnedAt=now();
+        it.returnTxn={ lateFeeAdded:lateShare-priorLate, payAmtAdded:payShare, refundAmt:refShare };
+        if((it.deposit||0)>0){ it.depositRefunded=refShare>0; it.depositRefundedAmount=refShare; it.depositKept=kept; if(refShare>0) it.depositRefundedAt=now(); }
+        await idbPut('rentals',it);
+        if(payShare>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'rental',amount:payShare,method:it.method||'cash',createdAt:now(),userId:State.user.id});
+        if(refShare>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:-refShare,method:it.method||'cash',createdAt:now(),userId:State.user.id});
+        const p=await idbGet('products',it.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); }
+        if(refShare>0){ await logAct('logRefund', it.name+' · '+money(refShare)+(how==='code'?(' · '+t('authorizedBy')):'')); }
+        if(kept>0){ await logAct('logDepositKept', it.name+(it.customerName?' · '+it.customerName:'')+' · '+money(kept)); }
+      }
+      await logAct('logReturn', names+(r.customerName?' · '+r.customerName:''));
       closeModal(); toast(t('itemReturned'),'ok'); viewRentals();
     };
     // Paying out a deposit refund as a cashier requires the manager code.
@@ -3053,22 +3109,25 @@ async function openReturnModal(r){
    that was tracked. Confirmation + manager code (cashiers), like other reversals. */
 async function undoReturn(r){
   if(!r || r.status!=='returned') return;
+  const group=(await rentalGroupOf(r)).filter(x=>x.status==='returned'); // whole bundle
   confirmDialog(t('undoReturnConfirm'),()=>{
     requireAuth(async(how)=>{
-      const txn=r.returnTxn || { lateFeeAdded:(r.lateFee||0), payAmtAdded:0, refundAmt:(r.depositRefundedAmount||0) };
-      const method=r.method||'cash';
-      // reverse any extra rent collected at return (money back out of the till)
-      if(txn.payAmtAdded>0){ r.paid=Math.max(0,(r.paid||0)-txn.payAmtAdded); await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'refund',amount:-txn.payAmtAdded,method,createdAt:now(),userId:State.user.id}); }
-      // re-hold a refunded deposit (offset the negative depositRefund entry)
-      if(txn.refundAmt>0){ await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'depositRefund',amount:txn.refundAmt,method,createdAt:now(),userId:State.user.id}); }
-      // undo the late fee this return added
-      r.lateFee=Math.max(0,(r.lateFee||0)-(txn.lateFeeAdded||0));
-      delete r.depositRefunded; delete r.depositRefundedAmount; delete r.depositKept; delete r.depositRefundedAt; delete r.returnTxn; delete r.returnedAt;
-      // item is back out with the customer
-      const p=await idbGet('products',r.productId); if(p){ p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
-      r.status='active';
-      await idbPut('rentals',r);
-      await logAct('logUndoReturn', r.name+(r.customerName?' · '+r.customerName:'')+(how==='code'?(' · '+t('authorizedBy')):''));
+      for(const it of group){
+        const txn=it.returnTxn || { lateFeeAdded:(it.lateFee||0), payAmtAdded:0, refundAmt:(it.depositRefundedAmount||0) };
+        const method=it.method||'cash';
+        // reverse any extra rent collected at return (money back out of the till)
+        if(txn.payAmtAdded>0){ it.paid=Math.max(0,(it.paid||0)-txn.payAmtAdded); await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-txn.payAmtAdded,method,createdAt:now(),userId:State.user.id}); }
+        // re-hold a refunded deposit (offset the negative depositRefund entry)
+        if(txn.refundAmt>0){ await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:txn.refundAmt,method,createdAt:now(),userId:State.user.id}); }
+        // undo the late fee this return added
+        it.lateFee=Math.max(0,(it.lateFee||0)-(txn.lateFeeAdded||0));
+        delete it.depositRefunded; delete it.depositRefundedAmount; delete it.depositKept; delete it.depositRefundedAt; delete it.returnTxn; delete it.returnedAt;
+        // item is back out with the customer
+        const p=await idbGet('products',it.productId); if(p){ p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
+        it.status='active';
+        await idbPut('rentals',it);
+        await logAct('logUndoReturn', it.name+(it.customerName?' · '+it.customerName:'')+(how==='code'?(' · '+t('authorizedBy')):''));
+      }
       toast(t('returnUndone'),'ok'); viewRentals();
     });
   });
