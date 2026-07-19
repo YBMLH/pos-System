@@ -1724,7 +1724,12 @@ function modeBadge(m){
 function rowProduct(p,rentCount){
   const q=p.qty||0;
   const rentedTag = (p.mode==='rent'||p.mode==='both') && rentCount>0 ? `<div class="subtle" style="font-size:11px;margin-top:2px">${esc(t('rentedTimes').replace('{n}',rentCount))}</div>` : '';
-  const qBadge = p.mode==='rent' ? '' : (q<=0? `<span class="badge red">${esc(t('outOfStock'))}</span>` : q<=(p.lowStock??0)? `<span class="badge warnb">${q} · ${esc(t('lowStockLabel'))}</span>` : `<span class="num">${q}</span>`);
+  // On-hand count. Rent items show how many sets are physically in the store
+  // right now (a subtle grey 0 when every set is out on rental — that's normal
+  // for rentals, not the red "Out" restock alert used for sale items).
+  const qBadge = p.mode==='rent'
+    ? (q<=0? `<span class="badge grey">0</span>` : `<span class="num">${q}</span>`)
+    : (q<=0? `<span class="badge red">${esc(t('outOfStock'))}</span>` : q<=(p.lowStock??0)? `<span class="badge warnb">${q} · ${esc(t('lowStockLabel'))}</span>` : `<span class="num">${q}</span>`);
   return `<tr>
     <td><div style="display:flex;align-items:center;gap:11px">
       <span class="pthumb">${p.photo?`<img src="${p.photo}" alt="">`:svg(IC.box)}</span>
