@@ -472,6 +472,7 @@ const I18N = {
     rentalPrice:"Rental price", period:"Period", days:"day(s)", status:"Status",
     rented:"Rented", returned:"Returned", overdue:"Overdue", due:"Due",
     markReturned:"Mark returned", newRentalT:"New rental",
+    undoReturn:"Undo return", undoReturnConfirm:"Undo this return? The item goes back out to the customer, stock is adjusted, and any deposit refunded at return is held again.", returnUndone:"Return undone", logUndoReturn:"Return undone",
     chooseItem:"Choose item", rentableOnly:"Only rentable items appear here",
     depositOpt:"Deposit (optional)", lateFee:"Late fee", applyLateFee:"Apply late fee (optional)",
     confirmReturn:"Confirm return", returnItem:"Return item", refundDeposit:"Refund deposit",
@@ -632,6 +633,7 @@ const I18N = {
     rentalPrice:"Prix location", period:"Durée", days:"jour(s)", status:"Statut",
     rented:"Loué", returned:"Retourné", overdue:"En retard", due:"Échéance",
     markReturned:"Marquer retourné", newRentalT:"Nouvelle location",
+    undoReturn:"Annuler le retour", undoReturnConfirm:"Annuler ce retour ? L'article ressort chez le client, le stock est ajusté, et toute caution remboursée au retour est de nouveau retenue.", returnUndone:"Retour annulé", logUndoReturn:"Retour annulé",
     chooseItem:"Choisir article", rentableOnly:"Articles louables seulement",
     depositOpt:"Caution (optionnel)", lateFee:"Frais de retard", applyLateFee:"Ajouter frais de retard",
     confirmReturn:"Confirmer retour", returnItem:"Retourner l'article", refundDeposit:"Rembourser caution",
@@ -785,7 +787,7 @@ const I18N = {
     item:"الصنف", startDate:"تاريخ البدء", dueDate:"تاريخ الإرجاع", deposit:"التأمين",
     rentalPrice:"سعر الإيجار", period:"المدة", days:"يوم", status:"الحالة",
     rented:"مؤجّر", returned:"مُعاد", overdue:"متأخر", due:"مستحق",
-    markReturned:"تحديد كمُعاد", newRentalT:"إيجار جديد",
+    markReturned:"تحديد كمُعاد", undoReturn:"تراجع عن الإرجاع", undoReturnConfirm:"التراجع عن هذا الإرجاع؟ يعود العنصر إلى العميل، ويُعدَّل المخزون، وتُحتجَز مجدداً أي كفالة أُعيدت عند الإرجاع.", returnUndone:"تم التراجع عن الإرجاع", logUndoReturn:"تم التراجع عن الإرجاع", newRentalT:"إيجار جديد",
     chooseItem:"اختر الصنف", rentableOnly:"الأصناف القابلة للإيجار فقط",
     depositOpt:"التأمين (اختياري)", lateFee:"رسوم التأخير", applyLateFee:"إضافة رسوم تأخير",
     confirmReturn:"تأكيد الإرجاع", returnItem:"إرجاع الصنف", refundDeposit:"إعادة التأمين",
@@ -2467,6 +2469,7 @@ async function viewRentals(){
   document.getElementById('newRent')&&(document.getElementById('newRent').onclick=()=>openRentalModal());
   document.getElementById('newRent2')&&(document.getElementById('newRent2').onclick=()=>openRentalModal());
   view.querySelectorAll('[data-return]').forEach(b=>b.onclick=async()=>openReturnModal(await idbGet('rentals',b.dataset.return)));
+  view.querySelectorAll('[data-undoreturn]').forEach(b=>b.onclick=async()=>undoReturn(await idbGet('rentals',b.dataset.undoreturn)));
   view.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=async()=>cancelRental(await idbGet('rentals',b.dataset.cancel)));
   view.querySelectorAll('[data-agr]').forEach(b=>b.onclick=async()=>{ const r=await idbGet('rentals',b.dataset.agr); if(r) offerRentalPreview(await rentalGroupOf(r)); });
   view.querySelectorAll('[data-activate]').forEach(b=>b.onclick=async()=>activateReservation(await idbGet('rentals',b.dataset.activate)));
@@ -2703,6 +2706,7 @@ function rowRental(r,groupNames){
       ${r.status==='active'?`<button class="btn ghost sm" data-unactivate="${r.id}" title="${esc(t('backToReserved'))}">${svg(IC.back,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn ghost sm" data-extend="${r.id}" title="${esc(t('extendRental'))}">${svg(IC.plus,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn secondary sm" data-return="${r.id}">${svg(IC.ret,'ic')}${esc(t('markReturned'))}</button>`:''}
+      ${r.status==='returned'?`<button class="btn ghost sm" data-undoreturn="${r.id}" title="${esc(t('undoReturn'))}">${svg(IC.back,'ic')}${esc(t('undoReturn'))}</button>`:''}
       ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-cancel="${r.id}" title="${esc(t('cancelRental'))}" style="color:var(--danger)">${svg(IC.trash,'ic')}</button>`:''}
     </td>
   </tr>`;
@@ -3022,9 +3026,12 @@ async function openReturnModal(r){
     const refundAmt=refundOn?Math.min(r.deposit,Math.max(0,Number(refAmtI.value||0))):0;
     const kept=(r.deposit||0)-refundAmt;
     const finalize=async(how)=>{
+      const priorLate=r.lateFee||0;
       r.lateFee=late;
       if(payChecked){ r.paid=(r.paid||0)+payAmt; }
       r.status='returned'; r.returnedAt=now();
+      // deltas this return applied, so "Undo return" can reverse them exactly
+      r.returnTxn={ lateFeeAdded:late-priorLate, payAmtAdded:(payChecked?payAmt:0), refundAmt };
       if(r.deposit>0){ r.depositRefunded=refundAmt>0; r.depositRefundedAmount=refundAmt; r.depositKept=kept; if(refundAmt>0) r.depositRefundedAt=now(); }
       await idbPut('rentals',r);
       if(payChecked && payAmt>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'rental',amount:payAmt,method:r.method||'cash',createdAt:now(),userId:State.user.id});
@@ -3038,6 +3045,33 @@ async function openReturnModal(r){
     // Paying out a deposit refund as a cashier requires the manager code.
     if(refundAmt>0 && !isOwner()) requireAuth(finalize); else finalize('owner');
   };
+}
+/* Undo an accidental return: put the rental back to active, take the unit out of
+   stock again, and reverse the money the return moved (any extra payment
+   collected, and re-hold a refunded deposit). Uses the returnTxn deltas stored
+   at return time; falls back to the record's fields for returns made before
+   that was tracked. Confirmation + manager code (cashiers), like other reversals. */
+async function undoReturn(r){
+  if(!r || r.status!=='returned') return;
+  confirmDialog(t('undoReturnConfirm'),()=>{
+    requireAuth(async(how)=>{
+      const txn=r.returnTxn || { lateFeeAdded:(r.lateFee||0), payAmtAdded:0, refundAmt:(r.depositRefundedAmount||0) };
+      const method=r.method||'cash';
+      // reverse any extra rent collected at return (money back out of the till)
+      if(txn.payAmtAdded>0){ r.paid=Math.max(0,(r.paid||0)-txn.payAmtAdded); await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'refund',amount:-txn.payAmtAdded,method,createdAt:now(),userId:State.user.id}); }
+      // re-hold a refunded deposit (offset the negative depositRefund entry)
+      if(txn.refundAmt>0){ await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'depositRefund',amount:txn.refundAmt,method,createdAt:now(),userId:State.user.id}); }
+      // undo the late fee this return added
+      r.lateFee=Math.max(0,(r.lateFee||0)-(txn.lateFeeAdded||0));
+      delete r.depositRefunded; delete r.depositRefundedAmount; delete r.depositKept; delete r.depositRefundedAt; delete r.returnTxn; delete r.returnedAt;
+      // item is back out with the customer
+      const p=await idbGet('products',r.productId); if(p){ p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
+      r.status='active';
+      await idbPut('rentals',r);
+      await logAct('logUndoReturn', r.name+(r.customerName?' · '+r.customerName:'')+(how==='code'?(' · '+t('authorizedBy')):''));
+      toast(t('returnUndone'),'ok'); viewRentals();
+    });
+  });
 }
 
 /* ============================================================
