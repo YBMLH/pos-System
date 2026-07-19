@@ -3205,9 +3205,11 @@ async function openCustomerLedger(cust){
   const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cust.id);
   const pays=(await idbAll('payments')).filter(p=>p.customerId===cust.id && p.refType==='repayment');
   let rows=[];
-  sales.forEach(s=>rows.push({ts:s.createdAt,type:t('saleType'),item:(s.items||[]).map(i=>i.name+(i.qty>1?' ×'+i.qty:'')).join(', '),amt:s.total,paid:s.paid,cls:'grey'}));
+  // Reversed transactions (voided sales, cancelled rentals) drop out of the
+  // profile history — cancelling a duplicate makes its row disappear.
+  sales.filter(s=>!s.voided).forEach(s=>rows.push({ts:s.createdAt,type:t('saleType'),item:(s.items||[]).map(i=>i.name+(i.qty>1?' ×'+i.qty:'')).join(', '),amt:s.total,paid:s.paid,cls:'grey'}));
   // active/reserved rentals can be cancelled from here (fixes accidental duplicates)
-  rentals.forEach(r=>rows.push({ts:r.createdAt,type:t('rentalType'),item:r.name||'',amt:(r.price+(r.lateFee||0)),paid:r.paid,cls:'gold',cancelId:(r.status==='active'||r.status==='reserved')?r.id:null}));
+  rentals.filter(r=>r.status!=='cancelled').forEach(r=>rows.push({ts:r.createdAt,type:t('rentalType'),item:r.name||'',amt:(r.price+(r.lateFee||0)),paid:r.paid,cls:'gold',cancelId:(r.status==='active'||r.status==='reserved')?r.id:null}));
   pays.forEach(p=>rows.push({ts:p.createdAt,type:t('repayment'),item:'',amt:0,paid:p.amount,cls:'green'}));
   rows.sort((a,b)=>b.ts-a.ts);
   const bal=await customerBalance(cust.id);
