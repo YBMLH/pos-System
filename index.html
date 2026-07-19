@@ -416,7 +416,8 @@ const IC = {
   menu:'<path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   chat:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5A8 8 0 1 1 21 12z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
   doc:'<path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M15 3v4h4M9 12h6M9 16h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
-  copy:'<rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>'
+  copy:'<rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+  cal:'<rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>'
 };
 function svg(p,cls){return `<svg class="${cls||''}" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true">${p}</svg>`}
 
@@ -557,6 +558,7 @@ const I18N = {
     mostPopularItem:"Most Popular Item", purchases:"purchases", soldTimes:"Sold {n} times",
     logStockSale:"Sold", logStockRefund:"Refund restock", logStockRent:"Rented out",
     listView:"List", calendarView:"Calendar", more:"more",
+    rentalSchedule:"Rental schedule", rentedDates:"Rented dates", upcomingBookings:"Upcoming & current", pastBookings:"Past rentals",
     mon:"Mon",tue:"Tue",wed:"Wed",thu:"Thu",fri:"Fri",sat:"Sat",sun:"Sun",
     voided:"Voided", voidSale:"Void sale", voidConfirm:"Void this sale? Stock will be restored and it will be removed from revenue. This only works within 1 hour of the sale.",
     voidExpired:"This sale is more than 1 hour old — use Refund instead", logVoidSale:"Sale voided", logStockVoid:"Void restock",
@@ -712,6 +714,7 @@ const I18N = {
     mostPopularItem:"Article le plus populaire", purchases:"achats", soldTimes:"Vendu {n} fois",
     logStockSale:"Vendu", logStockRefund:"Restock (remboursement)", logStockRent:"Loué",
     listView:"Liste", calendarView:"Calendrier", more:"de plus",
+    rentalSchedule:"Calendrier de location", rentedDates:"Dates louées", upcomingBookings:"À venir & en cours", pastBookings:"Locations passées",
     mon:"Lun",tue:"Mar",wed:"Mer",thu:"Jeu",fri:"Ven",sat:"Sam",sun:"Dim",
     voided:"Annulée", voidSale:"Annuler la vente", voidConfirm:"Annuler cette vente ? Le stock sera restauré et elle sera retirée des revenus. Possible seulement dans l'heure suivant la vente.",
     voidExpired:"Cette vente a plus d'une heure — utilisez Remboursement à la place", logVoidSale:"Vente annulée", logStockVoid:"Restock (annulation)",
@@ -866,6 +869,7 @@ const I18N = {
     mostPopularItem:"العنصر الأكثر مبيعاً", purchases:"عملية شراء", soldTimes:"بيع {n} مرة",
     logStockSale:"تم البيع", logStockRefund:"إرجاع مخزون (استرجاع)", logStockRent:"تم التأجير",
     listView:"قائمة", calendarView:"تقويم", more:"المزيد",
+    rentalSchedule:"جدول الإيجار", rentedDates:"تواريخ الإيجار", upcomingBookings:"القادمة والحالية", pastBookings:"الإيجارات السابقة",
     mon:"إثنين",tue:"ثلاثاء",wed:"أربعاء",thu:"خميس",fri:"جمعة",sat:"سبت",sun:"أحد",
     voided:"ملغاة", voidSale:"إلغاء البيع", voidConfirm:"إلغاء هذا البيع؟ سيُعاد المخزون وسيُحذف من الإيرادات. يعمل فقط خلال ساعة واحدة من البيع.",
     voidExpired:"مضى أكثر من ساعة على هذا البيع — استخدم الاسترجاع بدلاً من ذلك", logVoidSale:"تم إلغاء البيع", logStockVoid:"إرجاع مخزون (إلغاء)",
@@ -1669,6 +1673,7 @@ async function viewStock(){
   view.querySelectorAll('[data-label]').forEach(b=>b.onclick=async()=>openLabelModal(await idbGet('products',b.dataset.label)));
   view.querySelectorAll('[data-restock]').forEach(b=>b.onclick=async()=>openRestockModal(await idbGet('products',b.dataset.restock)));
   view.querySelectorAll('[data-history]').forEach(b=>b.onclick=async()=>openStockHistoryModal(await idbGet('products',b.dataset.history)));
+  view.querySelectorAll('[data-bookings]').forEach(b=>b.onclick=async()=>openProductBookingsModal(await idbGet('products',b.dataset.bookings)));
   view.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{ const p=await idbGet('products',b.dataset.del); guardDelete('products',b.dataset.del,'logProdDel',p?p.name:'',()=>viewStock()); });
 }
 async function openRestockModal(p){
@@ -1724,6 +1729,38 @@ async function openStockHistoryModal(p){
      : `<p class="subtle" style="padding:14px 0">${esc(t('nothingYet'))}</p>`}`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>`,{lg:true});
 }
+/* Every date window this item is booked for — so you can search a dress in Stock
+   and instantly see when it's out. Upcoming/current bookings (reserved + rented)
+   are listed by start date; past (returned) rentals follow as history. Cancelled
+   bookings are left out since the item was never actually taken. */
+async function openProductBookingsModal(p){
+  if(!p) return;
+  const all=(await idbAll('rentals')).filter(r=>r.productId===p.id);
+  const startOf=r=>Date.parse(r.startDate)||Date.parse(r.dueDate)||r.createdAt||0;
+  const upcoming=all.filter(r=>r.status==='active'||r.status==='reserved').sort((a,b)=>startOf(a)-startOf(b));
+  const past=all.filter(r=>r.status==='returned').sort((a,b)=>startOf(b)-startOf(a));
+  const outNow=all.filter(r=>r.status==='active').length;
+  const badgeOf=r=> r.status==='active'? `<span class="badge gold">${esc(t('rented'))}</span>`
+    : r.status==='reserved'? `<span class="badge brand">${esc(t('reserved'))}</span>`
+    : `<span class="badge grey">${esc(t('returned'))}</span>`;
+  const rowOf=r=>{
+    const s=r.startDate?fmtDate(Date.parse(r.startDate)):'—', d=r.dueDate?fmtDate(Date.parse(r.dueDate)):'—';
+    return `<tr><td class="mono" style="white-space:nowrap">${s} → ${d}</td>
+      <td>${esc(r.customerName||'—')}</td><td>${badgeOf(r)}</td></tr>`;
+  };
+  const table=rows=>`<div class="tablewrap"><table><thead><tr>
+      <th>${esc(t('rentedDates'))}</th><th>${esc(t('customer'))}</th><th>${esc(t('status'))}</th>
+    </tr></thead><tbody>${rows.map(rowOf).join('')}</tbody></table></div>`;
+  const section=(title,rows)=> rows.length? `<div class="subtle" style="margin:12px 0 4px;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em">${esc(title)}</div>${table(rows)}` : '';
+  const bodyHtml=`<p style="font-weight:700;font-size:16px;margin-bottom:6px">${esc(p.name)}${[p.size,p.color].filter(Boolean).length?`<span class="subtle" style="font-weight:400;font-size:13px"> · ${esc([p.size,p.color].filter(Boolean).join(' · '))}</span>`:''}</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+      <span class="badge grey">${esc(t('inStock'))}: ${p.qty||0}</span>
+      ${outNow>0?`<span class="badge gold">${esc(t('rented'))}: ${outNow}</span>`:''}
+    </div>
+    ${(upcoming.length||past.length)? section(t('upcomingBookings'),upcoming)+section(t('pastBookings'),past)
+      : `<p class="subtle" style="text-align:center;padding:20px">${esc(t('noRentals'))}</p>`}`;
+  modal(t('rentalSchedule'),bodyHtml,`<button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>`,{lg:true});
+}
 function modeBadge(m){
   if(m==='both') return `<span class="badge brand">${esc(t('both'))}</span>`;
   if(m==='rent') return `<span class="badge gold">${esc(t('forRent'))}</span>`;
@@ -1754,6 +1791,7 @@ function rowProduct(p,rentCount){
     <td><span class="mono subtle" style="font-size:12px">${esc(p.barcode||'')}</span></td>
     <td class="t-right" style="white-space:nowrap">
       ${p.mode!=='rent'?`<button class="btn ghost sm" data-restock="${p.id}" title="${esc(t('addStock'))}">${svg(IC.plus,'ic')}</button>`:''}
+      ${(p.mode==='rent'||p.mode==='both')?`<button class="btn ghost sm" data-bookings="${p.id}" title="${esc(t('rentalSchedule'))}">${svg(IC.cal,'ic')}</button>`:''}
       <button class="btn ghost sm" data-history="${p.id}" title="${esc(t('stockHistory'))}">${svg(IC.activity,'ic')}</button>
       <button class="btn ghost sm" data-label="${p.id}" title="${esc(t('printLabel'))}">${svg(IC.barcode,'ic')}</button>
       <button class="btn ghost sm" data-dup="${p.id}" title="${esc(t('duplicateProd'))}">${svg(IC.copy,'ic')}</button>
