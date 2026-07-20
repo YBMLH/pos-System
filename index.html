@@ -556,6 +556,7 @@ const I18N = {
     specificItem:"Specific Item", other:"Other", specifyItem:"What was it?", todayExpenses:"Today's Expenses",
     extendRental:"Extend Rental", extendBy:"Extend by", newDueDate:"New due date", additionalCharge:"Additional charge",
     editDates:"Edit dates", datesUpdated:"Dates updated", logEditDates:"Rental dates changed", dueBeforeStart:"Due date can't be before the start date",
+    editRental:"Edit rental", logEditPrice:"Rental price changed",
     extended:"Rental extended", logExtend:"Rental extended", measureHint:"e.g. Height 165cm, Chest 90cm...",
     stockHistory:"Stock History", detail:"Detail", staff:"Staff", bestCustomer:"Best Repeat Customer",
     mostPopularItem:"Most Popular Item", purchases:"purchases", soldTimes:"Sold {n} times",
@@ -715,6 +716,7 @@ const I18N = {
     specificItem:"Article spécifique", other:"Autre", specifyItem:"C'était quoi ?", todayExpenses:"Dépenses du jour",
     extendRental:"Prolonger la location", extendBy:"Prolonger de", newDueDate:"Nouvelle date de retour", additionalCharge:"Supplément",
     editDates:"Modifier les dates", datesUpdated:"Dates mises à jour", logEditDates:"Dates de location modifiées", dueBeforeStart:"La date de retour ne peut pas précéder la date de début",
+    editRental:"Modifier la location", logEditPrice:"Prix de location modifié",
     extended:"Location prolongée", logExtend:"Location prolongée", measureHint:"ex. Taille 165cm, Poitrine 90cm...",
     stockHistory:"Historique du stock", detail:"Détail", staff:"Employé", bestCustomer:"Meilleur client fidèle",
     mostPopularItem:"Article le plus populaire", purchases:"achats", soldTimes:"Vendu {n} fois",
@@ -873,6 +875,7 @@ const I18N = {
     specificItem:"عنصر محدد", other:"أخرى", specifyItem:"ما هو؟", todayExpenses:"مصاريف اليوم",
     extendRental:"تمديد الإيجار", extendBy:"تمديد لمدة", newDueDate:"تاريخ الإرجاع الجديد", additionalCharge:"رسوم إضافية",
     editDates:"تعديل التواريخ", datesUpdated:"تم تحديث التواريخ", logEditDates:"تغيير تواريخ الإيجار", dueBeforeStart:"لا يمكن أن يكون تاريخ الإرجاع قبل تاريخ البدء",
+    editRental:"تعديل الإيجار", logEditPrice:"تغيير سعر الإيجار",
     extended:"تم تمديد الإيجار", logExtend:"تم تمديد الإيجار", measureHint:"مثال: الطول 165سم، الصدر 90سم...",
     stockHistory:"سجل المخزون", detail:"التفاصيل", staff:"الموظف", bestCustomer:"أفضل عميل متكرر",
     mostPopularItem:"العنصر الأكثر مبيعاً", purchases:"عملية شراء", soldTimes:"بيع {n} مرة",
@@ -2811,13 +2814,17 @@ async function openEditDatesModal(r){
   if(!r || (r.status!=='active' && r.status!=='reserved')) return;
   const group=(await rentalGroupOf(r)).filter(x=>x.status===r.status); // whole bundle
   const names=group.map(x=>x.name).join(' + ');
-  modal(t('editDates'),
+  // Editable rental price per item (one field for a single item, one per line
+  // for a bundle so each piece can be priced individually).
+  const priceFields=group.map((it,i)=>`<div class="field"><label>${esc(t('rentalPrice'))}${group.length>1?' · '+esc(it.name):''}</label><input id="ed_price_${i}" type="number" min="0" step="0.01" value="${it.price||0}"></div>`).join('');
+  modal(t('editRental'),
    `<p style="font-weight:700;font-size:16px;margin-bottom:14px">${esc(names)}<span class="subtle" style="font-weight:400"> · ${esc(r.customerName||'')}</span></p>
     <div class="row2">
       <div class="field"><label>${esc(t('startDate'))}</label><input id="ed_start" type="date" value="${esc(r.startDate||'')}"></div>
       <div class="field"><label>${esc(t('dueDate'))}</label><input id="ed_due" type="date" value="${esc(r.dueDate||'')}"></div>
     </div>
-    <div id="ed_avail" class="subtle" style="margin-bottom:4px"></div>`,
+    <div id="ed_avail" class="subtle" style="margin-bottom:4px"></div>
+    ${priceFields}`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
     <button class="btn" id="ed_go">${esc(t('save'))}</button>`);
   const startI=document.getElementById('ed_start'), dueI=document.getElementById('ed_due'), availBox=document.getElementById('ed_avail');
@@ -2834,9 +2841,16 @@ async function openEditDatesModal(r){
     const s=Date.parse(start), d=Date.parse(due);
     if(s&&d&&d<s){ toast(t('dueBeforeStart'),'err'); return; }
     const days=(s&&d)?Math.max(1,Math.round((d-s)/86400000)):null;
-    for(const it of group){ it.startDate=start; it.dueDate=due; if(days!=null) it.days=days; await idbPut('rentals',it); }
+    let priceChanged=false;
+    for(let i=0;i<group.length;i++){ const it=group[i];
+      it.startDate=start; it.dueDate=due; if(days!=null) it.days=days;
+      const pe=document.getElementById('ed_price_'+i);
+      if(pe){ const np=Math.max(0,Number(pe.value||0)); if(np!==(it.price||0)){ it.price=np; priceChanged=true; } }
+      await idbPut('rentals',it);
+    }
     await logAct('logEditDates', names+(r.customerName?' · '+r.customerName:'')+' · '+(start||'—')+' → '+(due||'—'));
-    closeModal(); toast(t('datesUpdated'),'ok'); viewRentals();
+    if(priceChanged) await logAct('logEditPrice', names+(r.customerName?' · '+r.customerName:'')+' · '+money(group.reduce((a,x)=>a+(x.price||0),0)));
+    closeModal(); toast(t('saved')||t('datesUpdated'),'ok'); viewRentals();
   };
 }
 // A display row is a group of one or more rentals sharing the same status (a
@@ -2868,7 +2882,7 @@ function rowRental(group){
       <button class="btn ghost sm" data-agr="${r.id}" title="${esc(t('rentAgreement'))}">${svg(IC.print,'ic')}</button>
       ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-wa="${r.id}" title="${esc(t('waRemind'))}" style="color:var(--ok)">${svg(IC.chat,'ic')}</button>`:''}
       ${r.status==='reserved'?`<button class="btn secondary sm" data-activate="${r.id}">${esc(t('rentOut'))}</button>`:''}
-      ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-editdates="${r.id}" title="${esc(t('editDates'))}">${svg(IC.edit,'ic')}</button>`:''}
+      ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-editdates="${r.id}" title="${esc(t('editRental'))}">${svg(IC.edit,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn ghost sm" data-unactivate="${r.id}" title="${esc(t('backToReserved'))}">${svg(IC.back,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn ghost sm" data-extend="${r.id}" title="${esc(t('extendRental'))}">${svg(IC.plus,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn secondary sm" data-return="${r.id}">${svg(IC.ret,'ic')}${esc(t('markReturned'))}</button>`:''}
