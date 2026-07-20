@@ -475,6 +475,7 @@ const I18N = {
     markReturned:"Mark returned", newRentalT:"New rental",
     undoReturn:"Undo return", undoReturnConfirm:"Undo this return? The item goes back out to the customer, stock is adjusted, and any deposit refunded at return is held again.", returnUndone:"Return undone", logUndoReturn:"Return undone",
     chooseItem:"Choose item", rentableOnly:"Only rentable items appear here",
+    swapItem:"Change", addAnotherItem:"Add / change item", logEditItems:"Reservation items changed",
     depositOpt:"Deposit (optional)", lateFee:"Late fee", applyLateFee:"Apply late fee (optional)",
     confirmReturn:"Confirm return", returnItem:"Return item", refundDeposit:"Refund deposit",
     rentalDone:"Rental created", itemReturned:"Item returned",
@@ -641,6 +642,7 @@ const I18N = {
     markReturned:"Marquer retourné", newRentalT:"Nouvelle location",
     undoReturn:"Annuler le retour", undoReturnConfirm:"Annuler ce retour ? L'article ressort chez le client, le stock est ajusté, et toute caution remboursée au retour est de nouveau retenue.", returnUndone:"Retour annulé", logUndoReturn:"Retour annulé",
     chooseItem:"Choisir article", rentableOnly:"Articles louables seulement",
+    swapItem:"Changer", addAnotherItem:"Ajouter / changer un article", logEditItems:"Articles de la réservation modifiés",
     depositOpt:"Caution (optionnel)", lateFee:"Frais de retard", applyLateFee:"Ajouter frais de retard",
     confirmReturn:"Confirmer retour", returnItem:"Retourner l'article", refundDeposit:"Rembourser caution",
     rentalDone:"Location créée", itemReturned:"Article retourné",
@@ -800,6 +802,7 @@ const I18N = {
     rented:"مؤجّر", returned:"مُعاد", overdue:"متأخر", due:"مستحق",
     markReturned:"تحديد كمُعاد", undoReturn:"تراجع عن الإرجاع", undoReturnConfirm:"التراجع عن هذا الإرجاع؟ يعود العنصر إلى العميل، ويُعدَّل المخزون، وتُحتجَز مجدداً أي كفالة أُعيدت عند الإرجاع.", returnUndone:"تم التراجع عن الإرجاع", logUndoReturn:"تم التراجع عن الإرجاع", newRentalT:"إيجار جديد",
     chooseItem:"اختر الصنف", rentableOnly:"الأصناف القابلة للإيجار فقط",
+    swapItem:"تغيير", addAnotherItem:"إضافة / تغيير صنف", logEditItems:"تم تعديل أصناف الحجز",
     depositOpt:"التأمين (اختياري)", lateFee:"رسوم التأخير", applyLateFee:"إضافة رسوم تأخير",
     confirmReturn:"تأكيد الإرجاع", returnItem:"إرجاع الصنف", refundDeposit:"إعادة التأمين",
     rentalDone:"تم إنشاء الإيجار", itemReturned:"تم إرجاع الصنف",
@@ -2807,49 +2810,107 @@ async function openExtendModal(r){
     closeModal(); toast(t('extended'),'ok'); viewRentals();
   };
 }
-/* Correct the start/due dates of an active rental or reservation, without
-   charging (unlike Extend). Recomputes the day count; shows a live availability
-   check for the new window (excluding this rental itself). */
+/* Edit a rental/reservation: correct start/due dates and each item's price
+   without charging (unlike Extend). For a RESERVATION the items themselves can
+   be changed too — swap a piece for another, add one, or drop one — since
+   nothing has been handed over yet. An active rental's items are fixed (the
+   piece is physically out) so only dates + price are editable there. */
 async function openEditDatesModal(r){
   if(!r || (r.status!=='active' && r.status!=='reserved')) return;
   const group=(await rentalGroupOf(r)).filter(x=>x.status===r.status); // whole bundle
-  const names=group.map(x=>x.name).join(' + ');
-  // Editable rental price per item (one field for a single item, one per line
-  // for a bundle so each piece can be priced individually).
-  const priceFields=group.map((it,i)=>`<div class="field"><label>${esc(t('rentalPrice'))}${group.length>1?' · '+esc(it.name):''}</label><input id="ed_price_${i}" type="number" min="0" step="0.01" value="${it.price||0}"></div>`).join('');
+  const editable = r.status==='reserved'; // items only changeable before hand-over
+  const products = editable ? (await getProducts()).filter(p=>(p.mode==='rent'||p.mode==='both')) : [];
+  const existingGroupId = group[0].groupId || null;
+  let lines = group.map(it=>({rentalId:it.id, productId:it.productId, name:it.name, price:it.price||0}));
+  let replaceIndex=null; // when set, the next picked product replaces that line
   modal(t('editRental'),
-   `<p style="font-weight:700;font-size:16px;margin-bottom:14px">${esc(names)}<span class="subtle" style="font-weight:400"> · ${esc(r.customerName||'')}</span></p>
+   `<p style="font-weight:700;font-size:16px;margin-bottom:14px">${esc(r.customerName||'—')}</p>
     <div class="row2">
       <div class="field"><label>${esc(t('startDate'))}</label><input id="ed_start" type="date" value="${esc(r.startDate||'')}"></div>
       <div class="field"><label>${esc(t('dueDate'))}</label><input id="ed_due" type="date" value="${esc(r.dueDate||'')}"></div>
     </div>
-    <div id="ed_avail" class="subtle" style="margin-bottom:4px"></div>
-    ${priceFields}`,
+    <div id="ed_avail" class="subtle" style="margin-bottom:8px"></div>
+    ${editable?`<div class="field"><label>${esc(t('addAnotherItem'))}</label>
+      <div class="searchbar">${svg(IC.search,'ic')}<input id="ed_itemSearch" type="search" placeholder="${esc(t('searchProducts'))}" autocomplete="off"></div>
+      <div id="ed_itemResults" style="max-height:170px;overflow:auto;border:1px solid var(--line);border-radius:9px;margin-top:5px;display:none"></div></div>`:''}
+    <div id="ed_lines"></div>`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
     <button class="btn" id="ed_go">${esc(t('save'))}</button>`);
-  const startI=document.getElementById('ed_start'), dueI=document.getElementById('ed_due'), availBox=document.getElementById('ed_avail');
+  const startI=document.getElementById('ed_start'), dueI=document.getElementById('ed_due'), availBox=document.getElementById('ed_avail'), linesBox=document.getElementById('ed_lines');
   async function refreshAvail(){
-    // one availability line per distinct product in the bundle, each excluding its own row
     const parts=[];
-    for(const it of group){ if(!it.productId) continue; const av=await computeAvailability(it.productId,startI.value,dueI.value,it.id);
-      parts.push((group.length>1?`<b>${esc(it.name)}:</b> `:'')+availabilityBadgeHtml(av)); }
+    for(const l of lines){ if(!l.productId) continue;
+      const av=await computeAvailability(l.productId,startI.value,dueI.value,l.rentalId||undefined);
+      parts.push((lines.length>1?`<b>${esc(l.name)}:</b> `:'')+availabilityBadgeHtml(av)); }
     availBox.innerHTML=parts.join('<div style="height:4px"></div>');
   }
-  startI.onchange=refreshAvail; dueI.onchange=refreshAvail; refreshAvail();
+  function renderLines(){
+    linesBox.innerHTML = lines.map((l,i)=>`<div class="citem" style="align-items:center;flex-wrap:wrap;padding:8px 4px">
+        <div class="nm" style="flex:1 1 140px">${esc(l.name)}</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <input type="number" min="0" step="0.01" value="${l.price}" data-ln-price="${i}" style="width:92px" title="${esc(t('rentalPrice'))}">
+          ${editable?`<button class="btn ghost sm" type="button" data-ln-swap="${i}">${esc(t('swapItem'))}</button>`:''}
+          ${editable&&lines.length>1?`<button class="qbtn rm" type="button" data-ln-rm="${i}" title="${esc(t('del'))}">${svg(IC.trash)}</button>`:''}
+        </div>
+      </div>`).join('');
+    linesBox.querySelectorAll('[data-ln-price]').forEach(inp=>inp.oninput=()=>{ lines[+inp.dataset.lnPrice].price=Number(inp.value||0); });
+    linesBox.querySelectorAll('[data-ln-swap]').forEach(bn=>bn.onclick=()=>{ replaceIndex=+bn.dataset.lnSwap; const si=document.getElementById('ed_itemSearch'); if(si){ si.focus(); si.placeholder=t('swapItem')+'…'; } });
+    linesBox.querySelectorAll('[data-ln-rm]').forEach(bn=>bn.onclick=()=>{ lines.splice(+bn.dataset.lnRm,1); renderLines(); refreshAvail(); });
+  }
+  if(editable){
+    const si=document.getElementById('ed_itemSearch'), box=document.getElementById('ed_itemResults');
+    si.oninput=()=>{
+      const q=si.value.trim().toLowerCase();
+      if(!q){ box.style.display='none'; box.innerHTML=''; return; }
+      const matches=products.filter(p=>[p.name,p.color,p.size,p.barcode].some(x=>String(x||'').toLowerCase().includes(q))).slice(0,8);
+      box.style.display='block';
+      box.innerHTML = matches.length? matches.map(p=>`<button type="button" class="citem" data-pick="${p.id}" style="width:100%;text-align:start;border:none;background:none;border-bottom:1px solid var(--line)"><div class="nm">${esc(p.name)}<small>${[p.size,p.color].filter(Boolean).map(esc).join(' · ')}${p.rentRate?' · '+money(p.rentRate):''}</small></div></button>`).join('')
+        : `<div class="subtle" style="padding:12px;text-align:center;font-size:12.5px">${esc(t('nothingYet'))}</div>`;
+      box.querySelectorAll('[data-pick]').forEach(bn=>bn.onclick=()=>{
+        const p=products.find(x=>x.id===bn.dataset.pick); if(!p) return;
+        const label=(p.name+' '+[p.size,p.color].filter(Boolean).join(' ')).trim();
+        if(replaceIndex!=null){ Object.assign(lines[replaceIndex],{productId:p.id,name:label,price:Number(p.rentRate||0)}); replaceIndex=null; }
+        else lines.push({rentalId:null, productId:p.id, name:label, price:Number(p.rentRate||0)});
+        si.value=''; si.placeholder=t('searchProducts'); box.style.display='none';
+        renderLines(); refreshAvail();
+      });
+    };
+  }
+  startI.onchange=refreshAvail; dueI.onchange=refreshAvail;
+  renderLines(); refreshAvail();
   document.getElementById('ed_go').onclick=async()=>{
     const start=startI.value, due=dueI.value;
     const s=Date.parse(start), d=Date.parse(due);
     if(s&&d&&d<s){ toast(t('dueBeforeStart'),'err'); return; }
+    if(!lines.length){ toast(t('required'),'err'); return; }
     const days=(s&&d)?Math.max(1,Math.round((d-s)/86400000)):null;
-    let priceChanged=false;
-    for(let i=0;i<group.length;i++){ const it=group[i];
-      it.startDate=start; it.dueDate=due; if(days!=null) it.days=days;
-      const pe=document.getElementById('ed_price_'+i);
-      if(pe){ const np=Math.max(0,Number(pe.value||0)); if(np!==(it.price||0)){ it.price=np; priceChanged=true; } }
-      await idbPut('rentals',it);
+    const gid = lines.length>1 ? (existingGroupId||uid()) : null;
+    const keptIds=new Set(lines.filter(l=>l.rentalId).map(l=>l.rentalId));
+    for(const l of lines){
+      if(l.rentalId){
+        const it=await idbGet('rentals',l.rentalId); if(!it) continue;
+        it.productId=l.productId; it.name=l.name; it.price=Math.max(0,Number(l.price||0));
+        it.startDate=start; it.dueDate=due; if(days!=null) it.days=days; it.groupId=gid;
+        await idbPut('rentals',it);
+      } else {
+        await idbPut('rentals',{id:uid(),groupId:gid,productId:l.productId,name:l.name,customerId:r.customerId,customerName:r.customerName,
+          startDate:start,dueDate:due,days:days||1,price:Math.max(0,Number(l.price||0)),deposit:0,paid:0,lateFee:0,
+          status:'reserved',method:r.method||'cash',createdAt:now(),userId:State.user.id});
+      }
     }
-    await logAct('logEditDates', names+(r.customerName?' · '+r.customerName:'')+' · '+(start||'—')+' → '+(due||'—'));
-    if(priceChanged) await logAct('logEditPrice', names+(r.customerName?' · '+r.customerName:'')+' · '+money(group.reduce((a,x)=>a+(x.price||0),0)));
+    // Items dropped from a reservation: reverse any money and mark cancelled
+    // (keeps the record), or just delete a line that never had money on it.
+    for(const it of group){ if(keptIds.has(it.id)) continue;
+      const hadMoney=(it.paid||0)>0 || ((it.deposit||0)>0 && !it.depositRefunded);
+      if(hadMoney){
+        const method=it.method||'cash';
+        if((it.paid||0)>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-(it.paid||0),method,createdAt:now(),userId:State.user.id});
+        if((it.deposit||0)>0 && !it.depositRefunded) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:-(it.deposit||0),method,createdAt:now(),userId:State.user.id});
+        it.status='cancelled'; it.cancelledAt=now(); if((it.deposit||0)>0) it.depositRefunded=true; await idbPut('rentals',it);
+      } else { await idbDel('rentals',it.id); }
+      await logAct('logCancelRental', it.name+(it.customerName?' · '+it.customerName:''));
+    }
+    await logAct(editable?'logEditItems':'logEditDates', lines.map(l=>l.name).join(' + ')+(r.customerName?' · '+r.customerName:'')+' · '+(start||'—')+' → '+(due||'—'));
     closeModal(); toast(t('saved')||t('datesUpdated'),'ok'); viewRentals();
   };
 }
