@@ -1887,7 +1887,17 @@ function openProductModal(p){
     if(!obj.barcode){ obj.barcode = '2'+String(Date.now()).slice(-11); } // numeric -> Code128C
     const clash=(await getProducts()).find(x=>x.id!==obj.id && x.barcode===obj.barcode);
     if(clash){ toast(t('dupBarcode')+' — '+clash.name,'err'); return; }
-    await idbPut('products',obj); closeModal(); toast(t('productSaved'),'ok'); viewStock();
+    await idbPut('products',obj);
+    // Keep the item name shown on rentals in sync after a rename, so reserved /
+    // active items (and the pickup, drop-off and profile lists) still say what
+    // the piece is instead of its old name. Mirrors the rental line label.
+    if(e.id){
+      const newLabel=(obj.name+' '+[obj.size,obj.color].filter(Boolean).join(' ')).trim();
+      for(const r of (await idbAll('rentals')).filter(x=>x.productId===obj.id)){
+        if(r.name!==newLabel){ r.name=newLabel; await idbPut('rentals',r); }
+      }
+    }
+    closeModal(); toast(t('productSaved'),'ok'); viewStock();
     logAct(e.id?'logProdEdit':'logProdAdd', obj.name);
   };
 }
