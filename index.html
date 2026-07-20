@@ -488,6 +488,7 @@ const I18N = {
     // reports
     revenue:"Revenue", expenses:"Expenses", profit:"Net profit", period_:"Period",
     today:"Today", week:"This week", month:"This month", all:"All time",
+    pickupsTab:"Pickups", toPickUp:"to pick up", noPickupsDay:"No pickups on this day",
     salesRevenue:"Sales", rentalRevenue:"Rentals", addExpense:"Add expense",
     expenseLabel:"Description", category:"Category", amount:"Amount",
     expenseSaved:"Expense saved", debtOutstanding:"Outstanding debt",
@@ -649,6 +650,7 @@ const I18N = {
     viewLedger:"Voir", noCustomers:"Aucun client débiteur",
     revenue:"Revenus", expenses:"Dépenses", profit:"Bénéfice net", period_:"Période",
     today:"Aujourd'hui", week:"Cette semaine", month:"Ce mois", all:"Tout",
+    pickupsTab:"Retraits", toPickUp:"à retirer", noPickupsDay:"Aucun retrait ce jour",
     salesRevenue:"Ventes", rentalRevenue:"Locations", addExpense:"Ajouter dépense",
     expenseLabel:"Description", category:"Catégorie", amount:"Montant",
     expenseSaved:"Dépense enregistrée", debtOutstanding:"Dettes impayées",
@@ -805,6 +807,7 @@ const I18N = {
     viewLedger:"عرض", noCustomers:"لا يوجد عملاء مدينون",
     revenue:"الإيرادات", expenses:"المصاريف", profit:"صافي الربح", period_:"الفترة",
     today:"اليوم", week:"هذا الأسبوع", month:"هذا الشهر", all:"الكل",
+    pickupsTab:"الاستلامات", toPickUp:"للاستلام", noPickupsDay:"لا استلامات في هذا اليوم",
     salesRevenue:"المبيعات", rentalRevenue:"الإيجارات", addExpense:"إضافة مصروف",
     expenseLabel:"الوصف", category:"الفئة", amount:"المبلغ",
     expenseSaved:"تم حفظ المصروف", debtOutstanding:"الديون المستحقة",
@@ -2482,21 +2485,38 @@ function buildInvoiceHtml(sale,meta){
 /* ============================================================
    RENTALS
 ============================================================ */
-let rentalTab='active', rentalView='list', calMonth=new Date().getMonth(), calYear=new Date().getFullYear(), depositSearch='';
+let rentalTab='active', rentalView='list', calMonth=new Date().getMonth(), calYear=new Date().getFullYear(), depositSearch='', pickupDay='';
 async function viewRentals(){
   const view=document.getElementById('view');
+  if(!pickupDay) pickupDay=todayISO();
   let rentals=(await idbAll('rentals')).sort((a,b)=>b.createdAt-a.createdAt);
-  const filt = rentalTab==='all'? rentals : rentalTab==='reserved'? rentals.filter(r=>r.status==='reserved') : rentals.filter(r=>r.status===(rentalTab==='active'?'active':'returned'));
+  const filt = rentalTab==='all'? rentals
+    : rentalTab==='pickups'? rentals.filter(r=>r.startDate===pickupDay && r.status!=='cancelled')
+    : rentalTab==='reserved'? rentals.filter(r=>r.status==='reserved')
+    : rentals.filter(r=>r.status===(rentalTab==='active'?'active':'returned'));
   let body;
   if(rentalView==='cal'){ body=await buildRentalCalendar(rentals); }
   else{
     const tabs=`<div class="pill-tabs">
+      <button data-tab="pickups" class="${rentalTab==='pickups'?'on':''}">${esc(t('pickupsTab'))}</button>
       <button data-tab="active" class="${rentalTab==='active'?'on':''}">${esc(t('activeTab'))}</button>
       <button data-tab="reserved" class="${rentalTab==='reserved'?'on':''}">${esc(t('reserved'))}</button>
       <button data-tab="returned" class="${rentalTab==='returned'?'on':''}">${esc(t('returnedTab'))}</button>
       <button data-tab="deposits" class="${rentalTab==='deposits'?'on':''}">${esc(t('depositsHeld'))}</button>
       <button data-tab="all" class="${rentalTab==='all'?'on':''}">${esc(t('allTab'))}</button>
     </div>`;
+    // Day navigator for the Pickups tab: step through days to see who collects what.
+    let pickupNav='';
+    if(rentalTab==='pickups'){
+      const toPick=filt.filter(r=>r.status==='reserved').length;
+      const label=fmtDate(Date.parse(pickupDay))+(pickupDay===todayISO()?' · '+t('today'):'');
+      pickupNav=`<div class="card pad" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button class="btn ghost sm" id="pkPrev" title="${esc(t('back'))}">${svg(IC.back,'ic')}</button>
+        <div style="text-align:center;min-width:150px"><b>${esc(label)}</b><div class="subtle" style="font-size:12px">${toPick} ${esc(t('toPickUp'))}</div></div>
+        <button class="btn ghost sm" id="pkNext" style="transform:scaleX(-1)">${svg(IC.back,'ic')}</button>
+        <button class="btn secondary sm" id="pkToday" style="margin-inline-start:auto">${esc(t('today'))}</button>
+      </div>`;
+    }
     if(rentalTab==='deposits'){ body=tabs+await buildDepositsRegister(rentals); }
     else{
       // Collapse bundle siblings that share the same status into a single row:
@@ -2506,12 +2526,13 @@ async function viewRentals(){
       const seen=new Set(); const displayGroups=[];
       const keyOf=x=> x.groupId? ('g:'+x.groupId+'|'+x.status) : ('r:'+x.id);
       filt.forEach(r=>{ const k=keyOf(r); if(seen.has(k)) return; seen.add(k); displayGroups.push(filt.filter(x=>keyOf(x)===k)); });
-      body=tabs+(filt.length? `<div class="tablewrap"><table><thead><tr>
+      body=tabs+pickupNav+(filt.length? `<div class="tablewrap"><table><thead><tr>
        <th>${esc(t('item'))}</th><th>${esc(t('customer'))}</th><th>${esc(t('dueDate'))}</th>
        <th class="t-right">${esc(t('rentalPrice'))}</th><th class="t-right">${esc(t('balance'))}</th>
        <th>${esc(t('status'))}</th><th class="t-right">${esc(t('actions'))}</th>
      </tr></thead><tbody>${displayGroups.map(g=>rowRental(g)).join('')}</tbody></table></div>`
-     : emptyState(IC.rent,t('noRentals'),'',`<button class="btn" id="newRent2">${svg(IC.plus,'ic')}${esc(t('rentOut'))}</button>`));
+     : (rentalTab==='pickups'? emptyState(IC.cal,t('noPickupsDay'),'')
+        : emptyState(IC.rent,t('noRentals'),'',`<button class="btn" id="newRent2">${svg(IC.plus,'ic')}${esc(t('rentOut'))}</button>`)));
     }
   }
   view.innerHTML=pageHead(t('rentals'),'',
@@ -2548,6 +2569,10 @@ async function viewRentals(){
                            .replace('{item}',itemTxt).replace('{date}',dateTxt);
     window.open('https://wa.me/'+digits+'?text='+encodeURIComponent(msg),'_blank');
   });
+  const shiftPickup=delta=>{ const d=new Date(pickupDay+'T00:00:00'); d.setDate(d.getDate()+delta); pickupDay=localISO(d); viewRentals(); };
+  document.getElementById('pkPrev')&&(document.getElementById('pkPrev').onclick=()=>shiftPickup(-1));
+  document.getElementById('pkNext')&&(document.getElementById('pkNext').onclick=()=>shiftPickup(1));
+  document.getElementById('pkToday')&&(document.getElementById('pkToday').onclick=()=>{ pickupDay=todayISO(); viewRentals(); });
   document.getElementById('calPrev')&&(document.getElementById('calPrev').onclick=()=>{ calMonth--; if(calMonth<0){calMonth=11;calYear--;} viewRentals(); });
   document.getElementById('calNext')&&(document.getElementById('calNext').onclick=()=>{ calMonth++; if(calMonth>11){calMonth=0;calYear++;} viewRentals(); });
   document.getElementById('calToday')&&(document.getElementById('calToday').onclick=()=>{ calMonth=new Date().getMonth(); calYear=new Date().getFullYear(); viewRentals(); });
