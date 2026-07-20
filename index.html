@@ -553,6 +553,7 @@ const I18N = {
     setFloatHint:"Use this after you've physically counted the drawer. This becomes the new starting point.",
     ownerWithdrawal:"Owner Withdrawal", since:"Since", logWithdraw:"Owner withdrew cash", logSetFloat:"Till float set",
     addToTill:"Add to till", logAddTill:"Owner added cash to till",
+    todaysIncome:"Today's income", overallIncome:"Overall income",
     needCustomerForDebt:"Select or add a customer to track this balance",
     rent:"Rent", electricity:"Electricity Bill", water:"Water Bill", cleaningSupplies:"Cleaning Supplies",
     specificItem:"Specific Item", other:"Other", specifyItem:"What was it?", todayExpenses:"Today's Expenses",
@@ -715,6 +716,7 @@ const I18N = {
     setFloatHint:"À utiliser après avoir compté physiquement la caisse. Ceci devient le nouveau point de départ.",
     ownerWithdrawal:"Retrait du propriétaire", since:"Depuis", logWithdraw:"Retrait d'espèces par le propriétaire", logSetFloat:"Fonds de caisse défini",
     addToTill:"Ajouter à la caisse", logAddTill:"Le propriétaire a ajouté des espèces",
+    todaysIncome:"Revenus du jour", overallIncome:"Revenus totaux",
     needCustomerForDebt:"Sélectionnez ou ajoutez un client pour suivre ce solde",
     rent:"Loyer", electricity:"Facture d'électricité", water:"Facture d'eau", cleaningSupplies:"Produits d'entretien",
     specificItem:"Article spécifique", other:"Autre", specifyItem:"C'était quoi ?", todayExpenses:"Dépenses du jour",
@@ -876,6 +878,7 @@ const I18N = {
     setFloatHint:"استخدم هذا بعد عد محتوى الصندوق فعلياً. سيصبح هذا نقطة البداية الجديدة.",
     ownerWithdrawal:"سحب المالك", since:"منذ", logWithdraw:"سحب المالك مبلغاً نقدياً", logSetFloat:"تم تعيين رصيد الصندوق",
     addToTill:"إضافة إلى الصندوق", logAddTill:"أضاف المالك نقداً إلى الصندوق",
+    todaysIncome:"إيرادات اليوم", overallIncome:"إجمالي الإيرادات",
     needCustomerForDebt:"اختر أو أضف عميلاً لتتبع هذا الرصيد",
     rent:"الإيجار", electricity:"فاتورة الكهرباء", water:"فاتورة الماء", cleaningSupplies:"مستلزمات التنظيف",
     specificItem:"عنصر محدد", other:"أخرى", specifyItem:"ما هو؟", todayExpenses:"مصاريف اليوم",
@@ -1365,11 +1368,29 @@ async function tillTotals(){
 }
 async function openTillModal(){
   const T=await tillTotals();
+  // Income = money actually collected (rent + sales paid), all payment methods,
+  // excluding voided sales / cancelled rentals and refundable deposits — the
+  // same basis as Reports. Shown for today and all-time, next to the cash till.
+  const [sales,rentals]=await Promise.all([idbAll('sales'),idbAll('rentals')]);
+  const t0=startOf('today');
+  const incOf=(from)=> sales.filter(s=>!s.voided && s.createdAt>=from).reduce((a,s)=>a+(s.paid||0),0)
+                     + rentals.filter(r=>r.status!=='cancelled' && r.createdAt>=from).reduce((a,r)=>a+(r.paid||0),0);
+  const todayIncome=incOf(t0), overallIncome=incOf(0);
   modal(t('till'),
-   `<div style="text-align:center;padding:10px 0 18px">
+   `<div style="text-align:center;padding:10px 0 14px">
       <div class="subtle" style="font-size:13px">${esc(t('tillAmount'))}</div>
       <div class="mono" style="font-size:34px;font-weight:800;color:var(--brand)">${money(T.till)}</div>
       <div class="subtle" style="font-size:11px;margin-top:4px">${esc(t('since'))} ${fmtDate(T.since)}</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="flex:1;background:var(--brand-100);border-radius:10px;padding:10px 12px">
+        <div class="subtle" style="font-size:12px">${esc(t('todaysIncome'))}</div>
+        <div class="mono" style="font-size:20px;font-weight:800;color:var(--brand)">${money(todayIncome)}</div>
+      </div>
+      <div style="flex:1;background:var(--brand-100);border-radius:10px;padding:10px 12px">
+        <div class="subtle" style="font-size:12px">${esc(t('overallIncome'))}</div>
+        <div class="mono" style="font-size:20px;font-weight:800">${money(overallIncome)}</div>
+      </div>
     </div>
     <table style="width:100%;font-size:13px">
       <tr><td>${esc(t('openingFloat'))}</td><td class="t-right mono">${money(T.float)}</td></tr>
