@@ -552,6 +552,7 @@ const I18N = {
     till:"Till", tillAmount:"Cash in till right now", openingFloat:"Opening float", setFloat:"Set / reset float",
     setFloatHint:"Use this after you've physically counted the drawer. This becomes the new starting point.",
     ownerWithdrawal:"Owner Withdrawal", since:"Since", logWithdraw:"Owner withdrew cash", logSetFloat:"Till float set",
+    addToTill:"Add to till", logAddTill:"Owner added cash to till",
     needCustomerForDebt:"Select or add a customer to track this balance",
     rent:"Rent", electricity:"Electricity Bill", water:"Water Bill", cleaningSupplies:"Cleaning Supplies",
     specificItem:"Specific Item", other:"Other", specifyItem:"What was it?", todayExpenses:"Today's Expenses",
@@ -713,6 +714,7 @@ const I18N = {
     till:"Caisse", tillAmount:"Espèces en caisse maintenant", openingFloat:"Fonds de caisse initial", setFloat:"Définir / réinitialiser",
     setFloatHint:"À utiliser après avoir compté physiquement la caisse. Ceci devient le nouveau point de départ.",
     ownerWithdrawal:"Retrait du propriétaire", since:"Depuis", logWithdraw:"Retrait d'espèces par le propriétaire", logSetFloat:"Fonds de caisse défini",
+    addToTill:"Ajouter à la caisse", logAddTill:"Le propriétaire a ajouté des espèces",
     needCustomerForDebt:"Sélectionnez ou ajoutez un client pour suivre ce solde",
     rent:"Loyer", electricity:"Facture d'électricité", water:"Facture d'eau", cleaningSupplies:"Produits d'entretien",
     specificItem:"Article spécifique", other:"Autre", specifyItem:"C'était quoi ?", todayExpenses:"Dépenses du jour",
@@ -873,6 +875,7 @@ const I18N = {
     till:"الصندوق", tillAmount:"النقد في الصندوق الآن", openingFloat:"رصيد الصندوق الافتتاحي", setFloat:"تعيين / إعادة ضبط",
     setFloatHint:"استخدم هذا بعد عد محتوى الصندوق فعلياً. سيصبح هذا نقطة البداية الجديدة.",
     ownerWithdrawal:"سحب المالك", since:"منذ", logWithdraw:"سحب المالك مبلغاً نقدياً", logSetFloat:"تم تعيين رصيد الصندوق",
+    addToTill:"إضافة إلى الصندوق", logAddTill:"أضاف المالك نقداً إلى الصندوق",
     needCustomerForDebt:"اختر أو أضف عميلاً لتتبع هذا الرصيد",
     rent:"الإيجار", electricity:"فاتورة الكهرباء", water:"فاتورة الماء", cleaningSupplies:"مستلزمات التنظيف",
     specificItem:"عنصر محدد", other:"أخرى", specifyItem:"ما هو؟", todayExpenses:"مصاريف اليوم",
@@ -1351,13 +1354,14 @@ async function tillTotals(){
   const cashRentals=sumBy(['rental']);
   const cashDeposits=sumBy(['deposit']);
   const cashPayments=sumBy(['repayment']);
+  const cashInjections=sumBy(['cashin']); // owner top-ups (positive)
   const cashRefunds=sumBy(['refund','void','depositRefund']); // negative
   const cashExpenses=expenses.filter(x=>x.createdAt>=since && !x.isWithdrawal).reduce((a,x)=>a+(x.amount||0),0);
   const withdrawals=expenses.filter(x=>x.createdAt>=since && x.isWithdrawal).reduce((a,x)=>a+(x.amount||0),0);
-  const cashIn=cashSales+cashRentals+cashDeposits+cashPayments;
+  const cashIn=cashSales+cashRentals+cashDeposits+cashPayments+cashInjections;
   const cashOut=cashExpenses+withdrawals-cashRefunds; // cashRefunds is negative, so subtracting adds its magnitude
   const till=float+cashIn-cashOut;
-  return {float,cashSales,cashRentals,cashDeposits,cashPayments,cashRefunds,cashIn,cashExpenses,withdrawals,cashOut,till,since};
+  return {float,cashSales,cashRentals,cashDeposits,cashPayments,cashInjections,cashRefunds,cashIn,cashExpenses,withdrawals,cashOut,till,since};
 }
 async function openTillModal(){
   const T=await tillTotals();
@@ -1373,19 +1377,43 @@ async function openTillModal(){
       <tr><td class="subtle">+ ${esc(t('cash'))} ${esc(t('rentalRevenue'))}</td><td class="t-right mono subtle">${money(T.cashRentals)}</td></tr>
       <tr><td class="subtle">+ ${esc(t('depositsHeld'))}</td><td class="t-right mono subtle">${money(T.cashDeposits)}</td></tr>
       <tr><td class="subtle">+ ${esc(t('cash'))} ${esc(t('repayment'))}</td><td class="t-right mono subtle">${money(T.cashPayments)}</td></tr>
+      ${T.cashInjections?`<tr><td class="subtle">+ ${esc(t('addToTill'))}</td><td class="t-right mono subtle">${money(T.cashInjections)}</td></tr>`:''}
       <tr><td class="subtle">− ${esc(t('refundsOut'))}</td><td class="t-right mono subtle">${money(-T.cashRefunds)}</td></tr>
       <tr><td class="subtle">− ${esc(t('expenses'))}</td><td class="t-right mono subtle">${money(T.cashExpenses)}</td></tr>
       <tr><td class="subtle">− ${esc(t('ownerWithdrawal'))}</td><td class="t-right mono subtle">${money(T.withdrawals)}</td></tr>
     </table>`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>
     <button class="btn secondary" id="btnCountCash">${esc(t('cashCount'))}</button>
-    ${isOwner()?`<button class="btn secondary" id="btnWithdraw">${esc(t('ownerWithdrawal'))}</button>
+    ${isOwner()?`<button class="btn secondary" id="btnAddTill">${esc(t('addToTill'))}</button>
+    <button class="btn secondary" id="btnWithdraw">${esc(t('ownerWithdrawal'))}</button>
     <button class="btn secondary" id="btnCloseOut">${esc(t('dailyCloseOut'))}</button>
     <button class="btn" id="btnSetFloat">${esc(t('setFloat'))}</button>`:''}`);
   document.getElementById('btnCountCash').onclick=()=>openCashDrawerModal();
+  document.getElementById('btnAddTill')&&(document.getElementById('btnAddTill').onclick=()=>openAddToTillModal());
   document.getElementById('btnWithdraw')&&(document.getElementById('btnWithdraw').onclick=()=>openWithdrawModal());
   document.getElementById('btnSetFloat')&&(document.getElementById('btnSetFloat').onclick=()=>openSetFloatModal(T.till));
   document.getElementById('btnCloseOut')&&(document.getElementById('btnCloseOut').onclick=()=>openCloseOutModal());
+}
+/* Owner puts cash into the drawer (float top-up / change fund). Recorded as a
+   positive cash entry in the payments journal — the till's single source of
+   truth — with no customer, so it lifts the till total without touching any
+   customer balance, points or the sales/expense reports. */
+async function openAddToTillModal(){
+  if(!isOwner()) return;
+  modal(t('addToTill'),
+   `<div class="field"><label>${esc(t('amount'))} *</label><input id="at_amt" type="number" min="0" step="0.01" autofocus></div>
+    <div class="field"><label>${esc(t('reasonForAction'))}</label><input id="at_note" type="text" placeholder="${esc(t('optional'))}"></div>`,
+   `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
+    <button class="btn" id="at_go">${esc(t('addToTill'))}</button>`);
+  document.getElementById('at_go').onclick=async()=>{
+    const go=document.getElementById('at_go'); if(go.disabled) return; go.disabled=true;
+    const amt=Math.max(0,Number(document.getElementById('at_amt').value||0));
+    if(amt<=0){ toast(t('required'),'err'); go.disabled=false; return; }
+    const note=document.getElementById('at_note').value.trim();
+    await idbPut('payments',{id:uid(),customerId:null,refType:'cashin',amount:amt,method:'cash',note,createdAt:now(),userId:State.user.id,userName:State.user.name});
+    await logAct('logAddTill', money(amt)+(note?' · '+note:''));
+    closeModal(); toast(t('saved'),'ok'); openTillModal();
+  };
 }
 async function openWithdrawModal(){
   modal(t('ownerWithdrawal'),
