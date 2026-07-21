@@ -532,7 +532,7 @@ const I18N = {
     signature:"Signature", clearSig:"Clear", print:"Print",
     from:"From", to:"To", custom:"Custom", bestSellers:"Best Sellers", byVolume:"By Volume", byProfit:"By Profit",
     category:"Category", allCategories:"All categories", tags:"Tags", customerProfile:"Customer Profile",
-    lowStockAlert:"Low stock alert", reorderNow:"items need reordering", depositsHeld:"Deposits Held",
+    lowStockAlert:"Low stock alert", reorderNow:"items need reordering", depositsHeld:"Deposits Held", paymentHistory:"Payment history", added:"Added",
     overdueAlerts:"Overdue Rentals", alertsHub:"Alerts", noAlerts:"All clear — nothing urgent",
     discount:"Discount", discountPct:"Discount %", discountAmt:"Discount amount", refund:"Refund", refundSale:"Refund sale",
     parkSale:"Park sale", resumeSale:"Resume sale", parkedSales:"Parked sales", cashDrawer:"Cash Drawer",
@@ -696,7 +696,7 @@ const I18N = {
     signature:"Signature", clearSig:"Effacer", print:"Imprimer",
     from:"Du", to:"Au", custom:"Personnalisé", bestSellers:"Meilleures ventes", byVolume:"Par volume", byProfit:"Par profit",
     category:"Catégorie", allCategories:"Toutes catégories", tags:"Étiquettes", customerProfile:"Profil client",
-    lowStockAlert:"Alerte stock bas", reorderNow:"articles à réapprovisionner", depositsHeld:"Cautions détenues",
+    lowStockAlert:"Alerte stock bas", reorderNow:"articles à réapprovisionner", depositsHeld:"Cautions détenues", paymentHistory:"Historique des paiements", added:"Ajouté",
     overdueAlerts:"Locations en retard", alertsHub:"Alertes", noAlerts:"Tout est en ordre",
     discount:"Remise", discountPct:"Remise %", discountAmt:"Montant remise", refund:"Remboursement", refundSale:"Rembourser la vente",
     parkSale:"Mettre en attente", resumeSale:"Reprendre la vente", parkedSales:"Ventes en attente", cashDrawer:"Caisse",
@@ -859,7 +859,7 @@ const I18N = {
     signature:"التوقيع", clearSig:"مسح", print:"طباعة",
     from:"من", to:"إلى", custom:"مخصص", bestSellers:"الأكثر مبيعاً", byVolume:"حسب الكمية", byProfit:"حسب الربح",
     category:"الفئة", allCategories:"كل الفئات", tags:"الوسوم", customerProfile:"ملف العميل",
-    lowStockAlert:"تنبيه نقص المخزون", reorderNow:"عناصر تحتاج إعادة الطلب", depositsHeld:"التأمينات المحتجزة",
+    lowStockAlert:"تنبيه نقص المخزون", reorderNow:"عناصر تحتاج إعادة الطلب", depositsHeld:"التأمينات المحتجزة", paymentHistory:"سجل الدفعات", added:"أُضيف",
     overdueAlerts:"إيجارات متأخرة", alertsHub:"التنبيهات", noAlerts:"لا يوجد شيء عاجل",
     discount:"خصم", discountPct:"نسبة الخصم", discountAmt:"قيمة الخصم", refund:"استرجاع", refundSale:"استرجاع البيع",
     parkSale:"تعليق البيع", resumeSale:"استئناف البيع", parkedSales:"مبيعات معلقة", cashDrawer:"الصندوق النقدي",
@@ -3674,7 +3674,8 @@ async function customerPoints(cid){
 async function openCustomerLedger(cust){
   const sales=(await idbAll('sales')).filter(s=>s.customerId===cust.id);
   const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cust.id);
-  const pays=(await idbAll('payments')).filter(p=>p.customerId===cust.id && p.refType==='repayment');
+  const allPay=(await idbAll('payments')).filter(p=>p.customerId===cust.id).sort((a,b)=>a.createdAt-b.createdAt);
+  const pays=allPay.filter(p=>p.refType==='repayment');
   let rows=[];
   // Reversed transactions stay visible but clearly marked (Voided / Cancelled)
   // and dimmed, so a cancelled duplicate is obvious rather than silently gone.
@@ -3690,6 +3691,11 @@ async function openCustomerLedger(cust){
   const isCaution = lateCount>=2;
   const heldDeposits=rentals.filter(r=>(r.status==='active'||r.status==='reserved') && (r.deposit||0)>0 && !r.depositRefunded);
   const heldTotal=heldDeposits.reduce((a,r)=>a+(r.deposit||0),0);
+  // Money-in timeline: the deposit(s) put down first, then every payment added
+  // toward the balance over time (rent, sale, repayment; refunds shown negative).
+  const payLabel=rt=>({deposit:t('deposit'),rental:t('rentalType'),sale:t('saleType'),repayment:t('repayment'),refund:t('refundsOut'),void:t('voided'),depositRefund:t('refundDeposit')}[rt]||rt);
+  const depositTotal=allPay.filter(p=>p.refType==='deposit').reduce((a,p)=>a+(p.amount||0),0);
+  const addedTotal=allPay.filter(p=>['rental','sale','repayment'].includes(p.refType)).reduce((a,p)=>a+(p.amount||0),0);
   const starRow=[1,2,3,4,5].map(n=>`<span class="star ${n<=rating?'on':''}" data-star="${n}" style="cursor:pointer;font-size:22px;color:${n<=rating?'var(--gold)':'var(--line)'}">★</span>`).join('');
   modal(cust.name,
    `<div class="row2">
@@ -3709,6 +3715,18 @@ async function openCustomerLedger(cust){
         <span><b>${esc(r.name)}</b>${r.dueDate?` <span class="subtle">· ${esc(t('dueDate'))} ${fmtDate(Date.parse(r.dueDate))}</span>`:''}</span>
         <span class="mono" style="margin-inline-start:auto">${money(r.deposit)}</span>
       </div>`).join('')}
+    </div>`:''}
+    ${allPay.length?`<div class="card pad" style="margin-bottom:12px;padding:12px 14px">
+      <div style="display:flex;align-items:center;margin-bottom:6px;gap:8px;flex-wrap:wrap">
+        <b style="font-size:13.5px">${esc(t('paymentHistory'))}</b>
+        <span class="subtle" style="font-size:12px;margin-inline-start:auto">${esc(t('deposit'))}: <b>${money(depositTotal)}</b> · ${esc(t('added'))}: <b>${money(addedTotal)}</b></span>
+      </div>
+      <div style="max-height:180px;overflow:auto">
+        ${allPay.map(p=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--line)">
+          <span style="min-width:0"><b>${esc(payLabel(p.refType))}</b>${p.note?' · '+esc(p.note):''}<div class="subtle" style="font-size:10.5px">${fmtDate(p.createdAt)}</div></span>
+          <span class="mono" style="flex-shrink:0;font-weight:700;color:${(p.amount||0)>=0?'var(--ok)':'var(--danger)'}">${(p.amount||0)>=0?'+':''}${money(p.amount)}</span>
+        </div>`).join('')}
+      </div>
     </div>`:''}
     <div class="field"><label>${esc(t('rating'))}</label><div id="cust_stars">${starRow}</div></div>
     ${isCaution?`<div style="background:var(--danger-100);color:var(--danger);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:13px">⚠ ${esc(t('caution'))} (${lateCount})</div>`:''}
