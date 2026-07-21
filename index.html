@@ -1443,8 +1443,9 @@ async function openWithdrawModal(){
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
     <button class="btn" id="wd_go">${esc(t('ownerWithdrawal'))}</button>`);
   document.getElementById('wd_go').onclick=async()=>{
+    const go=document.getElementById('wd_go'); if(go.disabled) return; go.disabled=true; // double-tap withdraws twice
     const amt=Math.max(0,Number(document.getElementById('wd_amt').value||0));
-    if(amt<=0){ toast(t('required'),'err'); return; }
+    if(amt<=0){ toast(t('required'),'err'); go.disabled=false; return; }
     const note=document.getElementById('wd_note').value.trim();
     const exp={id:uid(),label:t('ownerWithdrawal')+(note?' · '+note:''),category:t('ownerWithdrawal'),amount:amt,note,isWithdrawal:true,createdAt:now(),userId:State.user.id,userName:State.user.name};
     await idbPut('expenses',exp);
@@ -2852,6 +2853,7 @@ async function openExtendModal(r){
   function sync(){ const d=Math.max(1,parseInt(daysI.value||1)); const base=r.dueDate?Date.parse(r.dueDate):Date.now(); const newDue=new Date(base+d*86400000); newDueI.value=newDue.toISOString().slice(0,10); chargeI.value=perDayTotal*d; }
   daysI.oninput=sync; sync();
   document.getElementById('ex_go').onclick=async()=>{
+    const go=document.getElementById('ex_go'); if(go.disabled) return; go.disabled=true; // double-tap charges twice
     const d=Math.max(1,parseInt(daysI.value||1));
     const charge=Number(chargeI.value||0);
     const baseTotal=perDayTotal*d; // charge distributed across items by their rate
@@ -2936,10 +2938,11 @@ async function openEditDatesModal(r){
   startI.onchange=refreshAvail; dueI.onchange=refreshAvail;
   renderLines(); refreshAvail();
   document.getElementById('ed_go').onclick=async()=>{
+    const go=document.getElementById('ed_go'); if(go.disabled) return; go.disabled=true; // double-tap duplicates item changes
     const start=startI.value, due=dueI.value;
     const s=Date.parse(start), d=Date.parse(due);
-    if(s&&d&&d<s){ toast(t('dueBeforeStart'),'err'); return; }
-    if(!lines.length){ toast(t('required'),'err'); return; }
+    if(s&&d&&d<s){ toast(t('dueBeforeStart'),'err'); go.disabled=false; return; }
+    if(!lines.length){ toast(t('required'),'err'); go.disabled=false; return; }
     const days=(s&&d)?Math.max(1,Math.round((d-s)/86400000)):null;
     const gid = lines.length>1 ? (existingGroupId||uid()) : null;
     const keptIds=new Set(lines.filter(l=>l.rentalId).map(l=>l.rentalId));
@@ -3337,6 +3340,7 @@ async function openReturnModal(r){
   }
   if(refEl){ refEl.onchange=syncKeep; refAmtI&&(refAmtI.oninput=syncKeep); syncKeep(); }
   document.getElementById('rt_go').onclick=()=>{
+    const go=document.getElementById('rt_go'); if(go.disabled) return; go.disabled=true; // double-tap returns twice (double stock + refund)
     const late=document.getElementById('rt_late').checked?Number(document.getElementById('rt_lateAmt').value||0):0;
     const payChecked=document.getElementById('rt_pay').checked;
     const payAmt=payChecked?Number(document.getElementById('rt_payAmt').value||0):0;
@@ -3511,9 +3515,10 @@ function openNewCustomerModal(){
     <button class="btn" id="nc_go">${esc(t('add'))}</button>`);
   setTimeout(()=>document.getElementById('nc_name')?.focus(),40);
   document.getElementById('nc_go').onclick=async()=>{
+    const go=document.getElementById('nc_go'); if(go.disabled) return; go.disabled=true; // double-tap adds a duplicate customer
     const name=document.getElementById('nc_name').value.trim();
     const phone=document.getElementById('nc_phone').value.trim();
-    if(!name){ toast(t('required'),'err'); return; }
+    if(!name){ toast(t('required'),'err'); go.disabled=false; return; }
     const dup=await findDupByPhone(phone);
     if(dup && await confirmDupCustomer(dup)){ closeModal(); return openCustomerLedger(dup); }
     const c={id:uid(),name,phone,createdAt:now()};
