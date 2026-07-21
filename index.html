@@ -2271,16 +2271,24 @@ async function findProductByBarcode(code){
   const c=String(code==null?'':code).trim(); if(!c) return null;
   const prods=await getProducts();
   const norm=s=>String(s==null?'':s).trim();
+  const strip=s=>norm(s).replace(/\D/g,'').replace(/^0+/,'');
   let hit=prods.find(p=>norm(p.barcode)===c); if(hit) return hit;
   const cl=c.toLowerCase();
   hit=prods.find(p=>norm(p.barcode).toLowerCase()===cl); if(hit) return hit;
-  const digits=c.replace(/\D/g,'').replace(/^0+/,'');
-  if(digits) hit=prods.find(p=>{ const pd=norm(p.barcode).replace(/\D/g,'').replace(/^0+/,''); return pd && pd===digits; });
+  const digits=strip(c);
+  if(digits){ hit=prods.find(p=>{ const pd=strip(p.barcode); return pd && pd===digits; }); if(hit) return hit; }
+  // AZERTY fallback: a scanner on a French layout sends the number row as symbols
+  // (1→& 2→é 3→" 4→' 5→( 6→- 7→è 8→_ 9→ç 0→à). Translate those back to digits.
+  if(/[&éè"'()_çà]/.test(c)){
+    const AZ={'&':'1','é':'2','"':'3',"'":'4','(':'5','-':'6','è':'7','_':'8','ç':'9','à':'0'};
+    const az=strip(c.split('').map(ch=>AZ[ch]||ch).join(''));
+    if(az && az!==digits) hit=prods.find(p=>{ const pd=strip(p.barcode); return pd && pd===az; });
+  }
   return hit||null;
 }
 async function handleGlobalScan(code){
   const hit=await findProductByBarcode(code);
-  if(!hit){ toast(t('scanNotFound'),'err'); return; }
+  if(!hit){ toast(t('scanNotFound')+': '+code,'err'); return; }
   const canSell=hit.mode!=='rent', canRent=(hit.mode==='rent'||hit.mode==='both');
   if(canSell && canRent){ scanChoiceModal(hit); return; }  // both -> choice
   if(canRent){ scanRent(hit); return; }                    // rent-only -> rental form
@@ -4456,7 +4464,11 @@ document.addEventListener('keydown', e=>{
     }
     return;
   }
-  if(e.key.length===1) _scanBuf+=e.key;
+  // Read digits from the physical key (e.code) so numeric barcodes scan on any
+  // keyboard layout — on AZERTY the OS would turn a scanner's "1" into "&".
+  const dm=/^(?:Digit|Numpad)(\d)$/.exec(e.code||'');
+  if(dm) _scanBuf+=dm[1];
+  else if(e.key.length===1) _scanBuf+=e.key;
 }, true);
 
 /* -------- Global Escape closes modal; POS shortcuts (Enter=checkout, Esc=clear cart) -------- */
