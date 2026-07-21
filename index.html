@@ -554,7 +554,7 @@ const I18N = {
     ownerWithdrawal:"Owner Withdrawal", since:"Since", logWithdraw:"Owner withdrew cash", logSetFloat:"Till float set",
     addToTill:"Add to till", logAddTill:"Owner added cash to till",
     todaysIncome:"Today's income", overallIncome:"Overall income",
-    cashInToday:"Cash in today", intoRegisterToday:"Into register today", startedToday:"Started today",
+    cashInToday:"Cash in today", intoRegisterToday:"Into register today", startedToday:"Started today", cashDetail:"Details — who paid what",
     needCustomerForDebt:"Select or add a customer to track this balance",
     rent:"Rent", electricity:"Electricity Bill", water:"Water Bill", cleaningSupplies:"Cleaning Supplies",
     specificItem:"Specific Item", other:"Other", specifyItem:"What was it?", todayExpenses:"Today's Expenses",
@@ -718,7 +718,7 @@ const I18N = {
     ownerWithdrawal:"Retrait du propriétaire", since:"Depuis", logWithdraw:"Retrait d'espèces par le propriétaire", logSetFloat:"Fonds de caisse défini",
     addToTill:"Ajouter à la caisse", logAddTill:"Le propriétaire a ajouté des espèces",
     todaysIncome:"Revenus du jour", overallIncome:"Revenus totaux",
-    cashInToday:"Espèces du jour", intoRegisterToday:"Entré en caisse aujourd'hui", startedToday:"Départ du jour",
+    cashInToday:"Espèces du jour", intoRegisterToday:"Entré en caisse aujourd'hui", startedToday:"Départ du jour", cashDetail:"Détails — qui a payé quoi",
     needCustomerForDebt:"Sélectionnez ou ajoutez un client pour suivre ce solde",
     rent:"Loyer", electricity:"Facture d'électricité", water:"Facture d'eau", cleaningSupplies:"Produits d'entretien",
     specificItem:"Article spécifique", other:"Autre", specifyItem:"C'était quoi ?", todayExpenses:"Dépenses du jour",
@@ -881,7 +881,7 @@ const I18N = {
     ownerWithdrawal:"سحب المالك", since:"منذ", logWithdraw:"سحب المالك مبلغاً نقدياً", logSetFloat:"تم تعيين رصيد الصندوق",
     addToTill:"إضافة إلى الصندوق", logAddTill:"أضاف المالك نقداً إلى الصندوق",
     todaysIncome:"إيرادات اليوم", overallIncome:"إجمالي الإيرادات",
-    cashInToday:"نقد اليوم", intoRegisterToday:"الداخل إلى الصندوق اليوم", startedToday:"رصيد بداية اليوم",
+    cashInToday:"نقد اليوم", intoRegisterToday:"الداخل إلى الصندوق اليوم", startedToday:"رصيد بداية اليوم", cashDetail:"التفاصيل — من دفع ماذا",
     needCustomerForDebt:"اختر أو أضف عميلاً لتتبع هذا الرصيد",
     rent:"الإيجار", electricity:"فاتورة الكهرباء", water:"فاتورة الماء", cleaningSupplies:"مستلزمات التنظيف",
     specificItem:"عنصر محدد", other:"أخرى", specifyItem:"ما هو؟", todayExpenses:"مصاريف اليوم",
@@ -1393,6 +1393,14 @@ async function openTillModal(){
   // What the register held at the start of today = current drawer minus today's
   // cash movements. So: started-today + cash-in-today = cash in drawer now.
   const startedTodayCash=T.till-todayCashNet;
+  // Line-by-line of every cash movement today — who paid, what for, how much —
+  // so the "into register today" total can be read transaction by transaction.
+  const customers=await getCustomers(); const cname={}; customers.forEach(c=>cname[c.id]=c.name);
+  const typeLabel=rt=>({sale:t('saleType'),rental:t('rentalType'),deposit:t('deposit'),repayment:t('repayment'),cashin:t('addToTill'),refund:t('refundsOut'),void:t('voided'),depositRefund:t('refundDeposit')}[rt]||rt);
+  const detail=[];
+  jTodayCash.forEach(p=>detail.push({ts:p.createdAt, who: p.customerId? (cname[p.customerId]||'—') : (p.refType==='cashin'?(p.userName||t('owner')):t('walkIn')), what:typeLabel(p.refType)+(p.note?' · '+p.note:''), amt:p.amount||0}));
+  expenses.filter(x=>x.createdAt>=t0).forEach(x=>detail.push({ts:x.createdAt, who:(x.userName||t('owner')), what:(x.isWithdrawal?t('ownerWithdrawal'):(x.label||t('expenses'))), amt:-(x.amount||0)}));
+  detail.sort((a,b)=>b.ts-a.ts);
   modal(t('till'),
    `<div style="text-align:center;padding:10px 0 14px">
       <div class="subtle" style="font-size:13px">${esc(t('tillAmount'))}</div>
@@ -1423,6 +1431,13 @@ async function openTillModal(){
       ${tdWithdraw?`<tr><td>− ${esc(t('ownerWithdrawal'))}</td><td class="t-right mono">${money(tdWithdraw)}</td></tr>`:''}
       <tr style="border-top:2px solid var(--line);font-weight:800"><td>${esc(t('intoRegisterToday'))}</td><td class="t-right mono" style="color:var(--brand)">${money(todayCashNet)}</td></tr>
     </table>
+    <div class="subtle" style="font-size:11px;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">${esc(t('cashDetail'))}</div>
+    ${detail.length? `<div style="max-height:230px;overflow:auto;margin-bottom:16px;border:1px solid var(--line);border-radius:9px">${detail.map(d=>`
+      <div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:7px 10px;border-bottom:1px solid var(--line)">
+        <span style="min-width:0"><b>${esc(d.who)}</b> · ${esc(d.what)}<div class="subtle" style="font-size:10.5px">${new Date(d.ts).toLocaleTimeString(State.lang,{hour:'2-digit',minute:'2-digit'})}</div></span>
+        <span class="mono" style="flex-shrink:0;font-weight:700;color:${d.amt>=0?'var(--ok)':'var(--danger)'}">${d.amt>=0?'+':''}${money(d.amt)}</span>
+      </div>`).join('')}</div>`
+     : `<p class="subtle" style="padding:8px 0 16px;font-size:12.5px">${esc(t('nothingYet'))}</p>`}
     <div class="subtle" style="font-size:11px;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">${esc(t('cash'))} · ${esc(t('since'))} ${fmtDate(T.since)}</div>
     <table style="width:100%;font-size:13px">
       <tr><td>${esc(t('openingFloat'))}</td><td class="t-right mono">${money(T.float)}</td></tr>
