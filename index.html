@@ -3723,7 +3723,7 @@ async function openCustomerLedger(cust){
       </div>
       <div style="max-height:180px;overflow:auto">
         ${allPay.map(p=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--line)">
-          <span style="min-width:0"><b>${esc(payLabel(p.refType))}</b>${p.note?' · '+esc(p.note):''}<div class="subtle" style="font-size:10.5px">${fmtDate(p.createdAt)}</div></span>
+          <span style="min-width:0"><b>${esc(payLabel(p.refType))}</b>${p.note?' · '+esc(p.note):''}<div class="subtle" style="font-size:10.5px">${fmtDate(p.createdAt)} · ${new Date(p.createdAt).toLocaleTimeString(State.lang,{hour:'2-digit',minute:'2-digit'})}</div></span>
           <span class="mono" style="flex-shrink:0;font-weight:700;color:${(p.amount||0)>=0?'var(--ok)':'var(--danger)'}">${(p.amount||0)>=0?'+':''}${money(p.amount)}</span>
         </div>`).join('')}
       </div>
