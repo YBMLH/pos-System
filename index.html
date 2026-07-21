@@ -430,7 +430,7 @@ const I18N = {
     manage:"Manage", records:"Records",
     owner:"Owner", staffRole:"Cashier",
     // dashboard
-    welcome:"Welcome back", todaySales:"Today's sales", activeRentals:"Active rentals",
+    welcome:"Welcome back", todaySales:"Today's sales", activeRentals:"Active rentals", todayRentals:"Today's rentals",
     outstanding:"Outstanding debt", lowStock:"Low stock items", inStock:"Items in stock",
     quickActions:"Quick actions", newSale:"New sale", newRental:"New rental",
     addProduct:"Add product", recordPayment:"Record payment", recentActivity:"Recent activity",
@@ -603,7 +603,7 @@ const I18N = {
     ledger:"Créances", reports:"Rapports", staff:"Personnel", settings:"Paramètres",
     manage:"Gestion", records:"Registres",
     owner:"Propriétaire", staffRole:"Caissier",
-    welcome:"Bon retour", todaySales:"Ventes du jour", activeRentals:"Locations actives",
+    welcome:"Bon retour", todaySales:"Ventes du jour", activeRentals:"Locations actives", todayRentals:"Locations du jour",
     outstanding:"Dettes impayées", lowStock:"Stock faible", inStock:"Articles en stock",
     quickActions:"Actions rapides", newSale:"Nouvelle vente", newRental:"Nouvelle location",
     addProduct:"Ajouter produit", recordPayment:"Enregistrer paiement", recentActivity:"Activité récente",
@@ -766,7 +766,7 @@ const I18N = {
     ledger:"الديون", reports:"التقارير", staff:"الموظفون", settings:"الإعدادات",
     manage:"الإدارة", records:"السجلات",
     owner:"المالك", staffRole:"أمين الصندوق",
-    welcome:"مرحباً بعودتك", todaySales:"مبيعات اليوم", activeRentals:"إيجارات نشطة",
+    welcome:"مرحباً بعودتك", todaySales:"مبيعات اليوم", activeRentals:"إيجارات نشطة", todayRentals:"إيجارات اليوم",
     outstanding:"ديون مستحقة", lowStock:"مخزون منخفض", inStock:"أصناف في المخزون",
     quickActions:"إجراءات سريعة", newSale:"بيع جديد", newRental:"إيجار جديد",
     addProduct:"إضافة منتج", recordPayment:"تسجيل دفعة", recentActivity:"النشاط الأخير",
@@ -1580,7 +1580,8 @@ async function viewDash(){
   const view=document.getElementById('view');
   const [products,sales,rentals,expenses]=await Promise.all([idbAll('products'),idbAll('sales'),idbAll('rentals'),idbAll('expenses')]);
   const t0=startOf('today');
-  const todaySales=sales.filter(s=>s.createdAt>=t0).reduce((a,s)=>a+(s.paid||0),0);
+  const todaySales=sales.filter(s=>s.createdAt>=t0 && !s.voided).reduce((a,s)=>a+(s.paid||0),0);
+  const todayRentIncome=rentals.filter(r=>r.createdAt>=t0 && r.status!=='cancelled').reduce((a,r)=>a+(r.paid||0),0);
   const todayExpenses=expenses.filter(x=>x.createdAt>=t0 && !x.isWithdrawal).sort((a,b)=>b.createdAt-a.createdAt);
   const todayExpTotal=todayExpenses.reduce((a,x)=>a+(x.amount||0),0);
   const activeR=rentals.filter(r=>r.status==='active');
@@ -1615,6 +1616,7 @@ async function viewDash(){
    </div>` : '')+
   `<div class="cards" style="margin-bottom:22px">
     <div class="stat gold"><div class="corner">${svg(IC.cart)}</div><div class="k">${esc(t('todaySales'))}</div><div class="v mono">${money(todaySales)}</div></div>
+    <div class="stat gold"><div class="corner">${svg(IC.rent)}</div><div class="k">${esc(t('todayRentals'))}</div><div class="v mono">${money(todayRentIncome)}</div></div>
     <div class="stat"><div class="corner">${svg(IC.rent)}</div><div class="k">${esc(t('activeRentals'))}</div><div class="v">${active}</div></div>
     <div class="stat ${owed>0?'danger':''}"><div class="corner">${svg(IC.debt)}</div><div class="k">${esc(t('outstanding'))}</div><div class="v mono">${money(owed)}</div></div>
     <div class="stat"><div class="corner">${svg(IC.box)}</div><div class="k">${esc(t('inStock'))}</div><div class="v">${inStock}</div></div>
