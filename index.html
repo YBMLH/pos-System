@@ -554,6 +554,7 @@ const I18N = {
     ownerWithdrawal:"Owner Withdrawal", since:"Since", logWithdraw:"Owner withdrew cash", logSetFloat:"Till float set",
     addToTill:"Add to till", logAddTill:"Owner added cash to till",
     todaysIncome:"Today's income", overallIncome:"Overall income",
+    cashInToday:"Cash in today", intoRegisterToday:"Into register today",
     needCustomerForDebt:"Select or add a customer to track this balance",
     rent:"Rent", electricity:"Electricity Bill", water:"Water Bill", cleaningSupplies:"Cleaning Supplies",
     specificItem:"Specific Item", other:"Other", specifyItem:"What was it?", todayExpenses:"Today's Expenses",
@@ -717,6 +718,7 @@ const I18N = {
     ownerWithdrawal:"Retrait du propriétaire", since:"Depuis", logWithdraw:"Retrait d'espèces par le propriétaire", logSetFloat:"Fonds de caisse défini",
     addToTill:"Ajouter à la caisse", logAddTill:"Le propriétaire a ajouté des espèces",
     todaysIncome:"Revenus du jour", overallIncome:"Revenus totaux",
+    cashInToday:"Espèces du jour", intoRegisterToday:"Entré en caisse aujourd'hui",
     needCustomerForDebt:"Sélectionnez ou ajoutez un client pour suivre ce solde",
     rent:"Loyer", electricity:"Facture d'électricité", water:"Facture d'eau", cleaningSupplies:"Produits d'entretien",
     specificItem:"Article spécifique", other:"Autre", specifyItem:"C'était quoi ?", todayExpenses:"Dépenses du jour",
@@ -879,6 +881,7 @@ const I18N = {
     ownerWithdrawal:"سحب المالك", since:"منذ", logWithdraw:"سحب المالك مبلغاً نقدياً", logSetFloat:"تم تعيين رصيد الصندوق",
     addToTill:"إضافة إلى الصندوق", logAddTill:"أضاف المالك نقداً إلى الصندوق",
     todaysIncome:"إيرادات اليوم", overallIncome:"إجمالي الإيرادات",
+    cashInToday:"نقد اليوم", intoRegisterToday:"الداخل إلى الصندوق اليوم",
     needCustomerForDebt:"اختر أو أضف عميلاً لتتبع هذا الرصيد",
     rent:"الإيجار", electricity:"فاتورة الكهرباء", water:"فاتورة الماء", cleaningSupplies:"مستلزمات التنظيف",
     specificItem:"عنصر محدد", other:"أخرى", specifyItem:"ما هو؟", todayExpenses:"مصاريف اليوم",
@@ -1368,22 +1371,25 @@ async function tillTotals(){
 }
 async function openTillModal(){
   const T=await tillTotals();
-  // Income = money actually collected (rent + sales paid), all payment methods,
-  // excluding voided sales / cancelled rentals and refundable deposits — the
-  // same basis as Reports. Shown for today and all-time, next to the cash till.
+  // Income = revenue actually collected in a window, from the payments journal
+  // (all methods) by PAYMENT date — sales + rentals + repayments, net of refunds
+  // and voids (deposits excluded, they're refundable). Using the journal (not the
+  // sale/rental record's own date) means a balance paid today on an older rental
+  // counts as today's income, so this matches the "Today" breakdown below exactly.
   const [sales,rentals,payments,expenses]=await Promise.all([idbAll('sales'),idbAll('rentals'),idbAll('payments'),idbAll('expenses')]);
   const t0=startOf('today');
-  const incOf=(from)=> sales.filter(s=>!s.voided && s.createdAt>=from).reduce((a,s)=>a+(s.paid||0),0)
-                     + rentals.filter(r=>r.status!=='cancelled' && r.createdAt>=from).reduce((a,r)=>a+(r.paid||0),0);
-  const todayIncome=incOf(t0), overallIncome=incOf(0);
-  // Today's activity broken down by type — from the payments journal (all methods)
-  // plus expenses. A daily report at a glance, distinct from the cash-since-float
-  // drawer total below.
-  const jToday=payments.filter(p=>p.createdAt>=t0);
-  const sumT=types=>jToday.filter(p=>types.includes(p.refType)).reduce((a,p)=>a+(p.amount||0),0);
-  const td={sales:sumT(['sale']),rent:sumT(['rental']),dep:sumT(['deposit']),repay:sumT(['repayment']),cashin:sumT(['cashin']),refunds:sumT(['refund','void','depositRefund'])};
+  const incomeSince=(from)=>{ const j=payments.filter(p=>p.createdAt>=from); const s=types=>j.filter(p=>types.includes(p.refType)).reduce((a,p)=>a+(p.amount||0),0); return s(['sale','rental','repayment'])+s(['refund','void']); };
+  const overallIncome=incomeSince(0); // all-time revenue collected (all methods)
   const tdExp=expenses.filter(x=>x.createdAt>=t0 && !x.isWithdrawal).reduce((a,x)=>a+(x.amount||0),0);
   const tdWithdraw=expenses.filter(x=>x.createdAt>=t0 && x.isWithdrawal).reduce((a,x)=>a+(x.amount||0),0);
+  // The "Today" section is the actual cash that moved through the register today
+  // (cash method only) — what physically went in/out of the drawer, so it
+  // reconciles with a count. Card/mobile don't touch the drawer, so they're
+  // excluded here (they still count in the revenue figures).
+  const jTodayCash=payments.filter(p=>p.createdAt>=t0 && (p.method||'cash')==='cash');
+  const sumT=types=>jTodayCash.filter(p=>types.includes(p.refType)).reduce((a,p)=>a+(p.amount||0),0);
+  const td={sales:sumT(['sale']),rent:sumT(['rental']),dep:sumT(['deposit']),repay:sumT(['repayment']),cashin:sumT(['cashin']),refunds:sumT(['refund','void','depositRefund'])};
+  const todayCashNet=td.sales+td.rent+td.dep+td.repay+td.cashin+td.refunds-tdExp-tdWithdraw;
   modal(t('till'),
    `<div style="text-align:center;padding:10px 0 14px">
       <div class="subtle" style="font-size:13px">${esc(t('tillAmount'))}</div>
@@ -1392,15 +1398,15 @@ async function openTillModal(){
     </div>
     <div style="display:flex;gap:10px;margin-bottom:14px">
       <div style="flex:1;background:var(--brand-100);border-radius:10px;padding:10px 12px">
-        <div class="subtle" style="font-size:12px">${esc(t('todaysIncome'))}</div>
-        <div class="mono" style="font-size:20px;font-weight:800;color:var(--brand)">${money(todayIncome)}</div>
+        <div class="subtle" style="font-size:12px">${esc(t('cashInToday'))}</div>
+        <div class="mono" style="font-size:20px;font-weight:800;color:var(--brand)">${money(todayCashNet)}</div>
       </div>
       <div style="flex:1;background:var(--brand-100);border-radius:10px;padding:10px 12px">
         <div class="subtle" style="font-size:12px">${esc(t('overallIncome'))}</div>
         <div class="mono" style="font-size:20px;font-weight:800">${money(overallIncome)}</div>
       </div>
     </div>
-    <div class="subtle" style="font-size:11px;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">${esc(t('today'))}</div>
+    <div class="subtle" style="font-size:11px;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">${esc(t('today'))} · ${esc(t('cash'))}</div>
     <table style="width:100%;font-size:13px;margin-bottom:16px">
       <tr><td>+ ${esc(t('salesRevenue'))}</td><td class="t-right mono">${money(td.sales)}</td></tr>
       <tr><td>+ ${esc(t('rentalRevenue'))}</td><td class="t-right mono">${money(td.rent)}</td></tr>
@@ -1410,6 +1416,7 @@ async function openTillModal(){
       <tr><td>− ${esc(t('refundsOut'))}</td><td class="t-right mono">${money(-td.refunds)}</td></tr>
       <tr><td>− ${esc(t('expenses'))}</td><td class="t-right mono">${money(tdExp)}</td></tr>
       ${tdWithdraw?`<tr><td>− ${esc(t('ownerWithdrawal'))}</td><td class="t-right mono">${money(tdWithdraw)}</td></tr>`:''}
+      <tr style="border-top:2px solid var(--line);font-weight:800"><td>${esc(t('intoRegisterToday'))}</td><td class="t-right mono" style="color:var(--brand)">${money(todayCashNet)}</td></tr>
     </table>
     <div class="subtle" style="font-size:11px;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">${esc(t('cash'))} · ${esc(t('since'))} ${fmtDate(T.since)}</div>
     <table style="width:100%;font-size:13px">
