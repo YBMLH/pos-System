@@ -1572,7 +1572,9 @@ async function viewDash(){
   const overdueR=activeR.filter(r=>r.dueDate && r.dueDate<todayStr);
   const dueTodayR=activeR.filter(r=>r.dueDate===todayStr);
   const dueTomorrowR=activeR.filter(r=>r.dueDate===tomorrowStr);
-  const depositsHeld=activeR.reduce((a,r)=>a+(r.deposit||0),0);
+  // Deposits held = cash we're holding and owe back — for both handed-over
+  // (active) and reserved items, since a reservation deposit is already in the till.
+  const depositsHeld=rentals.filter(r=>(r.status==='active'||r.status==='reserved') && (r.deposit||0)>0 && !r.depositRefunded).reduce((a,r)=>a+(r.deposit||0),0);
 
   // recent
   let acts=[];
@@ -2683,7 +2685,7 @@ async function viewRentals(){
 async function buildDepositsRegister(rentals){
   const custs=await getCustomers();
   const phoneOf={}; custs.forEach(c=>{ phoneOf[c.id]=c.phone||''; });
-  const held=rentals.filter(r=>r.status==='active' && (r.deposit||0)>0);
+  const held=rentals.filter(r=>(r.status==='active'||r.status==='reserved') && (r.deposit||0)>0 && !r.depositRefunded);
   const grandTotal=held.reduce((a,r)=>a+(r.deposit||0),0);
   const q=depositSearch.trim().toLowerCase();
   const shown=held.filter(r=>!q || (r.customerName||'').toLowerCase().includes(q) || (phoneOf[r.customerId]||'').toLowerCase().includes(q) || (r.name||'').toLowerCase().includes(q))
@@ -3626,7 +3628,7 @@ async function openCustomerLedger(cust){
   const rating=cust.rating||0;
   const lateCount=rentals.filter(r=>r.lateFee>0).length;
   const isCaution = lateCount>=2;
-  const heldDeposits=rentals.filter(r=>r.status==='active' && (r.deposit||0)>0);
+  const heldDeposits=rentals.filter(r=>(r.status==='active'||r.status==='reserved') && (r.deposit||0)>0 && !r.depositRefunded);
   const heldTotal=heldDeposits.reduce((a,r)=>a+(r.deposit||0),0);
   const starRow=[1,2,3,4,5].map(n=>`<span class="star ${n<=rating?'on':''}" data-star="${n}" style="cursor:pointer;font-size:22px;color:${n<=rating?'var(--gold)':'var(--line)'}">★</span>`).join('');
   modal(cust.name,
