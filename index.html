@@ -3338,7 +3338,7 @@ async function openReturnModal(r){
     <p class="subtle" style="margin-bottom:14px">${esc(r.customerName||'')} · ${esc(t('dueDate'))}: ${r.dueDate?fmtDate(Date.parse(r.dueDate)):'—'}${anyOver?` · <span style="color:var(--danger)">${maxDaysOver}d ${esc(t('overdue'))}</span>`:''}</p>
     <div class="field"><label class="check"><input type="checkbox" id="rt_late" ${anyOver?'checked':''}> ${esc(t('applyLateFee'))}${anyOver?` (${esc(t('suggestedLateFee'))}: ${money(totalSuggested)})`:''}</label></div>
     <div class="field ${anyOver?'':'hidden'}" id="rt_lateBox"><label>${esc(t('lateFee'))}</label><input id="rt_lateAmt" type="number" min="0" step="0.01" value="${totalSuggested}"></div>
-    <div class="field"><label class="check"><input type="checkbox" id="rt_pay"> ${esc(t('amountPaid'))} (${esc(t('balance'))}: ${money(totalBal)})</label></div>
+    <div class="field"><label class="check"><input type="checkbox" id="rt_pay"> ${esc(t('amountPaid'))} (${esc(t('balance'))}: <span id="rt_balShow">${money(totalBal)}</span>)</label></div>
     <div class="field hidden" id="rt_payBox"><label>${esc(t('amountPaid'))}</label><input id="rt_payAmt" type="number" min="0" step="0.01" value="${totalBal}"></div>
     ${totalDeposit?`<div class="field"><label class="check"><input type="checkbox" id="rt_refund" checked> ${esc(t('refundDeposit'))} · ${esc(t('deposit'))}: ${money(totalDeposit)}</label></div>
      <div class="field" id="rt_refBox" style="margin-inline-start:26px">
@@ -3349,8 +3349,19 @@ async function openReturnModal(r){
      </div>`:''}`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
     <button class="btn" id="rt_go">${esc(t('confirmReturn'))}</button>`);
-  document.getElementById('rt_late').onchange=e=>document.getElementById('rt_lateBox').classList.toggle('hidden',!e.target.checked);
-  document.getElementById('rt_pay').onchange=e=>document.getElementById('rt_payBox').classList.toggle('hidden',!e.target.checked);
+  // Amount owed at return includes the late fee, so the "amount paid" balance and
+  // its default track the late fee too — one confirm settles everything, instead
+  // of the fee silently becoming an unpaid balance.
+  const lateChk=document.getElementById('rt_late'), lateAmtI=document.getElementById('rt_lateAmt'),
+        payChk=document.getElementById('rt_pay'), payAmtI=document.getElementById('rt_payAmt'), balShow=document.getElementById('rt_balShow');
+  let payTouched=false;
+  const effBalance=()=> totalBal + (lateChk.checked? Math.max(0,Number(lateAmtI.value||0)) : 0);
+  function syncPay(){ const eb=effBalance(); if(balShow) balShow.textContent=money(eb); if(!payTouched && payAmtI) payAmtI.value=eb; }
+  lateChk.onchange=e=>{ document.getElementById('rt_lateBox').classList.toggle('hidden',!e.target.checked); syncPay(); };
+  lateAmtI&&(lateAmtI.oninput=syncPay);
+  payChk.onchange=e=>{ document.getElementById('rt_payBox').classList.toggle('hidden',!e.target.checked); if(e.target.checked) syncPay(); };
+  payAmtI&&(payAmtI.oninput=()=>{ payTouched=true; });
+  syncPay();
   const refEl=document.getElementById('rt_refund'), refBox=document.getElementById('rt_refBox'), refAmtI=document.getElementById('rt_refAmt'), keepLine=document.getElementById('rt_keepLine');
   function syncKeep(){
     if(!refEl) return;
