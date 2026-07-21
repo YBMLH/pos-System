@@ -1371,11 +1371,19 @@ async function openTillModal(){
   // Income = money actually collected (rent + sales paid), all payment methods,
   // excluding voided sales / cancelled rentals and refundable deposits — the
   // same basis as Reports. Shown for today and all-time, next to the cash till.
-  const [sales,rentals]=await Promise.all([idbAll('sales'),idbAll('rentals')]);
+  const [sales,rentals,payments,expenses]=await Promise.all([idbAll('sales'),idbAll('rentals'),idbAll('payments'),idbAll('expenses')]);
   const t0=startOf('today');
   const incOf=(from)=> sales.filter(s=>!s.voided && s.createdAt>=from).reduce((a,s)=>a+(s.paid||0),0)
                      + rentals.filter(r=>r.status!=='cancelled' && r.createdAt>=from).reduce((a,r)=>a+(r.paid||0),0);
   const todayIncome=incOf(t0), overallIncome=incOf(0);
+  // Today's activity broken down by type — from the payments journal (all methods)
+  // plus expenses. A daily report at a glance, distinct from the cash-since-float
+  // drawer total below.
+  const jToday=payments.filter(p=>p.createdAt>=t0);
+  const sumT=types=>jToday.filter(p=>types.includes(p.refType)).reduce((a,p)=>a+(p.amount||0),0);
+  const td={sales:sumT(['sale']),rent:sumT(['rental']),dep:sumT(['deposit']),repay:sumT(['repayment']),cashin:sumT(['cashin']),refunds:sumT(['refund','void','depositRefund'])};
+  const tdExp=expenses.filter(x=>x.createdAt>=t0 && !x.isWithdrawal).reduce((a,x)=>a+(x.amount||0),0);
+  const tdWithdraw=expenses.filter(x=>x.createdAt>=t0 && x.isWithdrawal).reduce((a,x)=>a+(x.amount||0),0);
   modal(t('till'),
    `<div style="text-align:center;padding:10px 0 14px">
       <div class="subtle" style="font-size:13px">${esc(t('tillAmount'))}</div>
@@ -1392,6 +1400,18 @@ async function openTillModal(){
         <div class="mono" style="font-size:20px;font-weight:800">${money(overallIncome)}</div>
       </div>
     </div>
+    <div class="subtle" style="font-size:11px;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">${esc(t('today'))}</div>
+    <table style="width:100%;font-size:13px;margin-bottom:16px">
+      <tr><td>+ ${esc(t('salesRevenue'))}</td><td class="t-right mono">${money(td.sales)}</td></tr>
+      <tr><td>+ ${esc(t('rentalRevenue'))}</td><td class="t-right mono">${money(td.rent)}</td></tr>
+      <tr><td>+ ${esc(t('deposit'))}</td><td class="t-right mono">${money(td.dep)}</td></tr>
+      <tr><td>+ ${esc(t('repayment'))}</td><td class="t-right mono">${money(td.repay)}</td></tr>
+      ${td.cashin?`<tr><td>+ ${esc(t('addToTill'))}</td><td class="t-right mono">${money(td.cashin)}</td></tr>`:''}
+      <tr><td>− ${esc(t('refundsOut'))}</td><td class="t-right mono">${money(-td.refunds)}</td></tr>
+      <tr><td>− ${esc(t('expenses'))}</td><td class="t-right mono">${money(tdExp)}</td></tr>
+      ${tdWithdraw?`<tr><td>− ${esc(t('ownerWithdrawal'))}</td><td class="t-right mono">${money(tdWithdraw)}</td></tr>`:''}
+    </table>
+    <div class="subtle" style="font-size:11px;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">${esc(t('cash'))} · ${esc(t('since'))} ${fmtDate(T.since)}</div>
     <table style="width:100%;font-size:13px">
       <tr><td>${esc(t('openingFloat'))}</td><td class="t-right mono">${money(T.float)}</td></tr>
       <tr><td class="subtle">+ ${esc(t('cash'))} ${esc(t('salesRevenue'))}</td><td class="t-right mono subtle">${money(T.cashSales)}</td></tr>
