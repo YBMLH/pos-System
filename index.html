@@ -295,7 +295,9 @@ body.tablet table td,body.tablet table th{padding:12px 10px;font-size:15px}
 .cal-grid.cal-head{margin-bottom:6px;font-size:12px;font-weight:700;color:var(--muted);text-align:center}
 .cal-cell{min-height:78px;border:1px solid var(--line);border-radius:8px;padding:5px;font-size:11px;background:var(--paper);overflow:hidden}
 .cal-cell.empty{border:none;background:transparent}
+.cal-cell.friday{background:var(--gold-soft)}
 .cal-cell.today{border-color:var(--brand);background:var(--brand-100)}
+.cal-head-fri{color:var(--warn) !important}
 .cal-daynum{font-weight:700;font-size:12px;margin-bottom:3px}
 .cal-chip{border-radius:5px;padding:2px 5px;margin-bottom:2px;font-size:10px;font-weight:650;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .cal-chip.brand{background:var(--brand)}
@@ -991,6 +993,16 @@ function dueGraceTs(dueDateStr){
 function daysLate(dueDateStr){
   const grace=dueGraceTs(dueDateStr); if(grace==null) return 0;
   return Math.max(0,Math.ceil((Date.now()-grace)/86400000));
+}
+function isFridayISO(s){ if(!s) return false; const [y,mo,d]=s.split('-').map(Number); if(!y||!mo||!d) return false; return new Date(y,mo-1,d).getDay()===5; }
+/* Native <input type=date> popups can't be recoloured from JS/CSS, so instead
+   a small badge next to the field flags when the chosen date lands on a
+   Friday (the weekend in Algeria) — updates live as the date changes. */
+function wireFridayFlag(inputId,badgeId){
+  const inp=document.getElementById(inputId), badge=document.getElementById(badgeId);
+  if(!inp||!badge) return;
+  const sync=()=>badge.classList.toggle('hidden',!isFridayISO(inp.value));
+  inp.addEventListener('input',sync); inp.addEventListener('change',sync); sync();
 }
 function now(){ return Date.now(); }
 function startOf(period){
@@ -2798,7 +2810,8 @@ async function buildRentalCalendar(rentals){
     const cellDate=localISO(new Date(calYear,calMonth,day));
     const items=byDay[day]||[];
     const isToday=cellDate===todayStr;
-    cells+=`<div class="cal-cell${isToday?' today':''}">
+    const isFri=(startWeekday+day-1)%7===4; // Friday — the weekend in Algeria, flagged so it's obvious when picking dates
+    cells+=`<div class="cal-cell${isToday?' today':''}${isFri?' friday':''}">
       <div class="cal-daynum">${day}</div>
       ${items.slice(0,3).map(r=>`<div class="cal-chip ${r.status==='reserved'?'brand':(r.dueDate&&daysLate(r.dueDate)>0?'red':'gold')}" data-calitem="${r.id}">${esc(r.name)}</div>`).join('')}
       ${items.length>3?`<div class="subtle" style="font-size:10px">+${items.length-3} ${esc(t('more'))}</div>`:''}
@@ -2812,7 +2825,7 @@ async function buildRentalCalendar(rentals){
       <button class="btn ghost sm" id="calNext">›</button>
       <button class="btn secondary sm" id="calToday" style="margin-inline-start:auto">${esc(t('today'))}</button>
     </div>
-    <div class="cal-grid cal-head">${weekdayNames.map(d=>`<div>${esc(d)}</div>`).join('')}</div>
+    <div class="cal-grid cal-head">${weekdayNames.map((d,i)=>`<div${i===4?' class="cal-head-fri"':''}>${esc(d)}</div>`).join('')}</div>
     <div class="cal-grid">${cells}</div>
     <div style="display:flex;gap:14px;margin-top:12px;font-size:12px" class="subtle">
       <span><span class="dot" style="background:var(--brand);display:inline-block;width:8px;height:8px;border-radius:50%;margin-inline-end:4px"></span>${esc(t('reserved'))}</span>
@@ -2911,12 +2924,12 @@ async function openExtendModal(r){
    `<p style="font-weight:700;font-size:16px;margin-bottom:2px">${esc(names)}</p>
     <p class="subtle" style="margin-bottom:14px">${esc(r.customerName||'')} · ${esc(t('dueDate'))}: ${r.dueDate?fmtDate(Date.parse(r.dueDate)):'—'}</p>
     <div class="field"><label>${esc(t('extendBy'))} (${esc(t('days'))})</label><input id="ex_days" type="number" min="1" value="1"></div>
-    <div class="field"><label>${esc(t('newDueDate'))}</label><input id="ex_newDue" type="date" readonly></div>
+    <div class="field"><label>${esc(t('newDueDate'))} <span class="badge warnb hidden" id="ex_dueFri">${esc(t('fri'))}</span></label><input id="ex_newDue" type="date" readonly></div>
     <div class="field"><label>${esc(t('additionalCharge'))}</label><input id="ex_charge" type="number" min="0" step="0.01" value="${perDayTotal}"></div>`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
     <button class="btn" id="ex_go">${esc(t('extendRental'))}</button>`);
-  const daysI=document.getElementById('ex_days'), newDueI=document.getElementById('ex_newDue'), chargeI=document.getElementById('ex_charge');
-  function sync(){ const d=Math.max(1,parseInt(daysI.value||1)); const base=r.dueDate?Date.parse(r.dueDate):Date.now(); const newDue=new Date(base+d*86400000); newDueI.value=newDue.toISOString().slice(0,10); chargeI.value=perDayTotal*d; }
+  const daysI=document.getElementById('ex_days'), newDueI=document.getElementById('ex_newDue'), chargeI=document.getElementById('ex_charge'), dueFriBadge=document.getElementById('ex_dueFri');
+  function sync(){ const d=Math.max(1,parseInt(daysI.value||1)); const base=r.dueDate?Date.parse(r.dueDate):Date.now(); const newDue=new Date(base+d*86400000); newDueI.value=newDue.toISOString().slice(0,10); chargeI.value=perDayTotal*d; dueFriBadge.classList.toggle('hidden',!isFridayISO(newDueI.value)); }
   daysI.oninput=sync; sync();
   document.getElementById('ex_go').onclick=async()=>{
     const go=document.getElementById('ex_go'); if(go.disabled) return; go.disabled=true; // double-tap charges twice
@@ -2952,8 +2965,8 @@ async function openEditDatesModal(r){
   modal(t('editRental'),
    `<p style="font-weight:700;font-size:16px;margin-bottom:14px">${esc(r.customerName||'—')}</p>
     <div class="row2">
-      <div class="field"><label>${esc(t('startDate'))}</label><input id="ed_start" type="date" value="${esc(r.startDate||'')}"></div>
-      <div class="field"><label>${esc(t('dueDate'))}</label><input id="ed_due" type="date" value="${esc(r.dueDate||'')}"></div>
+      <div class="field"><label>${esc(t('startDate'))} <span class="badge warnb hidden" id="ed_startFri">${esc(t('fri'))}</span></label><input id="ed_start" type="date" value="${esc(r.startDate||'')}"></div>
+      <div class="field"><label>${esc(t('dueDate'))} <span class="badge warnb hidden" id="ed_dueFri">${esc(t('fri'))}</span></label><input id="ed_due" type="date" value="${esc(r.dueDate||'')}"></div>
     </div>
     <div id="ed_avail" class="subtle" style="margin-bottom:8px"></div>
     ${editable?`<div class="field"><label>${esc(t('addAnotherItem'))}</label>
@@ -2963,6 +2976,7 @@ async function openEditDatesModal(r){
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
     <button class="btn" id="ed_go">${esc(t('save'))}</button>`);
   const startI=document.getElementById('ed_start'), dueI=document.getElementById('ed_due'), availBox=document.getElementById('ed_avail'), linesBox=document.getElementById('ed_lines');
+  wireFridayFlag('ed_start','ed_startFri'); wireFridayFlag('ed_due','ed_dueFri');
   async function refreshAvail(){
     const parts=[];
     for(const l of lines){ if(!l.productId) continue;
@@ -3155,8 +3169,8 @@ async function openRentalModal(presetPid){
       <div class="field"><label>${esc(t('phone'))}</label><input id="rc_phone" type="tel"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>${esc(t('startDate'))}</label><input id="r_start" type="date" value="${todayISO()}"></div>
-      <div class="field"><label>${esc(t('dueDate'))}</label><input id="r_due" type="date"></div>
+      <div class="field"><label>${esc(t('startDate'))} <span class="badge warnb hidden" id="r_startFri">${esc(t('fri'))}</span></label><input id="r_start" type="date" value="${todayISO()}"></div>
+      <div class="field"><label>${esc(t('dueDate'))} <span class="badge warnb hidden" id="r_dueFri">${esc(t('fri'))}</span></label><input id="r_due" type="date"></div>
     </div>
     <div class="field"><label class="check"><input type="checkbox" id="r_reserve"> ${esc(t('reserveItem'))}</label><span class="hint hidden" id="r_reserveHint">${esc(t('futureReserveHint'))}</span></div>
     <div class="field"><label>${esc(t('chooseItem'))} *</label>
@@ -3180,6 +3194,7 @@ async function openRentalModal(presetPid){
   const itemSearch=document.getElementById('r_itemSearch'), itemResults=document.getElementById('r_itemResults'), paidI=document.getElementById('r_paid');
   const startI=document.getElementById('r_start'), dueI=document.getElementById('r_due');
   const linesBox=document.getElementById('r_lines'), linesFoot=document.getElementById('r_linesFoot');
+  wireFridayFlag('r_start','r_startFri'); wireFridayFlag('r_due','r_dueFri');
   let lines=[]; // {productId,name,rate,unit,price,deposit,touched}
 
   // Rent items are priced per period (flat): the rate is the whole-window price,
