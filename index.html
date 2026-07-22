@@ -979,17 +979,18 @@ function money(n){ n=Number(n||0); const s=n.toLocaleString('en-US',{maximumFrac
 function localISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function todayISO(){ return localISO(new Date()); }
 /* A rental isn't "late" the instant its due date begins — a customer due back
-   the 22nd may well return that morning. Grace runs until noon (12:00) local
-   time on the due date; only after that does it count as overdue. */
-function dueNoonTs(dueDateStr){
+   the 22nd may well return that morning. Grace runs until 1pm (13:00) local
+   time on the due date — returned before 1pm is on time, still out after
+   1pm counts as overdue. */
+function dueGraceTs(dueDateStr){
   if(!dueDateStr) return null;
   const [y,mo,d]=dueDateStr.split('-').map(Number);
   if(!y||!mo||!d) return null;
-  return new Date(y,mo-1,d,12,0,0,0).getTime();
+  return new Date(y,mo-1,d,13,0,0,0).getTime();
 }
 function daysLate(dueDateStr){
-  const noon=dueNoonTs(dueDateStr); if(noon==null) return 0;
-  return Math.max(0,Math.ceil((Date.now()-noon)/86400000));
+  const grace=dueGraceTs(dueDateStr); if(grace==null) return 0;
+  return Math.max(0,Math.ceil((Date.now()-grace)/86400000));
 }
 function now(){ return Date.now(); }
 function startOf(period){
@@ -1629,7 +1630,7 @@ async function viewDash(){
   const owed=(await allCustomerStats()).reduce((a,m)=>a+m.balance,0);
   const inStock=products.reduce((a,p)=>a+(p.qty||0),0);
   // date buckets by calendar day (dueDate is a YYYY-MM-DD string, compared as strings).
-  // "Due today" moves into "Overdue" once the noon grace period passes (daysLate).
+  // "Due today" moves into "Overdue" once the 1pm grace period passes (daysLate).
   const todayStr=todayISO(), tomorrowStr=localISO(new Date(Date.now()+86400000));
   const overdueR=activeR.filter(r=>r.dueDate && daysLate(r.dueDate)>0);
   const dueTodayR=activeR.filter(r=>r.dueDate===todayStr && daysLate(r.dueDate)===0);
