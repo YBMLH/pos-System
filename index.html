@@ -2750,8 +2750,40 @@ async function viewRentals(){
   document.getElementById('calPrev')&&(document.getElementById('calPrev').onclick=()=>{ calMonth--; if(calMonth<0){calMonth=11;calYear--;} viewRentals(); });
   document.getElementById('calNext')&&(document.getElementById('calNext').onclick=()=>{ calMonth++; if(calMonth>11){calMonth=0;calYear++;} viewRentals(); });
   document.getElementById('calToday')&&(document.getElementById('calToday').onclick=()=>{ calMonth=new Date().getMonth(); calYear=new Date().getFullYear(); viewRentals(); });
-  view.querySelectorAll('[data-calitem]').forEach(el=>el.onclick=async()=>{
+  view.querySelectorAll('[data-calitem]').forEach(el=>el.onclick=async(e)=>{
+    e.stopPropagation(); // a single chip acts on just that item, not the whole day
     const r=await idbGet('rentals',el.dataset.calitem); if(!r) return;
+    if(r.status==='reserved') activateReservation(r); else openReturnModal(r);
+  });
+  view.querySelectorAll('[data-calday]').forEach(el=>el.onclick=()=>openCalDayModal(el.dataset.calday));
+}
+/* A busy day's cell only shows 3 chips (with names truncated to fit). Clicking
+   anywhere on the cell opens the full list for that day — every item, full
+   product name, with a one-tap pickup/return action. */
+async function openCalDayModal(dateStr){
+  const all=(await idbAll('rentals')).filter(r=>(r.status==='active'||r.status==='reserved') && (r.status==='reserved'?r.startDate:r.dueDate)===dateStr);
+  if(!all.length) return;
+  const seen=new Set(); const groups=[];
+  const keyOf=x=> x.groupId? ('g:'+x.groupId+'|'+x.status) : ('r:'+x.id);
+  all.forEach(r=>{ const k=keyOf(r); if(seen.has(k)) return; seen.add(k); groups.push(all.filter(x=>keyOf(x)===k)); });
+  const rows=groups.map(group=>{
+    const r=group[0];
+    const names=group.map(x=>x.name).join(' + ');
+    const isPickup=r.status==='reserved';
+    const overdue=r.status==='active' && r.dueDate && daysLate(r.dueDate)>0;
+    const statusBadge = isPickup? `<span class="badge brand">${esc(t('reserved'))}</span>`
+      : overdue? `<span class="badge red">${esc(t('overdue'))}</span>` : `<span class="badge gold">${esc(t('rented'))}</span>`;
+    return `<div class="citem" style="align-items:center;flex-wrap:wrap;padding:9px 4px;gap:8px">
+      <div class="nm" style="flex:1 1 160px">${esc(names)}<div class="subtle" style="font-size:11.5px">${esc(r.customerName||'—')}</div></div>
+      ${statusBadge}
+      <button class="btn secondary sm" data-calday-act="${r.id}">${isPickup?esc(t('rentOut')):esc(t('markReturned'))}</button>
+    </div>`;
+  }).join('');
+  modal(fmtDate(Date.parse(dateStr)), `<div>${rows}</div>`,
+   `<button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>`,{lg:true});
+  document.querySelectorAll('[data-calday-act]').forEach(b=>b.onclick=async()=>{
+    const r=await idbGet('rentals',b.dataset.caldayAct); if(!r) return;
+    closeModal();
     if(r.status==='reserved') activateReservation(r); else openReturnModal(r);
   });
 }
@@ -2811,7 +2843,7 @@ async function buildRentalCalendar(rentals){
     const items=byDay[day]||[];
     const isToday=cellDate===todayStr;
     const isFri=(startWeekday+day-1)%7===4; // Friday — the weekend in Algeria, flagged so it's obvious when picking dates
-    cells+=`<div class="cal-cell${isToday?' today':''}${isFri?' friday':''}">
+    cells+=`<div class="cal-cell${isToday?' today':''}${isFri?' friday':''}"${items.length?` data-calday="${cellDate}" style="cursor:pointer"`:''}>
       <div class="cal-daynum">${day}</div>
       ${items.slice(0,3).map(r=>`<div class="cal-chip ${r.status==='reserved'?'brand':(r.dueDate&&daysLate(r.dueDate)>0?'red':'gold')}" data-calitem="${r.id}">${esc(r.name)}</div>`).join('')}
       ${items.length>3?`<div class="subtle" style="font-size:10px">+${items.length-3} ${esc(t('more'))}</div>`:''}
