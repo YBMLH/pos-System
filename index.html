@@ -3820,29 +3820,56 @@ async function openCustomerLedger(cust){
 /* ============================================================
    SALES HISTORY — reprint & refunds
 ============================================================ */
-let salesSearch='', salesPeriod='all', salesCustomFrom='', salesCustomTo='', salesLimit=50, actLimit=100;
+let salesSearch='', salesPeriod='all', salesCustomFrom='', salesCustomTo='', salesLimit=50, actLimit=100, historyTab='sales';
 async function viewSales(){
   const view=document.getElementById('view');
-  const all=(await idbAll('sales')).sort((a,b)=>b.createdAt-a.createdAt);
   const {from,to}=dateRangeFor(salesPeriod,salesCustomFrom,salesCustomTo);
   const q=salesSearch.toLowerCase();
-  const filt=all.filter(s=> s.createdAt>=from && s.createdAt<=to &&
-    (!q || [s.customerName,...(s.items||[]).map(i=>i.name)].some(x=>String(x||'').toLowerCase().includes(q))));
-  view.innerHTML=pageHead(t('salesHistory'),'',
-    `<div class="seg" id="salesSeg">${['today','week','month','all','custom'].map(p=>`<button data-p="${p}" class="${salesPeriod===p?'on':''}">${esc(t(p))}</button>`).join('')}</div>`)+
-    (salesPeriod==='custom'? `<div class="card pad" style="margin-bottom:14px"><div class="row2">
+  const tabsHtml=`<div class="pill-tabs" style="margin-bottom:12px">
+      <button data-htab="sales" class="${historyTab==='sales'?'on':''}">${esc(t('salesRevenue'))}</button>
+      <button data-htab="rentals" class="${historyTab==='rentals'?'on':''}">${esc(t('rentalRevenue'))}</button>
+    </div>`;
+  const periodHtml=`<div class="seg" id="salesSeg">${['today','week','month','all','custom'].map(p=>`<button data-p="${p}" class="${salesPeriod===p?'on':''}">${esc(t(p))}</button>`).join('')}</div>`;
+  const customHtml=salesPeriod==='custom'? `<div class="card pad" style="margin-bottom:14px"><div class="row2">
        <div class="field"><label>${esc(t('from'))}</label><input type="date" id="salesFrom" value="${esc(salesCustomFrom)}"></div>
        <div class="field"><label>${esc(t('to'))}</label><input type="date" id="salesTo" value="${esc(salesCustomTo)}"></div>
-     </div></div>` : '')+
-    `<div class="searchbar" style="margin-bottom:12px">${svg(IC.search,'ic')}<input id="salesSearch" type="search" placeholder="${esc(t('searchProducts'))}" value="${esc(salesSearch)}"></div>`+
-    (filt.length? `<div class="tablewrap"><table><thead><tr>
+     </div></div>` : '';
+  const searchHtml=`<div class="searchbar" style="margin-bottom:12px">${svg(IC.search,'ic')}<input id="salesSearch" type="search" placeholder="${esc(t('searchProducts'))}" value="${esc(salesSearch)}"></div>`;
+
+  let body;
+  if(historyTab==='rentals'){
+    const rentals=(await idbAll('rentals')).sort((a,b)=>b.createdAt-a.createdAt);
+    const filt=rentals.filter(r=> r.createdAt>=from && r.createdAt<=to &&
+      (!q || [r.customerName,r.name].some(x=>String(x||'').toLowerCase().includes(q))));
+    // Same bundle-collapse as the Rentals page: siblings created together with
+    // the same status show as one line ("A + B") instead of one row per item.
+    const seen=new Set(); const groups=[];
+    const keyOf=x=> x.groupId? ('g:'+x.groupId+'|'+x.status) : ('r:'+x.id);
+    filt.forEach(r=>{ const k=keyOf(r); if(seen.has(k)) return; seen.add(k); groups.push(filt.filter(x=>keyOf(x)===k)); });
+    body=(groups.length? `<div class="tablewrap"><table><thead><tr>
+       <th>${esc(t('date'))}</th><th>${esc(t('customer'))}</th><th>${esc(t('item'))}</th>
+       <th class="t-right">${esc(t('rentalPrice'))}</th><th class="t-right">${esc(t('paid'))}</th><th class="t-right">${esc(t('balance'))}</th>
+       <th>${esc(t('status'))}</th><th class="t-right">${esc(t('actions'))}</th>
+     </tr></thead><tbody>${groups.slice(0,salesLimit).map(rowRentalHist).join('')}</tbody></table></div>
+     ${groups.length>salesLimit?`<div style="text-align:center;margin-top:14px"><button class="btn secondary" id="salesMore">${esc(t('showMore'))} (${groups.length-salesLimit})</button></div>`:''}
+     <p class="subtle" style="text-align:center;font-size:12px;margin-top:8px">${Math.min(salesLimit,groups.length)} / ${groups.length}</p>`
+     : emptyState(IC.rent,t('nothingYet'),''));
+  } else {
+    const all=(await idbAll('sales')).sort((a,b)=>b.createdAt-a.createdAt);
+    const filt=all.filter(s=> s.createdAt>=from && s.createdAt<=to &&
+      (!q || [s.customerName,...(s.items||[]).map(i=>i.name)].some(x=>String(x||'').toLowerCase().includes(q))));
+    body=(filt.length? `<div class="tablewrap"><table><thead><tr>
        <th>${esc(t('date'))}</th><th>${esc(t('customer'))}</th><th>${esc(t('item'))}</th>
        <th class="t-right">${esc(t('total'))}</th><th class="t-right">${esc(t('paid'))}</th><th class="t-right">${esc(t('balance'))}</th><th class="t-right">${esc(t('actions'))}</th>
      </tr></thead><tbody>${filt.slice(0,salesLimit).map(rowSale).join('')}</tbody></table></div>
      ${filt.length>salesLimit?`<div style="text-align:center;margin-top:14px"><button class="btn secondary" id="salesMore">${esc(t('showMore'))} (${filt.length-salesLimit})</button></div>`:''}
      <p class="subtle" style="text-align:center;font-size:12px;margin-top:8px">${Math.min(salesLimit,filt.length)} / ${filt.length}</p>`
      : emptyState(IC.cart,t('nothingYet'),''));
+  }
+
+  view.innerHTML=pageHead(t('salesHistory'),'',periodHtml)+tabsHtml+customHtml+searchHtml+body;
   document.getElementById('salesMore')&&(document.getElementById('salesMore').onclick=()=>{ salesLimit+=50; viewSales(); });
+  view.querySelectorAll('[data-htab]').forEach(b=>b.onclick=()=>{ historyTab=b.dataset.htab; salesLimit=50; viewSales(); });
   view.querySelectorAll('#salesSeg button').forEach(b=>b.onclick=()=>{ salesPeriod=b.dataset.p; salesLimit=50; viewSales(); });
   const sf=document.getElementById('salesFrom'), st=document.getElementById('salesTo');
   if(sf) sf.onchange=()=>{ salesCustomFrom=sf.value; salesLimit=50; viewSales(); };
@@ -3856,6 +3883,51 @@ async function viewSales(){
   });
   view.querySelectorAll('[data-refund]').forEach(b=>b.onclick=async()=>openRefundModal(await idbGet('sales',b.dataset.refund)));
   view.querySelectorAll('[data-void]').forEach(b=>b.onclick=async()=>voidSale(await idbGet('sales',b.dataset.void)));
+  view.querySelectorAll('[data-hist-agr]').forEach(b=>b.onclick=async()=>{ const r=await idbGet('rentals',b.dataset.histAgr); if(r) offerRentalPreview(await rentalGroupOf(r)); });
+  view.querySelectorAll('[data-hist-wa]').forEach(b=>b.onclick=async()=>{
+    const r=await idbGet('rentals',b.dataset.histWa); if(!r) return;
+    const c=r.customerId? await idbGet('customers',r.customerId) : null;
+    let digits=((c&&c.phone)||'').replace(/\D/g,'');
+    if(!digits){ toast(t('noPhone'),'err'); return; }
+    if(digits.startsWith('00')) digits=digits.slice(2);
+    else if(digits.startsWith('0')) digits='213'+digits.slice(1);
+    const dateTxt=r.dueDate?fmtDate(Date.parse(r.dueDate)):'—';
+    const group=await rentalGroupOf(r);
+    const itemTxt = group.length>1 ? group.map(x=>x.name).join(', ') : (r.name||'');
+    const msg=t('waDueMsg').replace('{name}',r.customerName||'').replace('{store}',State.storeName||'')
+                           .replace('{item}',itemTxt).replace('{date}',dateTxt);
+    window.open('https://wa.me/'+digits+'?text='+encodeURIComponent(msg),'_blank');
+  });
+}
+/* Read-only history row for a rental (or bundle) — mirrors rowRental's status
+   badge and money math, but only offers non-destructive actions (print the
+   agreement, WhatsApp reminder); editing/returning/cancelling stays on the
+   Rentals page itself. */
+function rowRentalHist(group){
+  const r=group[0];
+  const price=group.reduce((a,x)=>a+(x.price||0),0);
+  const late=group.reduce((a,x)=>a+(x.lateFee||0),0);
+  const paid=group.reduce((a,x)=>a+(x.paid||0),0);
+  const bal=Math.max(0,price+late-paid);
+  const overdue=r.status==='active' && r.dueDate && Date.parse(r.dueDate)<Date.now();
+  const statusBadge= r.status==='cancelled'? `<span class="badge grey">${esc(t('cancelled'))}</span>` :
+    r.status==='returned'? `<span class="badge grey">${esc(t('returned'))}</span>` :
+    r.status==='reserved'? `<span class="badge brand">${esc(t('reserved'))}</span>` :
+    overdue? `<span class="badge red"><span class="dot"></span>${esc(t('overdue'))}</span>` : `<span class="badge gold"><span class="dot"></span>${esc(t('rented'))}</span>`;
+  const names=group.map(x=>x.name).join(' + ');
+  return `<tr${r.status==='cancelled'?' style="opacity:.55"':''}>
+    <td class="mono subtle">${fmtDate(r.createdAt)}</td>
+    <td>${esc(r.customerName||'—')}</td>
+    <td style="max-width:220px" class="subtle">${esc(names)}</td>
+    <td class="t-right mono">${money(price)}</td>
+    <td class="t-right mono">${money(paid)}</td>
+    <td class="t-right">${r.status==='cancelled'?'—':bal>0?`<span class="badge red">${money(bal)}</span>`:`<span class="badge green">${esc(t('settled'))}</span>`}</td>
+    <td>${statusBadge}</td>
+    <td class="t-right" style="white-space:nowrap">
+      <button class="btn ghost sm" data-hist-agr="${r.id}" title="${esc(t('rentAgreement'))}">${svg(IC.print,'ic')}</button>
+      <button class="btn ghost sm" data-hist-wa="${r.id}" title="${esc(t('waRemind'))}" style="color:var(--ok)">${svg(IC.chat,'ic')}</button>
+    </td>
+  </tr>`;
 }
 function rowSale(s){
   const itemsLabel=(s.items||[]).map(i=>`${i.name}×${i.qty}`).join(', ');
