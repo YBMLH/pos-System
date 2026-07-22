@@ -560,7 +560,7 @@ const I18N = {
     specificItem:"Specific Item", other:"Other", specifyItem:"What was it?", todayExpenses:"Today's Expenses",
     extendRental:"Extend Rental", extendBy:"Extend by", newDueDate:"New due date", additionalCharge:"Additional charge",
     editDates:"Edit dates", datesUpdated:"Dates updated", logEditDates:"Rental dates changed", dueBeforeStart:"Due date can't be before the start date",
-    editRental:"Edit rental", logEditPrice:"Rental price changed",
+    editRental:"Edit rental", logEditPrice:"Rental price changed", logEditPaid:"Rental payment corrected",
     extended:"Rental extended", logExtend:"Rental extended", measureHint:"e.g. Height 165cm, Chest 90cm...",
     stockHistory:"Stock History", detail:"Detail", staff:"Staff", bestCustomer:"Best Repeat Customer",
     mostPopularItem:"Most Popular Item", purchases:"purchases", soldTimes:"Sold {n} times",
@@ -724,7 +724,7 @@ const I18N = {
     specificItem:"Article spécifique", other:"Autre", specifyItem:"C'était quoi ?", todayExpenses:"Dépenses du jour",
     extendRental:"Prolonger la location", extendBy:"Prolonger de", newDueDate:"Nouvelle date de retour", additionalCharge:"Supplément",
     editDates:"Modifier les dates", datesUpdated:"Dates mises à jour", logEditDates:"Dates de location modifiées", dueBeforeStart:"La date de retour ne peut pas précéder la date de début",
-    editRental:"Modifier la location", logEditPrice:"Prix de location modifié",
+    editRental:"Modifier la location", logEditPrice:"Prix de location modifié", logEditPaid:"Paiement de location corrigé",
     extended:"Location prolongée", logExtend:"Location prolongée", measureHint:"ex. Taille 165cm, Poitrine 90cm...",
     stockHistory:"Historique du stock", detail:"Détail", staff:"Employé", bestCustomer:"Meilleur client fidèle",
     mostPopularItem:"Article le plus populaire", purchases:"achats", soldTimes:"Vendu {n} fois",
@@ -887,7 +887,7 @@ const I18N = {
     specificItem:"عنصر محدد", other:"أخرى", specifyItem:"ما هو؟", todayExpenses:"مصاريف اليوم",
     extendRental:"تمديد الإيجار", extendBy:"تمديد لمدة", newDueDate:"تاريخ الإرجاع الجديد", additionalCharge:"رسوم إضافية",
     editDates:"تعديل التواريخ", datesUpdated:"تم تحديث التواريخ", logEditDates:"تغيير تواريخ الإيجار", dueBeforeStart:"لا يمكن أن يكون تاريخ الإرجاع قبل تاريخ البدء",
-    editRental:"تعديل الإيجار", logEditPrice:"تغيير سعر الإيجار",
+    editRental:"تعديل الإيجار", logEditPrice:"تغيير سعر الإيجار", logEditPaid:"تصحيح دفعة الإيجار",
     extended:"تم تمديد الإيجار", logExtend:"تم تمديد الإيجار", measureHint:"مثال: الطول 165سم، الصدر 90سم...",
     stockHistory:"سجل المخزون", detail:"التفاصيل", staff:"الموظف", bestCustomer:"أفضل عميل متكرر",
     mostPopularItem:"العنصر الأكثر مبيعاً", purchases:"عملية شراء", soldTimes:"بيع {n} مرة",
@@ -2931,7 +2931,8 @@ async function openEditDatesModal(r){
   const editable = r.status==='reserved'; // items only changeable before hand-over
   const products = editable ? (await getProducts()).filter(p=>(p.mode==='rent'||p.mode==='both')) : [];
   const existingGroupId = group[0].groupId || null;
-  let lines = group.map(it=>({rentalId:it.id, productId:it.productId, name:it.name, price:it.price||0}));
+  const origPaidById={}; group.forEach(it=>{ origPaidById[it.id]=it.paid||0; });
+  let lines = group.map(it=>({rentalId:it.id, productId:it.productId, name:it.name, price:it.price||0, paid:it.paid||0}));
   let replaceIndex=null; // when set, the next picked product replaces that line
   modal(t('editRental'),
    `<p style="font-weight:700;font-size:16px;margin-bottom:14px">${esc(r.customerName||'—')}</p>
@@ -2957,13 +2958,15 @@ async function openEditDatesModal(r){
   function renderLines(){
     linesBox.innerHTML = lines.map((l,i)=>`<div class="citem" style="align-items:center;flex-wrap:wrap;padding:8px 4px">
         <div class="nm" style="flex:1 1 140px">${esc(l.name)}</div>
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <input type="number" min="0" step="0.01" value="${l.price}" data-ln-price="${i}" style="width:92px" title="${esc(t('rentalPrice'))}">
+        <div style="display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap">
+          <div style="display:flex;flex-direction:column;gap:2px"><span class="subtle" style="font-size:9.5px">${esc(t('rentalPrice'))}</span><input type="number" min="0" step="0.01" value="${l.price}" data-ln-price="${i}" style="width:92px"></div>
+          <div style="display:flex;flex-direction:column;gap:2px"><span class="subtle" style="font-size:9.5px">${esc(t('amountPaid'))}</span><input type="number" min="0" step="0.01" value="${l.paid}" data-ln-paid="${i}" style="width:92px"></div>
           ${editable?`<button class="btn ghost sm" type="button" data-ln-swap="${i}">${esc(t('swapItem'))}</button>`:''}
           ${editable&&lines.length>1?`<button class="qbtn rm" type="button" data-ln-rm="${i}" title="${esc(t('del'))}">${svg(IC.trash)}</button>`:''}
         </div>
       </div>`).join('');
     linesBox.querySelectorAll('[data-ln-price]').forEach(inp=>inp.oninput=()=>{ lines[+inp.dataset.lnPrice].price=Number(inp.value||0); });
+    linesBox.querySelectorAll('[data-ln-paid]').forEach(inp=>inp.oninput=()=>{ lines[+inp.dataset.lnPaid].paid=Number(inp.value||0); });
     linesBox.querySelectorAll('[data-ln-swap]').forEach(bn=>bn.onclick=()=>{ replaceIndex=+bn.dataset.lnSwap; const si=document.getElementById('ed_itemSearch'); if(si){ si.focus(); si.placeholder=t('swapItem')+'…'; } });
     linesBox.querySelectorAll('[data-ln-rm]').forEach(bn=>bn.onclick=()=>{ lines.splice(+bn.dataset.lnRm,1); renderLines(); refreshAvail(); });
   }
@@ -2997,32 +3000,45 @@ async function openEditDatesModal(r){
     const days=(s&&d)?Math.max(1,Math.round((d-s)/86400000)):null;
     const gid = lines.length>1 ? (existingGroupId||uid()) : null;
     const keptIds=new Set(lines.filter(l=>l.rentalId).map(l=>l.rentalId));
-    for(const l of lines){
-      if(l.rentalId){
-        const it=await idbGet('rentals',l.rentalId); if(!it) continue;
-        it.productId=l.productId; it.name=l.name; it.price=Math.max(0,Number(l.price||0));
-        it.startDate=start; it.dueDate=due; if(days!=null) it.days=days; it.groupId=gid;
-        await idbPut('rentals',it);
-      } else {
-        await idbPut('rentals',{id:uid(),groupId:gid,productId:l.productId,name:l.name,customerId:r.customerId,customerName:r.customerName,
-          startDate:start,dueDate:due,days:days||1,price:Math.max(0,Number(l.price||0)),deposit:0,paid:0,lateFee:0,
-          status:'reserved',method:r.method||'cash',createdAt:now(),userId:State.user.id});
+    // Correcting "amount paid" down (e.g. a mistaken payment recorded at pickup)
+    // writes a reversing refund entry so the till stays right — like any other
+    // money leaving the till, a cashier needs the manager code for that.
+    const paidDelta=l=> Math.max(0,Number(l.paid||0)) - (l.rentalId? (origPaidById[l.rentalId]||0) : 0);
+    const needsAuth = lines.some(l=>paidDelta(l)<0);
+    const finalize=async(how)=>{
+      for(const l of lines){
+        const delta=paidDelta(l);
+        if(l.rentalId){
+          const it=await idbGet('rentals',l.rentalId); if(!it) continue;
+          it.productId=l.productId; it.name=l.name; it.price=Math.max(0,Number(l.price||0)); it.paid=Math.max(0,Number(l.paid||0));
+          it.startDate=start; it.dueDate=due; if(days!=null) it.days=days; it.groupId=gid;
+          await idbPut('rentals',it);
+          if(delta!==0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:delta>0?'rental':'refund',amount:delta,method:it.method||'cash',createdAt:now(),userId:State.user.id});
+        } else {
+          await idbPut('rentals',{id:uid(),groupId:gid,productId:l.productId,name:l.name,customerId:r.customerId,customerName:r.customerName,
+            startDate:start,dueDate:due,days:days||1,price:Math.max(0,Number(l.price||0)),deposit:0,paid:Math.max(0,Number(l.paid||0)),lateFee:0,
+            status:'reserved',method:r.method||'cash',createdAt:now(),userId:State.user.id});
+          if(delta>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'rental',amount:delta,method:r.method||'cash',createdAt:now(),userId:State.user.id});
+        }
       }
-    }
-    // Items dropped from a reservation: reverse any money and mark cancelled
-    // (keeps the record), or just delete a line that never had money on it.
-    for(const it of group){ if(keptIds.has(it.id)) continue;
-      const hadMoney=(it.paid||0)>0 || ((it.deposit||0)>0 && !it.depositRefunded);
-      if(hadMoney){
-        const method=it.method||'cash';
-        if((it.paid||0)>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-(it.paid||0),method,createdAt:now(),userId:State.user.id});
-        if((it.deposit||0)>0 && !it.depositRefunded) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:-(it.deposit||0),method,createdAt:now(),userId:State.user.id});
-        it.status='cancelled'; it.cancelledAt=now(); if((it.deposit||0)>0) it.depositRefunded=true; await idbPut('rentals',it);
-      } else { await idbDel('rentals',it.id); }
-      await logAct('logCancelRental', it.name+(it.customerName?' · '+it.customerName:''));
-    }
-    await logAct(editable?'logEditItems':'logEditDates', lines.map(l=>l.name).join(' + ')+(r.customerName?' · '+r.customerName:'')+' · '+(start||'—')+' → '+(due||'—'));
-    closeModal(); toast(t('saved')||t('datesUpdated'),'ok'); viewRentals();
+      // Items dropped from a reservation: reverse any money and mark cancelled
+      // (keeps the record), or just delete a line that never had money on it.
+      for(const it of group){ if(keptIds.has(it.id)) continue;
+        const hadMoney=(it.paid||0)>0 || ((it.deposit||0)>0 && !it.depositRefunded);
+        if(hadMoney){
+          const method=it.method||'cash';
+          if((it.paid||0)>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-(it.paid||0),method,createdAt:now(),userId:State.user.id});
+          if((it.deposit||0)>0 && !it.depositRefunded) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:-(it.deposit||0),method,createdAt:now(),userId:State.user.id});
+          it.status='cancelled'; it.cancelledAt=now(); if((it.deposit||0)>0) it.depositRefunded=true; await idbPut('rentals',it);
+        } else { await idbDel('rentals',it.id); }
+        await logAct('logCancelRental', it.name+(it.customerName?' · '+it.customerName:''));
+      }
+      const namesTxt=lines.map(l=>l.name).join(' + ');
+      await logAct(editable?'logEditItems':'logEditDates', namesTxt+(r.customerName?' · '+r.customerName:'')+' · '+(start||'—')+' → '+(due||'—'));
+      if(lines.some(l=>paidDelta(l)!==0)) await logAct('logEditPaid', namesTxt+(r.customerName?' · '+r.customerName:'')+(how==='code'?(' · '+t('authorizedBy')):''));
+      closeModal(); toast(t('saved')||t('datesUpdated'),'ok'); viewRentals();
+    };
+    if(needsAuth && !isOwner()) requireAuth(finalize); else finalize('owner');
   };
 }
 // A display row is a group of one or more rentals sharing the same status (a
