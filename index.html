@@ -318,6 +318,17 @@ kbd{background:#EEEDEA;border-radius:5px;padding:1px 6px;font-size:11px;font-fam
 .clientcard .rank.r1{background:linear-gradient(135deg,#E8C15A,#C9A34E);color:#4a3708}
 .clientcard .rank.r2{background:linear-gradient(135deg,#Cfd3d6,#A9B0B4);color:#33383b}
 .clientcard .rank.r3{background:linear-gradient(135deg,#D9A066,#B87333);color:#3a230c}
+/* ---------- Reports: numbered bestseller lists ---------- */
+.ranklist{display:flex;flex-direction:column;gap:2px}
+.rankrow{display:flex;align-items:center;gap:10px;padding:7px 2px;border-bottom:1px solid var(--line)}
+.rankrow:last-child{border-bottom:none}
+.rankrow .rnum{flex:none;min-width:24px;height:24px;border-radius:999px;display:grid;place-items:center;font-size:11.5px;font-weight:800;background:var(--brand);color:#fff}
+.rankrow .rnum.r1{background:linear-gradient(135deg,#E8C15A,#C9A34E);color:#4a3708}
+.rankrow .rnum.r2{background:linear-gradient(135deg,#Cfd3d6,#A9B0B4);color:#33383b}
+.rankrow .rnum.r3{background:linear-gradient(135deg,#D9A066,#B87333);color:#3a230c}
+.rankrow .rname{flex:1;min-width:0;font-weight:650;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rankrow .rmeta{flex:none;text-align:end;font-size:12px;color:var(--muted)}
+.rankrow .rmeta b{color:var(--ink);font-variant-numeric:tabular-nums}
 .cli-av{width:56px;height:56px;border-radius:14px;flex:none;overflow:hidden;background:var(--gold-soft);color:#8a6a1a;display:grid;place-items:center;font-size:19px;font-weight:800;border:1px solid var(--line)}
 .cli-av img{width:100%;height:100%;object-fit:cover}
 .cli-main{flex:1;min-width:0}
@@ -534,6 +545,8 @@ const I18N = {
     photo:"Photo", takePhoto:"Camera", choosePhoto:"Gallery", removePhoto:"Remove photo",
     signature:"Signature", clearSig:"Clear", print:"Print",
     from:"From", to:"To", custom:"Custom", bestSellers:"Best Sellers", byVolume:"By Volume", byProfit:"By Profit",
+    mostRentedItems:"Most Rented Items", mostSoldItems:"Most Sold Items", bestRepeatCustomers:"Best Repeat Customers", topSpenders:"Top Spenders",
+    timesRented:"{n} rentals", noRankedData:"Not enough activity yet",
     category:"Category", allCategories:"All categories", tags:"Tags", customerProfile:"Customer Profile",
     lowStockAlert:"Low stock alert", reorderNow:"items need reordering", depositsHeld:"Deposits Held", paymentHistory:"Payment history", added:"Added",
     overdueAlerts:"Overdue Rentals", alertsHub:"Alerts", noAlerts:"All clear — nothing urgent",
@@ -701,6 +714,8 @@ const I18N = {
     photo:"Photo", takePhoto:"Caméra", choosePhoto:"Galerie", removePhoto:"Supprimer la photo",
     signature:"Signature", clearSig:"Effacer", print:"Imprimer",
     from:"Du", to:"Au", custom:"Personnalisé", bestSellers:"Meilleures ventes", byVolume:"Par volume", byProfit:"Par profit",
+    mostRentedItems:"Articles les plus loués", mostSoldItems:"Articles les plus vendus", bestRepeatCustomers:"Meilleurs clients fidèles", topSpenders:"Meilleurs dépensiers",
+    timesRented:"{n} locations", noRankedData:"Pas encore assez d'activité",
     category:"Catégorie", allCategories:"Toutes catégories", tags:"Étiquettes", customerProfile:"Profil client",
     lowStockAlert:"Alerte stock bas", reorderNow:"articles à réapprovisionner", depositsHeld:"Cautions détenues", paymentHistory:"Historique des paiements", added:"Ajouté",
     overdueAlerts:"Locations en retard", alertsHub:"Alertes", noAlerts:"Tout est en ordre",
@@ -867,6 +882,8 @@ const I18N = {
     photo:"صورة", takePhoto:"كاميرا", choosePhoto:"معرض", removePhoto:"إزالة الصورة",
     signature:"التوقيع", clearSig:"مسح", print:"طباعة",
     from:"من", to:"إلى", custom:"مخصص", bestSellers:"الأكثر مبيعاً", byVolume:"حسب الكمية", byProfit:"حسب الربح",
+    mostRentedItems:"الأكثر تأجيراً", mostSoldItems:"الأكثر مبيعاً", bestRepeatCustomers:"أفضل العملاء المتكررين", topSpenders:"الأكثر إنفاقاً",
+    timesRented:"{n} إيجار", noRankedData:"لا يوجد نشاط كافٍ بعد",
     category:"الفئة", allCategories:"كل الفئات", tags:"الوسوم", customerProfile:"ملف العميل",
     lowStockAlert:"تنبيه نقص المخزون", reorderNow:"عناصر تحتاج إعادة الطلب", depositsHeld:"التأمينات المحتجزة", paymentHistory:"سجل الدفعات", added:"أُضيف",
     overdueAlerts:"إيجارات متأخرة", alertsHub:"التنبيهات", noAlerts:"لا يوجد شيء عاجل",
@@ -1032,6 +1049,15 @@ function colorSwatchesHtml(current,attr){
 // tagged client (e.g. VIP, blocked) is spottable while scrolling.
 function custDotHtml(color){
   return color && TAG_COLORS[color] ? `<span title="${esc(tagColorLabel(color))}" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${TAG_COLORS[color]};margin-inline-end:6px;flex-shrink:0;vertical-align:middle"></span>` : '';
+}
+// Numbered 1st-to-last list used by the Reports Bestsellers section (top
+// items/customers) — top 3 ranks get a gold/silver/bronze badge, rest plain.
+function rankedListHtml(items,metricFn){
+  if(!items.length) return `<p class="subtle" style="padding:10px 0">${esc(t('noRankedData'))}</p>`;
+  return `<div class="ranklist">${items.map((it,i)=>{
+    const rank=i+1, rcls=rank===1?'r1':rank===2?'r2':rank===3?'r3':'';
+    return `<div class="rankrow"><span class="rnum ${rcls}">${rank}</span><span class="rname">${esc(it.name||'—')}</span><span class="rmeta">${metricFn(it)}</span></div>`;
+  }).join('')}</div>`;
 }
 function now(){ return Date.now(); }
 function startOf(period){
@@ -4184,12 +4210,16 @@ async function viewReports(){
     sellAgg[key].revenue+=(it.price*it.qty);
     sellAgg[key].profit+=((it.price-(p?p.costPrice||0:0))*it.qty);
   }}
-  const bestList=Object.values(sellAgg).sort((a,b)=> bestMode==='profit'? b.profit-a.profit : b.qty-a.qty).slice(0,8);
-  const topItem=Object.values(sellAgg).sort((a,b)=>b.qty-a.qty)[0]||null;
+  const bestList=Object.values(sellAgg).sort((a,b)=> bestMode==='profit'? b.profit-a.profit : b.qty-a.qty).slice(0,10);
+  // most-rented items: aggregate rentals in period by product (times rented + revenue collected)
+  const rentAgg={}; // productId -> {name,qty,revenue}
+  for(const r of R){ const key=r.productId||r.name; if(!rentAgg[key]) rentAgg[key]={name:r.name,qty:0,revenue:0}; rentAgg[key].qty++; rentAgg[key].revenue+=(r.paid||0); }
+  const topRented=Object.values(rentAgg).sort((a,b)=>b.qty-a.qty).slice(0,10);
   const custAgg={}; // customerId -> {name,count,total}
   for(const s of S){ if(!s.customerId) continue; const key=s.customerId; if(!custAgg[key]) custAgg[key]={name:s.customerName,count:0,total:0}; custAgg[key].count++; custAgg[key].total+=(s.paid||0); }
   for(const r of R){ if(!r.customerId) continue; const key=r.customerId; if(!custAgg[key]) custAgg[key]={name:r.customerName,count:0,total:0}; custAgg[key].count++; custAgg[key].total+=(r.paid||0); }
-  const topCustomer=Object.values(custAgg).sort((a,b)=>b.count-a.count)[0]||null;
+  const topRepeat=Object.values(custAgg).sort((a,b)=>b.count-a.count || b.total-a.total).slice(0,10);
+  const topSpenders=Object.values(custAgg).sort((a,b)=>b.total-a.total || b.count-a.count).slice(0,10);
   // last-7-days trend (always last 7 calendar days regardless of selected period, for consistent chart context)
   const dayLabels=[], salesDaily=[], rentDaily=[], expDaily=[];
   for(let i=6;i>=0;i--){
@@ -4216,16 +4246,6 @@ async function viewReports(){
      <div class="stat"><div class="corner">${svg(IC.chart)}</div><div class="k">${esc(t('expenses'))}</div><div class="v mono">${money(exp)}</div></div>
      <div class="stat ${profit>=0?'':'danger'}"><div class="corner">${svg(IC.up)}</div><div class="k">${esc(t('profit'))}</div><div class="v mono">${money(profit)}</div></div>
      <div class="stat ${owed>0?'warn':''}"><div class="corner">${svg(IC.debt)}</div><div class="k">${esc(t('debtOutstanding'))}</div><div class="v mono">${money(owed)}</div></div>
-   </div>
-   <div class="cards" style="margin-bottom:22px">
-     <div class="stat brand"><div class="corner">${svg(IC.users)}</div><div class="k">${esc(t('bestCustomer'))}</div>
-       <div class="v" style="font-size:18px">${topCustomer?esc(topCustomer.name):'—'}</div>
-       ${topCustomer?`<div class="sub">${topCustomer.count} ${esc(t('purchases'))} · ${money(topCustomer.total)}</div>`:''}
-     </div>
-     <div class="stat brand"><div class="corner">${svg(IC.box)}</div><div class="k">${esc(t('mostPopularItem'))}</div>
-       <div class="v" style="font-size:18px">${topItem?esc(topItem.name):'—'}</div>
-       ${topItem?`<div class="sub">${esc(t('soldTimes').replace('{n}',topItem.qty))}</div>`:''}
-     </div>
    </div>
    <div class="grid" style="grid-template-columns:1fr 1fr;gap:18px" id="repGrid">
      <div class="card pad">
@@ -4261,17 +4281,30 @@ async function viewReports(){
        ])}
      </div>
    </div>
-   <div class="card pad" style="margin-top:18px">
-     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-       <h3>${esc(t('bestSellers'))}</h3>
-       <div class="seg" id="bestSeg" style="margin-inline-start:auto">
-         <button data-m="volume" class="${bestMode==='volume'?'on':''}">${esc(t('byVolume'))}</button>
-         <button data-m="profit" class="${bestMode==='profit'?'on':''}">${esc(t('byProfit'))}</button>
-       </div>
+   <h3 style="margin:22px 0 12px">${esc(t('bestSellers'))}</h3>
+   <div class="grid" style="grid-template-columns:1fr 1fr;gap:18px">
+     <div class="card pad">
+       <h4 style="margin-bottom:8px;font-size:14px">${esc(t('mostRentedItems'))}</h4>
+       ${rankedListHtml(topRented,b=>`<b>${b.qty}×</b> · ${money(b.revenue)}`)}
      </div>
-     ${bestList.length? `<table><thead><tr><th>${esc(t('item'))}</th><th class="t-right">${esc(t('qty'))}</th><th class="t-right">${esc(t('revenue'))}</th><th class="t-right">${esc(t('profit'))}</th></tr></thead>
-       <tbody>${bestList.map(b=>`<tr><td>${esc(b.name)}</td><td class="t-right mono">${b.qty}</td><td class="t-right mono">${money(b.revenue)}</td><td class="t-right mono">${money(b.profit)}</td></tr>`).join('')}</tbody></table>`
-     : `<p class="subtle" style="padding:10px 0">${esc(t('noActivity'))}</p>`}
+     <div class="card pad">
+       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+         <h4 style="font-size:14px">${esc(t('mostSoldItems'))}</h4>
+         <div class="seg" id="bestSeg" style="margin-inline-start:auto">
+           <button data-m="volume" class="${bestMode==='volume'?'on':''}">${esc(t('byVolume'))}</button>
+           <button data-m="profit" class="${bestMode==='profit'?'on':''}">${esc(t('byProfit'))}</button>
+         </div>
+       </div>
+       ${rankedListHtml(bestList,b=>`<b>${b.qty}×</b> · ${money(bestMode==='profit'?b.profit:b.revenue)}`)}
+     </div>
+     <div class="card pad">
+       <h4 style="margin-bottom:8px;font-size:14px">${esc(t('bestRepeatCustomers'))}</h4>
+       ${rankedListHtml(topRepeat,c=>`<b>${c.count}</b> ${esc(t('purchases'))}`)}
+     </div>
+     <div class="card pad">
+       <h4 style="margin-bottom:8px;font-size:14px">${esc(t('topSpenders'))}</h4>
+       ${rankedListHtml(topSpenders,c=>`<b>${money(c.total)}</b>`)}
+     </div>
    </div>`;
   view.querySelectorAll('#repSeg button').forEach(b=>b.onclick=()=>{ repPeriod=b.dataset.p; viewReports(); });
   view.querySelectorAll('#bestSeg button').forEach(b=>b.onclick=()=>{ bestMode=b.dataset.m; viewReports(); });
