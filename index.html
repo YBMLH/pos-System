@@ -516,6 +516,7 @@ const I18N = {
     expenseLabel:"Description", category:"Category", amount:"Amount",
     expenseSaved:"Expense saved", debtOutstanding:"Outstanding debt",
     breakdown:"Breakdown", noExpenses:"No expenses recorded",
+    noWithdrawals:"No withdrawals in this period", withdrawalsExcludedHint:"Owner withdrawals are cash taken out, not a business expense — tracked separately, not in profit.",
     ownerOnly:"Owner access only", ownerOnlyMsg:"Financial reports are visible to the owner only.",
     // staff
     teamMembers:"Team members", addStaff:"Add member", role:"Role", pin:"PIN",
@@ -690,6 +691,7 @@ const I18N = {
     expenseLabel:"Description", category:"Catégorie", amount:"Montant",
     expenseSaved:"Dépense enregistrée", debtOutstanding:"Dettes impayées",
     breakdown:"Détail", noExpenses:"Aucune dépense",
+    noWithdrawals:"Aucun retrait sur cette période", withdrawalsExcludedHint:"Les retraits du gérant sont de l'argent sorti, pas une dépense — comptés à part, hors bénéfice.",
     ownerOnly:"Propriétaire uniquement", ownerOnlyMsg:"Les rapports sont réservés au propriétaire.",
     teamMembers:"Équipe", addStaff:"Ajouter membre", role:"Rôle", pin:"Code PIN",
     memberSaved:"Membre enregistré", removeMember:"Retirer", cannotRemoveSelf:"Vous ne pouvez pas vous retirer",
@@ -859,6 +861,7 @@ const I18N = {
     expenseLabel:"الوصف", category:"الفئة", amount:"المبلغ",
     expenseSaved:"تم حفظ المصروف", debtOutstanding:"الديون المستحقة",
     breakdown:"التفصيل", noExpenses:"لا توجد مصاريف",
+    noWithdrawals:"لا سحوبات في هذه الفترة", withdrawalsExcludedHint:"سحوبات المالك هي أموال خرجت، وليست مصروفاً — تُحتسب بشكل منفصل وخارج الربح.",
     ownerOnly:"للمالك فقط", ownerOnlyMsg:"التقارير المالية متاحة للمالك فقط.",
     teamMembers:"أعضاء الفريق", addStaff:"إضافة عضو", role:"الدور", pin:"الرمز",
     memberSaved:"تم حفظ العضو", removeMember:"إزالة", cannotRemoveSelf:"لا يمكنك إزالة نفسك",
@@ -1716,10 +1719,14 @@ async function viewDash(){
   // (active) and reserved items, since a reservation deposit is already in the till.
   const depositsHeld=rentals.filter(r=>(r.status==='active'||r.status==='reserved') && (r.deposit||0)>0 && !r.depositRefunded).reduce((a,r)=>a+(r.deposit||0),0);
 
-  // recent
+  // recent — item, customer, who processed it and how much was paid, so a
+  // scan of today's activity answers "who did what" without opening each record.
   let acts=[];
-  sales.filter(s=>s.createdAt>=t0).forEach(s=>acts.push({ts:s.createdAt,type:'sale',txt:`${t('saleType')} · ${money(s.total)}`}));
-  rentals.filter(r=>r.createdAt>=t0).forEach(r=>acts.push({ts:r.createdAt,type:'rent',txt:`${t('rentalType')} · ${esc(r.name)}`}));
+  sales.filter(s=>s.createdAt>=t0).forEach(s=>acts.push({ts:s.createdAt,type:'sale',
+    item:(s.items||[]).map(i=>i.name+(i.qty>1?' ×'+i.qty:'')).join(', ')||t('saleType'),
+    customer:s.customerName||t('walkIn'), paid:s.paid||0, userName:s.userName||''}));
+  rentals.filter(r=>r.createdAt>=t0).forEach(r=>acts.push({ts:r.createdAt,type:'rent',
+    item:r.name||t('rentalType'), customer:r.customerName||'—', paid:r.paid||0, userName:r.userName||''}));
   acts.sort((a,b)=>b.ts-a.ts); acts=acts.slice(0,8);
 
   const canOwner=isOwner();
@@ -1789,9 +1796,12 @@ async function viewDash(){
     <div class="card pad">
       <h3 style="margin-bottom:6px">${esc(t('recentActivity'))}</h3>
       ${acts.length? `<table><tbody>${acts.map(a=>`<tr>
-          <td style="width:44px"><span class="badge ${a.type==='sale'?'green':'brand'}"><span class="dot"></span></span></td>
-          <td>${esc(a.txt)}</td>
-          <td class="t-right subtle mono">${new Date(a.ts).toLocaleTimeString(State.lang,{hour:'2-digit',minute:'2-digit'})}</td>
+          <td style="width:36px"><span class="badge ${a.type==='sale'?'green':'brand'}"><span class="dot"></span></span></td>
+          <td style="min-width:0">
+            <b>${esc(a.item)}</b> · ${esc(a.customer)}
+            <div class="subtle" style="font-size:11px">${a.userName?esc(a.userName)+' · ':''}${new Date(a.ts).toLocaleTimeString(State.lang,{hour:'2-digit',minute:'2-digit'})}</div>
+          </td>
+          <td class="t-right mono" style="white-space:nowrap">${money(a.paid)}</td>
         </tr>`).join('')}</tbody></table>` : `<p class="subtle" style="padding:14px 0">${esc(t('noActivity'))}</p>`}
     </div>
   </div>`;
@@ -2605,7 +2615,7 @@ async function openCheckout(subtotal){
     for(const l of State.cart){ const p=await idbGet('products',l.id); if(p){ p.qty=Math.max(0,(p.qty||0)-l.qty); await idbPut('products',p); await logAct('logStockSale', `${p.name} -${l.qty} (${p.qty})`, p.id); } }
     const sale={id:uid(),customerId:custId,customerName:custName,items:State.cart.map(l=>({productId:l.id,name:l.name,qty:l.qty,price:l.price})),
       subtotal,discountPct:Number(discPctI.value||0),discountAmt:Number(discAmtI.value||0),total,paid:paidApplied,balance:Math.max(0,total-paidApplied),
-      method,createdAt:now(),userId:State.user.id};
+      method,createdAt:now(),userId:State.user.id,userName:State.user.name};
     await idbPut('sales',sale);
     if(paidApplied>0) await idbPut('payments',{id:uid(),customerId:custId,refType:'sale',amount:paidApplied,method,createdAt:now(),userId:State.user.id});
     await logAct('logSale', money(total)+' · '+custName);
@@ -3200,7 +3210,7 @@ async function openEditDatesModal(r){
         } else {
           await idbPut('rentals',{id:uid(),groupId:gid,productId:l.productId,name:l.name,customerId:r.customerId,customerName:r.customerName,
             startDate:start,dueDate:due,days:days||1,price:Math.max(0,Number(l.price||0)),deposit:0,paid:Math.max(0,Number(l.paid||0)),lateFee:0,
-            postponed:!(start&&due),status:'reserved',method:r.method||'cash',createdAt:now(),userId:State.user.id});
+            postponed:!(start&&due),status:'reserved',method:r.method||'cash',createdAt:now(),userId:State.user.id,userName:State.user.name});
           if(delta>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'rental',amount:delta,method:r.method||'cash',createdAt:now(),userId:State.user.id});
         }
       }
@@ -3477,7 +3487,7 @@ async function openRentalModal(presetPid){
       allocated+=share;
       const rental={id:uid(),groupId,productId:l.productId,name:l.name,customerId:cid,customerName:cname,
         startDate:start,dueDate:due,days,price:l.price,deposit:Number(l.deposit||0),
-        paid:share,lateFee:0,status:isReserve?'reserved':'active',method:rMethod,createdAt:now(),userId:State.user.id};
+        paid:share,lateFee:0,status:isReserve?'reserved':'active',method:rMethod,createdAt:now(),userId:State.user.id,userName:State.user.name};
       await idbPut('rentals',rental);
       if(rental.paid>0) await idbPut('payments',{id:uid(),customerId:cid,refType:'rental',amount:rental.paid,method:rMethod,createdAt:now(),userId:State.user.id});
       if(rental.deposit>0) await idbPut('payments',{id:uid(),customerId:cid,refType:'deposit',amount:rental.deposit,method:rMethod,createdAt:now(),userId:State.user.id});
@@ -4199,6 +4209,11 @@ async function viewReports(){
   const {from,to}=dateRangeFor(repPeriod,repCustomFrom,repCustomTo);
   const [sales,rentals,expenses,products]=await Promise.all([idbAll('sales'),idbAll('rentals'),idbAll('expenses'),idbAll('products')]);
   const S=sales.filter(s=>s.createdAt>=from && s.createdAt<=to && !s.voided), R=rentals.filter(r=>r.createdAt>=from && r.createdAt<=to && r.status!=='cancelled'), E=expenses.filter(x=>x.createdAt>=from && x.createdAt<=to && !x.isWithdrawal);
+  // Owner withdrawals are cash the owner personally took out — never a business
+  // expense or a loss, so they're kept out of E/exp/profit above and shown as
+  // their own line, filterable by the same period selector (day/week/month/…).
+  const W=expenses.filter(x=>x.createdAt>=from && x.createdAt<=to && x.isWithdrawal);
+  const withdrawTotal=W.reduce((a,x)=>a+(x.amount||0),0);
   const salesRev=S.reduce((a,s)=>a+(s.paid||0),0);
   const rentRev=R.reduce((a,r)=>a+(r.paid||0),0);
   // Deposits kept (damage/cleaning/late/lost) are income, recognised when the item is returned.
@@ -4256,7 +4271,7 @@ async function viewReports(){
      <div class="stat ${profit>=0?'':'danger'}"><div class="corner">${svg(IC.up)}</div><div class="k">${esc(t('profit'))}</div><div class="v mono">${money(profit)}</div></div>
      <div class="stat ${owed>0?'warn':''}"><div class="corner">${svg(IC.debt)}</div><div class="k">${esc(t('debtOutstanding'))}</div><div class="v mono">${money(owed)}</div></div>
    </div>
-   <div class="grid" style="grid-template-columns:1fr 1fr;gap:18px" id="repGrid">
+   <div class="grid" style="grid-template-columns:1fr 1fr 1fr;gap:18px" id="repGrid">
      <div class="card pad">
        <h3 style="margin-bottom:12px">${esc(t('breakdown'))}</h3>
        <table><tbody>
@@ -4267,10 +4282,15 @@ async function viewReports(){
          <tr><td class="subtle">${esc(t('expenses'))}</td><td class="t-right mono subtle">− ${money(exp)}</td></tr>
          <tr><td><b>${esc(t('profit'))}</b></td><td class="t-right mono"><b>${money(profit)}</b></td></tr>
        </tbody></table>
+       <p class="subtle" style="font-size:11px;margin-top:8px">${esc(t('withdrawalsExcludedHint'))}</p>
      </div>
      <div class="card pad">
        <div style="display:flex;align-items:center;margin-bottom:12px"><h3>${esc(t('expenses'))}</h3><button class="btn sm" id="addExp" style="margin-inline-start:auto">${svg(IC.plus,'ic')}${esc(t('addExpense'))}</button></div>
        <div id="expList"></div>
+     </div>
+     <div class="card pad">
+       <div style="display:flex;align-items:center;margin-bottom:12px"><h3>${esc(t('ownerWithdrawal'))}</h3><span class="mono" style="margin-inline-start:auto;font-weight:800">${money(withdrawTotal)}</span></div>
+       <div id="wdList"></div>
      </div>
    </div>
    <div class="grid" style="grid-template-columns:1.4fr 1fr;gap:18px;margin-top:18px">
@@ -4322,6 +4342,7 @@ async function viewReports(){
   if(rt) rt.onchange=()=>{ repCustomTo=rt.value; viewReports(); };
   document.getElementById('addExp').onclick=()=>openExpenseModal();
   drawExpenses(E);
+  drawWithdrawals(W);
 }
 async function openCashDrawerModal(){
   // Expected cash = the Till's number (opening float + every cash movement since
@@ -4346,6 +4367,16 @@ function drawExpenses(E){
      <td class="t-right mono">${money(x.amount)}</td>
      <td class="t-right"><button class="btn ghost sm" data-delx="${x.id}" style="color:var(--danger)">${svg(IC.trash,'ic')}</button></td>
    </tr>`).join('')}</tbody></table>` : `<p class="subtle" style="padding:10px 0">${esc(t('noExpenses'))}</p>`;
+  el.querySelectorAll('[data-delx]').forEach(b=>b.onclick=()=>guardDelete('expenses',b.dataset.delx,'logExpDel','',()=>viewReports()));
+}
+function drawWithdrawals(W){
+  const el=document.getElementById('wdList'); if(!el) return;
+  W=W.sort((a,b)=>b.createdAt-a.createdAt).slice(0,12);
+  el.innerHTML = W.length? `<table><tbody>${W.map(x=>`<tr>
+     <td>${x.note?esc(x.note):esc(t('ownerWithdrawal'))}<div class="subtle" style="font-size:11px">${x.userName?esc(x.userName)+' · ':''}${fmtDate(x.createdAt)}</div></td>
+     <td class="t-right mono">${money(x.amount)}</td>
+     <td class="t-right"><button class="btn ghost sm" data-delx="${x.id}" style="color:var(--danger)">${svg(IC.trash,'ic')}</button></td>
+   </tr>`).join('')}</tbody></table>` : `<p class="subtle" style="padding:10px 0">${esc(t('noWithdrawals'))}</p>`;
   el.querySelectorAll('[data-delx]').forEach(b=>b.onclick=()=>guardDelete('expenses',b.dataset.delx,'logExpDel','',()=>viewReports()));
 }
 function openExpenseModal(onDone){
