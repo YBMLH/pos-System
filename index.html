@@ -497,7 +497,8 @@ const I18N = {
     undoReturn:"Undo return", undoReturnConfirm:"Undo this return? The item goes back out to the customer, stock is adjusted, and any deposit refunded at return is held again.", returnUndone:"Return undone", logUndoReturn:"Return undone",
     chooseItem:"Choose item", rentableOnly:"Only rentable items appear here",
     swapItem:"Change", addAnotherItem:"Add / change item", logEditItems:"Reservation items changed",
-    depositOpt:"Deposit (optional)", lateFee:"Late fee", applyLateFee:"Apply late fee (optional)",
+    depositOpt:"Deposit (optional)", lateFee:"Late fee", applyLateFee:"Add late fee (optional)",
+    damageFee:"Damage fee", applyDamageFee:"Add damage fee (optional)", damageNote:"Reason", damageNoteHint:"e.g. stain, tear, missing button", logDamageFee:"Damage fee added",
     confirmReturn:"Confirm return", returnItem:"Return item", refundDeposit:"Refund deposit",
     rentalDone:"Rental created", itemReturned:"Item returned",
     noRentals:"No rentals yet", rentAgreement:"Rental agreement",
@@ -674,7 +675,8 @@ const I18N = {
     undoReturn:"Annuler le retour", undoReturnConfirm:"Annuler ce retour ? L'article ressort chez le client, le stock est ajusté, et toute caution remboursée au retour est de nouveau retenue.", returnUndone:"Retour annulé", logUndoReturn:"Retour annulé",
     chooseItem:"Choisir article", rentableOnly:"Articles louables seulement",
     swapItem:"Changer", addAnotherItem:"Ajouter / changer un article", logEditItems:"Articles de la réservation modifiés",
-    depositOpt:"Caution (optionnel)", lateFee:"Frais de retard", applyLateFee:"Ajouter frais de retard",
+    depositOpt:"Caution (optionnel)", lateFee:"Frais de retard", applyLateFee:"Ajouter frais de retard (optionnel)",
+    damageFee:"Frais de dommage", applyDamageFee:"Ajouter frais de dommage (optionnel)", damageNote:"Raison", damageNoteHint:"ex. tache, déchirure, bouton manquant", logDamageFee:"Frais de dommage ajouté",
     confirmReturn:"Confirmer retour", returnItem:"Retourner l'article", refundDeposit:"Rembourser caution",
     rentalDone:"Location créée", itemReturned:"Article retourné",
     noRentals:"Aucune location", rentAgreement:"Contrat de location",
@@ -844,7 +846,8 @@ const I18N = {
     markReturned:"تحديد كمُعاد", undoReturn:"تراجع عن الإرجاع", undoReturnConfirm:"التراجع عن هذا الإرجاع؟ يعود العنصر إلى العميل، ويُعدَّل المخزون، وتُحتجَز مجدداً أي كفالة أُعيدت عند الإرجاع.", returnUndone:"تم التراجع عن الإرجاع", logUndoReturn:"تم التراجع عن الإرجاع", newRentalT:"إيجار جديد",
     chooseItem:"اختر الصنف", rentableOnly:"الأصناف القابلة للإيجار فقط",
     swapItem:"تغيير", addAnotherItem:"إضافة / تغيير صنف", logEditItems:"تم تعديل أصناف الحجز",
-    depositOpt:"التأمين (اختياري)", lateFee:"رسوم التأخير", applyLateFee:"إضافة رسوم تأخير",
+    depositOpt:"التأمين (اختياري)", lateFee:"رسوم التأخير", applyLateFee:"إضافة رسوم تأخير (اختياري)",
+    damageFee:"رسوم الضرر", applyDamageFee:"إضافة رسوم ضرر (اختياري)", damageNote:"السبب", damageNoteHint:"مثال: بقعة، تمزق، زر مفقود", logDamageFee:"تمت إضافة رسوم ضرر",
     confirmReturn:"تأكيد الإرجاع", returnItem:"إرجاع الصنف", refundDeposit:"إعادة التأمين",
     rentalDone:"تم إنشاء الإيجار", itemReturned:"تم إرجاع الصنف",
     noRentals:"لا توجد إيجارات", rentAgreement:"عقد الإيجار",
@@ -1221,7 +1224,7 @@ async function customerBalance(cid){
   const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cid && r.status!=='cancelled');
   let owed=0;
   sales.forEach(s=>owed+=Math.max(0,(s.total||0)-(s.paid||0)));
-  rentals.forEach(r=>owed+=Math.max(0,(r.price||0)+(r.lateFee||0)-(r.paid||0)));
+  rentals.forEach(r=>owed+=Math.max(0,(r.price||0)+(r.lateFee||0)+(r.damageFee||0)-(r.paid||0)));
   return Math.max(0,owed);
 }
 
@@ -2970,7 +2973,7 @@ async function activateReservation(r){
   if(!r || r.status!=='reserved') return;
   const group=(await rentalGroupOf(r)).filter(x=>x.status==='reserved'); // whole bundle
   const names=group.map(x=>x.name).join(' + ');
-  const totalBal=group.reduce((a,it)=>a+Math.max(0,(it.price||0)+(it.lateFee||0)-(it.paid||0)),0);
+  const totalBal=group.reduce((a,it)=>a+Math.max(0,(it.price||0)+(it.lateFee||0)+(it.damageFee||0)-(it.paid||0)),0);
   // Handing the item over: confirm, and let the customer settle the balance now
   // (not only at return). Payment is optional and split across the bundle FIFO.
   modal(t('rentOut'),
@@ -2991,7 +2994,7 @@ async function activateReservation(r){
       const p=await idbGet('products',it.productId);
       if(p){ if((p.qty||0)<=0){ toast(t('outOfStock')+' · '+it.name,'err'); continue; } p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
       // settle the balance now, FIFO across the bundle's items
-      if(payLeft>0){ const itemBal=Math.max(0,(it.price||0)+(it.lateFee||0)-(it.paid||0)); const payShare=isLast?payLeft:Math.min(payLeft,itemBal);
+      if(payLeft>0){ const itemBal=Math.max(0,(it.price||0)+(it.lateFee||0)+(it.damageFee||0)-(it.paid||0)); const payShare=isLast?payLeft:Math.min(payLeft,itemBal);
         if(payShare>0){ it.paid=(it.paid||0)+payShare; payLeft-=payShare; await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'rental',amount:payShare,method:it.method||'cash',createdAt:now(),userId:State.user.id}); } }
       it.status='active';
       await idbPut('rentals',it);
@@ -3209,7 +3212,7 @@ async function openEditDatesModal(r){
           if(delta!==0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:delta>0?'rental':'refund',amount:delta,method:it.method||'cash',createdAt:now(),userId:State.user.id});
         } else {
           await idbPut('rentals',{id:uid(),groupId:gid,productId:l.productId,name:l.name,customerId:r.customerId,customerName:r.customerName,
-            startDate:start,dueDate:due,days:days||1,price:Math.max(0,Number(l.price||0)),deposit:0,paid:Math.max(0,Number(l.paid||0)),lateFee:0,
+            startDate:start,dueDate:due,days:days||1,price:Math.max(0,Number(l.price||0)),deposit:0,paid:Math.max(0,Number(l.paid||0)),lateFee:0,damageFee:0,
             postponed:!(start&&due),status:'reserved',method:r.method||'cash',createdAt:now(),userId:State.user.id,userName:State.user.name});
           if(delta>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'rental',amount:delta,method:r.method||'cash',createdAt:now(),userId:State.user.id});
         }
@@ -3243,8 +3246,9 @@ function rowRental(group,custColorById){
   const isBundle=group.length>1;
   const price=group.reduce((a,x)=>a+(x.price||0),0);
   const late=group.reduce((a,x)=>a+(x.lateFee||0),0);
+  const damage=group.reduce((a,x)=>a+(x.damageFee||0),0);
   const paid=group.reduce((a,x)=>a+(x.paid||0),0);
-  const bal=Math.max(0,price+late-paid);
+  const bal=Math.max(0,price+late+damage-paid);
   const overdue=r.status==='active' && r.dueDate && daysLate(r.dueDate)>0;
   const statusBadge= r.status==='cancelled'? `<span class="badge grey">${esc(t('cancelled'))}</span>` :
     r.status==='returned'? `<span class="badge grey">${esc(t('returned'))}</span>` :
@@ -3262,7 +3266,7 @@ function rowRental(group,custColorById){
     <td class="mono">${dateCell}</td>
     <td class="t-right mono">${money(price)}</td>
     <td class="t-right mono">${bal>0?`<span class="badge red">${money(bal)}</span>`:`<span class="badge green">${esc(t('settled'))}</span>`}</td>
-    <td>${statusBadge}</td>
+    <td>${statusBadge}${damage>0?`<span class="badge warnb" style="margin-inline-start:4px" title="${esc(group.map(x=>x.damageNote).filter(Boolean).join(', '))}">${esc(t('damageFee'))}: ${money(damage)}</span>`:''}</td>
     <td class="t-right" style="white-space:nowrap">
       <button class="btn ghost sm" data-hl="${r.id}" title="${esc(t('highlight'))}"${hlColor?` style="color:${hlColor}"`:''}>${svg(IC.flag,'ic')}</button>
       <button class="btn ghost sm" data-agr="${r.id}" title="${esc(t('rentAgreement'))}">${svg(IC.print,'ic')}</button>
@@ -3487,7 +3491,7 @@ async function openRentalModal(presetPid){
       allocated+=share;
       const rental={id:uid(),groupId,productId:l.productId,name:l.name,customerId:cid,customerName:cname,
         startDate:start,dueDate:due,days,price:l.price,deposit:Number(l.deposit||0),
-        paid:share,lateFee:0,status:isReserve?'reserved':'active',method:rMethod,createdAt:now(),userId:State.user.id,userName:State.user.name};
+        paid:share,lateFee:0,damageFee:0,status:isReserve?'reserved':'active',method:rMethod,createdAt:now(),userId:State.user.id,userName:State.user.name};
       await idbPut('rentals',rental);
       if(rental.paid>0) await idbPut('payments',{id:uid(),customerId:cid,refType:'rental',amount:rental.paid,method:rMethod,createdAt:now(),userId:State.user.id});
       if(rental.deposit>0) await idbPut('payments',{id:uid(),customerId:cid,refType:'deposit',amount:rental.deposit,method:rMethod,createdAt:now(),userId:State.user.id});
@@ -3519,7 +3523,8 @@ function buildGroupRentalAgreementHtml(rentals){
   const totalPaid=rentals.reduce((a,r)=>a+(r.paid||0),0);
   const totalDeposit=rentals.reduce((a,r)=>a+(r.deposit||0),0);
   const totalLate=rentals.reduce((a,r)=>a+(r.lateFee||0),0);
-  const bal=Math.max(0,totalPrice+totalLate-totalPaid);
+  const totalDamage=rentals.reduce((a,r)=>a+(r.damageFee||0),0);
+  const bal=Math.max(0,totalPrice+totalLate+totalDamage-totalPaid);
   const itemRows=rentals.map(r=>`<div style="display:flex;justify-content:space-between;gap:6px;font-size:11px;padding:1px 0">
       <span>${esc(r.name)}${r.dueDate!==first.dueDate?` <span style="color:#666">(${esc(t('dueDate'))} ${esc(r.dueDate||'—')})</span>`:''}</span>
       <span style="flex-shrink:0">${money2(r.price)}</span>
@@ -3535,6 +3540,8 @@ function buildGroupRentalAgreementHtml(rentals){
     <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:4px 0;margin:6px 0">${itemRows}</div>
     <div style="font-size:11px">
       <div style="display:flex;justify-content:space-between;font-weight:700;margin-bottom:2px"><span>${esc(t('rentalPrice'))}</span><span>${money2(totalPrice)}</span></div>
+      ${totalLate>0?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('lateFee'))}</span><span>${money2(totalLate)}</span></div>`:''}
+      ${totalDamage>0?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('damageFee'))}</span><span>${money2(totalDamage)}</span></div>`:''}
       <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('paid'))}</span><span>${money2(totalPaid)}</span></div>
       ${totalDeposit?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('deposit'))}</span><span>${money2(totalDeposit)}</span></div>`:''}
       ${totalDeposit?`<div style="display:flex;justify-content:space-between;font-weight:800"><span>${esc(t('totalCollected'))}</span><span>${money2(totalPaid+totalDeposit)}</span></div>`:''}
@@ -3544,7 +3551,7 @@ function buildGroupRentalAgreementHtml(rentals){
 }
 
 function buildRentalAgreementHtml(r){
-  const bal=Math.max(0,(r.price||0)+(r.lateFee||0)-(r.paid||0));
+  const bal=Math.max(0,(r.price||0)+(r.lateFee||0)+(r.damageFee||0)-(r.paid||0));
   return `${receiptLogo()}<div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:4px">${esc(State.storeName||t('app'))}</div>
     <div style="text-align:center;font-size:9px;margin-bottom:6px;color:#666">${new Date().toLocaleString(State.lang)}</div>
     <div style="text-align:center;font-weight:700;font-size:12px;margin-bottom:6px;text-transform:uppercase">${esc(t('rentAgreement'))}</div>
@@ -3556,6 +3563,8 @@ function buildRentalAgreementHtml(r){
     </div>
     <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:4px 0;margin:6px 0;font-size:11px">
       <div style="display:flex;justify-content:space-between;font-weight:600;margin-bottom:2px"><span>${esc(t('rentalPrice'))}</span><span>${money2(r.price)}</span></div>
+      ${r.lateFee>0?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('lateFee'))}</span><span>${money2(r.lateFee)}</span></div>`:''}
+      ${r.damageFee>0?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('damageFee'))}</span><span>${money2(r.damageFee)}</span></div>`:''}
       <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('paid'))}</span><span>${money2(r.paid)}</span></div>
       ${r.deposit?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('deposit'))}</span><span>${money2(r.deposit)}</span></div>`:''}
       ${r.deposit?`<div style="display:flex;justify-content:space-between;font-weight:800"><span>${esc(t('totalCollected'))}</span><span>${money2((r.paid||0)+(r.deposit||0))}</span></div>`:''}
@@ -3581,8 +3590,16 @@ async function openReturnModal(r){
   modal(t('returnItem'),
    `<p style="font-weight:700;font-size:16px;margin-bottom:2px">${esc(names)}</p>
     <p class="subtle" style="margin-bottom:14px">${esc(r.customerName||'')} · ${esc(t('dueDate'))}: ${r.dueDate?fmtDate(Date.parse(r.dueDate)):'—'}${anyOver?` · <span style="color:var(--danger)">${maxDaysOver}d ${esc(t('overdue'))}</span>`:''}</p>
-    <div class="field"><label class="check"><input type="checkbox" id="rt_late"> ${esc(t('applyLateFee'))}${anyOver?` (${esc(t('suggestedLateFee'))}: ${money(totalSuggested)})`:''}</label></div>
-    <div class="field hidden" id="rt_lateBox"><label>${esc(t('lateFee'))}</label><input id="rt_lateAmt" type="number" min="0" step="0.01" value="${totalSuggested}"></div>
+    <div class="field"><label class="check"><input type="checkbox" id="rt_late"> ${esc(t('applyLateFee'))}</label></div>
+    <div class="field hidden" id="rt_lateBox">
+      <label>${esc(t('lateFee'))}</label><input id="rt_lateAmt" type="number" min="0" step="0.01" value="0">
+      ${anyOver?`<span class="hint">${esc(t('suggestedLateFee'))}: ${money(totalSuggested)}</span>`:''}
+    </div>
+    <div class="field"><label class="check"><input type="checkbox" id="rt_damage"> ${esc(t('applyDamageFee'))}</label></div>
+    <div class="field hidden" id="rt_damageBox">
+      <label>${esc(t('damageFee'))}</label><input id="rt_damageAmt" type="number" min="0" step="0.01" value="0">
+      <label style="margin-top:8px">${esc(t('damageNote'))}</label><input id="rt_damageNote" type="text" placeholder="${esc(t('damageNoteHint'))}">
+    </div>
     <div class="field"><label class="check"><input type="checkbox" id="rt_pay"> ${esc(t('amountPaid'))} (${esc(t('balance'))}: <span id="rt_balShow">${money(totalBal)}</span>)</label></div>
     <div class="field hidden" id="rt_payBox"><label>${esc(t('amountPaid'))}</label><input id="rt_payAmt" type="number" min="0" step="0.01" value="${totalBal}"></div>
     ${totalDeposit?`<div class="field"><label class="check"><input type="checkbox" id="rt_refund" checked> ${esc(t('refundDeposit'))} · ${esc(t('deposit'))}: ${money(totalDeposit)}</label></div>
@@ -3594,16 +3611,21 @@ async function openReturnModal(r){
      </div>`:''}`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
     <button class="btn" id="rt_go">${esc(t('confirmReturn'))}</button>`);
-  // Amount owed at return includes the late fee, so the "amount paid" balance and
-  // its default track the late fee too — one confirm settles everything, instead
-  // of the fee silently becoming an unpaid balance.
+  // Neither fee is pre-filled or auto-applied — the cashier ticks the box and
+  // types the amount themselves (the suggested late fee is shown only as a
+  // hint). Amount owed at return includes whichever fees are ticked, so the
+  // "amount paid" balance and its default track them too — one confirm
+  // settles everything, instead of a fee silently becoming an unpaid balance.
   const lateChk=document.getElementById('rt_late'), lateAmtI=document.getElementById('rt_lateAmt'),
+        damageChk=document.getElementById('rt_damage'), damageAmtI=document.getElementById('rt_damageAmt'),
         payChk=document.getElementById('rt_pay'), payAmtI=document.getElementById('rt_payAmt'), balShow=document.getElementById('rt_balShow');
   let payTouched=false;
-  const effBalance=()=> totalBal + (lateChk.checked? Math.max(0,Number(lateAmtI.value||0)) : 0);
+  const effBalance=()=> totalBal + (lateChk.checked? Math.max(0,Number(lateAmtI.value||0)) : 0) + (damageChk.checked? Math.max(0,Number(damageAmtI.value||0)) : 0);
   function syncPay(){ const eb=effBalance(); if(balShow) balShow.textContent=money(eb); if(!payTouched && payAmtI) payAmtI.value=eb; }
   lateChk.onchange=e=>{ document.getElementById('rt_lateBox').classList.toggle('hidden',!e.target.checked); syncPay(); };
   lateAmtI&&(lateAmtI.oninput=syncPay);
+  damageChk.onchange=e=>{ document.getElementById('rt_damageBox').classList.toggle('hidden',!e.target.checked); syncPay(); };
+  damageAmtI&&(damageAmtI.oninput=syncPay);
   payChk.onchange=e=>{ document.getElementById('rt_payBox').classList.toggle('hidden',!e.target.checked); if(e.target.checked) syncPay(); };
   payAmtI&&(payAmtI.oninput=()=>{ payTouched=true; });
   syncPay();
@@ -3620,29 +3642,36 @@ async function openReturnModal(r){
   document.getElementById('rt_go').onclick=()=>{
     const go=document.getElementById('rt_go'); if(go.disabled) return; go.disabled=true; // double-tap returns twice (double stock + refund)
     const late=document.getElementById('rt_late').checked?Number(document.getElementById('rt_lateAmt').value||0):0;
+    const damage=document.getElementById('rt_damage').checked?Number(document.getElementById('rt_damageAmt').value||0):0;
+    const damageNote=document.getElementById('rt_damage').checked?document.getElementById('rt_damageNote').value.trim():'';
     const payChecked=document.getElementById('rt_pay').checked;
     const payAmt=payChecked?Number(document.getElementById('rt_payAmt').value||0):0;
     const refundOn=!!(refEl && refEl.checked && totalDeposit>0);
     const refundAmt=refundOn?Math.min(totalDeposit,Math.max(0,Number(refAmtI.value||0))):0;
     const finalize=async()=>{
       // late fee splits by each item's own overdue suggestion (fallback: by price);
-      // payment goes FIFO across item balances; deposit refund splits by each deposit.
+      // damage fee (no natural per-item weight) splits by price; payment goes FIFO
+      // across item balances; deposit refund splits by each deposit.
       let lateBasis=totalSuggested;
       const lateW=group.map(it=>sug[it.id]);
       if(lateBasis<=0){ group.forEach((it,i)=>lateW[i]=it.price||0); lateBasis=lateW.reduce((a,x)=>a+x,0); }
-      let payLeft=payChecked?payAmt:0, lateAssigned=0, refundAssigned=0;
+      const priceBasis=group.reduce((a,it)=>a+(it.price||0),0)||1;
+      let payLeft=payChecked?payAmt:0, lateAssigned=0, damageAssigned=0, refundAssigned=0;
       for(let i=0;i<group.length;i++){ const it=group[i]; const isLast=i===group.length-1;
         const lateShare = late<=0?0 : isLast ? (late-lateAssigned) : (lateBasis>0?Math.round(late*lateW[i]/lateBasis):Math.round(late/group.length));
         lateAssigned+=lateShare;
+        const damageShare = damage<=0?0 : isLast ? (damage-damageAssigned) : Math.round(damage*(it.price||0)/priceBasis);
+        damageAssigned+=damageShare;
         const refShare = (totalDeposit<=0||refundAmt<=0)?0 : isLast ? (refundAmt-refundAssigned) : Math.round(refundAmt*(it.deposit||0)/totalDeposit);
         refundAssigned+=refShare;
         const priorLate=it.lateFee||0; it.lateFee=lateShare;
-        const itemBal=Math.max(0,(it.price||0)+lateShare-(it.paid||0));
+        const priorDamage=it.damageFee||0; it.damageFee=damageShare; if(damageShare>0 && damageNote) it.damageNote=damageNote; else if(damageShare<=0) delete it.damageNote;
+        const itemBal=Math.max(0,(it.price||0)+lateShare+damageShare-(it.paid||0));
         let payShare=0;
         if(payLeft>0){ payShare=isLast?payLeft:Math.min(payLeft,itemBal); it.paid=(it.paid||0)+payShare; payLeft-=payShare; }
         const kept=(it.deposit||0)-refShare;
         it.status='returned'; it.returnedAt=now();
-        it.returnTxn={ lateFeeAdded:lateShare-priorLate, payAmtAdded:payShare, refundAmt:refShare };
+        it.returnTxn={ lateFeeAdded:lateShare-priorLate, damageFeeAdded:damageShare-priorDamage, payAmtAdded:payShare, refundAmt:refShare };
         if((it.deposit||0)>0){ it.depositRefunded=refShare>0; it.depositRefundedAmount=refShare; it.depositKept=kept; if(refShare>0) it.depositRefundedAt=now(); }
         await idbPut('rentals',it);
         if(payShare>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'rental',amount:payShare,method:it.method||'cash',createdAt:now(),userId:State.user.id});
@@ -3650,6 +3679,7 @@ async function openReturnModal(r){
         const p=await idbGet('products',it.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); }
         if(refShare>0){ await logAct('logRefund', it.name+' · '+money(refShare)); }
         if(kept>0){ await logAct('logDepositKept', it.name+(it.customerName?' · '+it.customerName:'')+' · '+money(kept)); }
+        if(damageShare>0){ await logAct('logDamageFee', it.name+(it.customerName?' · '+it.customerName:'')+' · '+money(damageShare)+(damageNote?' · '+damageNote:'')); }
       }
       await logAct('logReturn', names+(r.customerName?' · '+r.customerName:''));
       closeModal(); toast(t('itemReturned'),'ok'); viewRentals();
@@ -3667,14 +3697,16 @@ async function undoReturn(r){
   const group=(await rentalGroupOf(r)).filter(x=>x.status==='returned'); // whole bundle
   confirmDialog(t('undoReturnConfirm'),async()=>{
     for(const it of group){
-      const txn=it.returnTxn || { lateFeeAdded:(it.lateFee||0), payAmtAdded:0, refundAmt:(it.depositRefundedAmount||0) };
+      const txn=it.returnTxn || { lateFeeAdded:(it.lateFee||0), damageFeeAdded:(it.damageFee||0), payAmtAdded:0, refundAmt:(it.depositRefundedAmount||0) };
       const method=it.method||'cash';
       // reverse any extra rent collected at return (money back out of the till)
       if(txn.payAmtAdded>0){ it.paid=Math.max(0,(it.paid||0)-txn.payAmtAdded); await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-txn.payAmtAdded,method,createdAt:now(),userId:State.user.id}); }
       // re-hold a refunded deposit (offset the negative depositRefund entry)
       if(txn.refundAmt>0){ await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:txn.refundAmt,method,createdAt:now(),userId:State.user.id}); }
-      // undo the late fee this return added
+      // undo the late fee and damage fee this return added
       it.lateFee=Math.max(0,(it.lateFee||0)-(txn.lateFeeAdded||0));
+      it.damageFee=Math.max(0,(it.damageFee||0)-(txn.damageFeeAdded||0));
+      if(it.damageFee<=0) delete it.damageNote;
       delete it.depositRefunded; delete it.depositRefundedAmount; delete it.depositKept; delete it.depositRefundedAt; delete it.returnTxn; delete it.returnedAt;
       // item is back out with the customer
       const p=await idbGet('products',it.productId); if(p){ p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
@@ -3691,7 +3723,7 @@ async function undoReturn(r){
 ============================================================ */
 async function oldestDebtDate(cid){
   const sales=(await idbAll('sales')).filter(s=>s.customerId===cid && !s.voided && (s.total-(s.paid||0))>0);
-  const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cid && r.status!=='cancelled' && ((r.price||0)+(r.lateFee||0)-(r.paid||0))>0);
+  const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cid && r.status!=='cancelled' && ((r.price||0)+(r.lateFee||0)+(r.damageFee||0)-(r.paid||0))>0);
   const dates=[...sales,...rentals].map(x=>x.createdAt).filter(Boolean);
   return dates.length? Math.min(...dates) : null;
 }
@@ -3715,7 +3747,7 @@ async function allCustomerStats(){
   sales.forEach(s=>{ const m=map[s.customerId]; if(!m||s.voided) return;
     m.spent+=(s.paid||0); m.tx++; m.balance+=Math.max(0,(s.total||0)-(s.paid||0)); if(s.createdAt>m.last)m.last=s.createdAt; });
   rentals.forEach(r=>{ const m=map[r.customerId]; if(!m || r.status==='cancelled') return;
-    m.spent+=(r.paid||0); m.tx++; m.balance+=Math.max(0,(r.price||0)+(r.lateFee||0)-(r.paid||0));
+    m.spent+=(r.paid||0); m.tx++; m.balance+=Math.max(0,(r.price||0)+(r.lateFee||0)+(r.damageFee||0)-(r.paid||0));
     if(r.lateFee>0)m.lateCount++; if(r.createdAt>m.last)m.last=r.createdAt; });
   return Object.values(map).map(m=>{
     m.points=Math.floor(m.spent/100); // matches customerPoints(): 1 pt / 100 DA
@@ -3851,8 +3883,8 @@ async function openPaymentModal(cust){
     let remain=amt;
     const sales=(await idbAll('sales')).filter(s=>s.customerId===cust.id && !s.voided && (s.total-(s.paid||0))>0).sort((a,b)=>a.createdAt-b.createdAt);
     for(const s of sales){ if(remain<=0)break; const d=Math.min(remain,s.total-(s.paid||0)); s.paid=(s.paid||0)+d; s.balance=s.total-s.paid; remain-=d; await idbPut('sales',s); }
-    const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cust.id && r.status!=='cancelled' && ((r.price+(r.lateFee||0))-(r.paid||0))>0).sort((a,b)=>a.createdAt-b.createdAt);
-    for(const r of rentals){ if(remain<=0)break; const d=Math.min(remain,(r.price+(r.lateFee||0))-(r.paid||0)); r.paid=(r.paid||0)+d; remain-=d; await idbPut('rentals',r); }
+    const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cust.id && r.status!=='cancelled' && ((r.price+(r.lateFee||0)+(r.damageFee||0))-(r.paid||0))>0).sort((a,b)=>a.createdAt-b.createdAt);
+    for(const r of rentals){ if(remain<=0)break; const d=Math.min(remain,(r.price+(r.lateFee||0)+(r.damageFee||0))-(r.paid||0)); r.paid=(r.paid||0)+d; remain-=d; await idbPut('rentals',r); }
     const pay={id:uid(),customerId:cust.id,refType:'repayment',amount:amt,method,createdAt:now(),userId:State.user.id};
     await idbPut('payments',pay);
     await logAct('logPayment', cust.name+' · '+money(amt));
@@ -3894,7 +3926,7 @@ async function openCustomerLedger(cust){
   // and dimmed, so a cancelled duplicate is obvious rather than silently gone.
   sales.forEach(s=>rows.push({ts:s.createdAt,type:t('saleType'),item:(s.items||[]).map(i=>i.name+(i.qty>1?' ×'+i.qty:'')).join(', '),amt:s.total,paid:s.paid,cls:'grey',dead:!!s.voided,deadLabel:t('voided')}));
   // active/reserved rentals can be cancelled from here (fixes accidental duplicates)
-  rentals.forEach(r=>rows.push({ts:r.createdAt,type:t('rentalType'),item:r.name||'',amt:(r.price+(r.lateFee||0)),paid:r.paid,cls:'gold',cancelId:(r.status==='active'||r.status==='reserved')?r.id:null,dead:r.status==='cancelled',deadLabel:t('cancelled')}));
+  rentals.forEach(r=>rows.push({ts:r.createdAt,type:t('rentalType'),item:r.name||'',amt:(r.price+(r.lateFee||0)+(r.damageFee||0)),paid:r.paid,cls:'gold',cancelId:(r.status==='active'||r.status==='reserved')?r.id:null,dead:r.status==='cancelled',deadLabel:t('cancelled')}));
   pays.forEach(p=>rows.push({ts:p.createdAt,type:t('repayment'),item:'',amt:0,paid:p.amount,cls:'green'}));
   rows.sort((a,b)=>b.ts-a.ts);
   const bal=await customerBalance(cust.id);
@@ -4117,8 +4149,9 @@ function rowRentalHist(group,custColorById){
   const r=group[0];
   const price=group.reduce((a,x)=>a+(x.price||0),0);
   const late=group.reduce((a,x)=>a+(x.lateFee||0),0);
+  const damage=group.reduce((a,x)=>a+(x.damageFee||0),0);
   const paid=group.reduce((a,x)=>a+(x.paid||0),0);
-  const bal=Math.max(0,price+late-paid);
+  const bal=Math.max(0,price+late+damage-paid);
   const overdue=r.status==='active' && r.dueDate && daysLate(r.dueDate)>0;
   const statusBadge= r.status==='cancelled'? `<span class="badge grey">${esc(t('cancelled'))}</span>` :
     r.status==='returned'? `<span class="badge grey">${esc(t('returned'))}</span>` :
@@ -4132,7 +4165,7 @@ function rowRentalHist(group,custColorById){
     <td class="t-right mono">${money(price)}</td>
     <td class="t-right mono">${money(paid)}</td>
     <td class="t-right">${r.status==='cancelled'?'—':bal>0?`<span class="badge red">${money(bal)}</span>`:`<span class="badge green">${esc(t('settled'))}</span>`}</td>
-    <td>${statusBadge}</td>
+    <td>${statusBadge}${damage>0?`<span class="badge warnb" style="margin-inline-start:4px">${esc(t('damageFee'))}: ${money(damage)}</span>`:''}</td>
     <td class="t-right" style="white-space:nowrap">
       <button class="btn ghost sm" data-hist-agr="${r.id}" title="${esc(t('rentAgreement'))}">${svg(IC.print,'ic')}</button>
       <button class="btn ghost sm" data-hist-wa="${r.id}" title="${esc(t('waRemind'))}" style="color:var(--ok)">${svg(IC.chat,'ic')}</button>
