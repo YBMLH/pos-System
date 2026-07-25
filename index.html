@@ -142,6 +142,12 @@ a{color:var(--brand)}
 .stat.gold .v{color:var(--brand-700)}
 .stat.warn .v{color:var(--warn)}
 .stat.danger .v{color:var(--danger)}
+.stat.ok .v{color:var(--ok)}
+.stat.link{cursor:pointer;transition:transform .06s,box-shadow .12s}
+.stat.link:hover{transform:translateY(-1px);box-shadow:0 4px 14px -6px rgba(20,25,23,.28)}
+.section-eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px}
+.dashgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:860px){.dashgrid{grid-template-columns:1fr}}
 
 /* ---------- Table ---------- */
 .tablewrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
@@ -445,6 +451,7 @@ const I18N = {
     owner:"Owner", staffRole:"Cashier",
     // dashboard
     welcome:"Welcome back", todaySales:"Today's sales", activeRentals:"Active rentals", todayRentals:"Today's rentals",
+    todayNet:"Today's net", todayLabel:"Today", storeStatusLabel:"Store status",
     outstanding:"Outstanding debt", lowStock:"Low stock items", inStock:"Items in stock",
     quickActions:"Quick actions", newSale:"New sale", newRental:"New rental",
     addProduct:"Add product", recordPayment:"Record payment", recentActivity:"Recent activity",
@@ -624,6 +631,7 @@ const I18N = {
     manage:"Gestion", records:"Registres",
     owner:"Propriétaire", staffRole:"Caissier",
     welcome:"Bon retour", todaySales:"Ventes du jour", activeRentals:"Locations actives", todayRentals:"Locations du jour",
+    todayNet:"Net du jour", todayLabel:"Aujourd'hui", storeStatusLabel:"État du magasin",
     outstanding:"Dettes impayées", lowStock:"Stock faible", inStock:"Articles en stock",
     quickActions:"Actions rapides", newSale:"Nouvelle vente", newRental:"Nouvelle location",
     addProduct:"Ajouter produit", recordPayment:"Enregistrer paiement", recentActivity:"Activité récente",
@@ -793,6 +801,7 @@ const I18N = {
     manage:"الإدارة", records:"السجلات",
     owner:"المالك", staffRole:"أمين الصندوق",
     welcome:"مرحباً بعودتك", todaySales:"مبيعات اليوم", activeRentals:"إيجارات نشطة", todayRentals:"إيجارات اليوم",
+    todayNet:"صافي اليوم", todayLabel:"اليوم", storeStatusLabel:"حالة المتجر",
     outstanding:"ديون مستحقة", lowStock:"مخزون منخفض", inStock:"أصناف في المخزون",
     quickActions:"إجراءات سريعة", newSale:"بيع جديد", newRental:"إيجار جديد",
     addProduct:"إضافة منتج", recordPayment:"تسجيل دفعة", recentActivity:"النشاط الأخير",
@@ -1719,17 +1728,24 @@ async function viewDash(){
   const metaApp=await idbGet('meta','app');
   const daysSinceBackup = metaApp&&metaApp.lastBackup ? Math.floor((Date.now()-metaApp.lastBackup)/86400000) : null;
   const showBackupReminder = canOwner && (daysSinceBackup===null || daysSinceBackup>=1);
+  const todayNet=todaySales+todayRentIncome-todayExpTotal;
   view.innerHTML=pageHead(`${t('welcome')}, ${State.user.name.split(' ')[0]}`, State.storeName)+
   (showBackupReminder? `<div class="card pad" style="margin-bottom:14px;background:var(--gold-soft);display:flex;align-items:center;gap:10px">
      <span>${svg(IC.box)}</span><span style="flex:1">${esc(t('backupReminder'))}</span>
      <button class="btn sm" id="btnBackupNow">${esc(t('backupNow'))||t('backup')}</button>
    </div>` : '')+
-  `<div class="cards" style="margin-bottom:22px">
+  `<p class="section-eyebrow">${esc(t('todayLabel'))}</p>
+  <div class="cards" style="margin-bottom:20px">
     <div class="stat gold"><div class="corner">${svg(IC.cart)}</div><div class="k">${esc(t('todaySales'))}</div><div class="v mono">${money(todaySales)}</div></div>
     <div class="stat gold"><div class="corner">${svg(IC.rent)}</div><div class="k">${esc(t('todayRentals'))}</div><div class="v mono">${money(todayRentIncome)}</div></div>
+    <div class="stat ${todayNet>=0?'ok':'danger'}"><div class="corner">${svg(IC.up)}</div><div class="k">${esc(t('todayNet'))}</div><div class="v mono">${money(todayNet)}</div></div>
+  </div>
+  <p class="section-eyebrow">${esc(t('storeStatusLabel'))}</p>
+  <div class="cards" style="margin-bottom:22px">
     <div class="stat"><div class="corner">${svg(IC.rent)}</div><div class="k">${esc(t('activeRentals'))}</div><div class="v">${active}</div></div>
     <div class="stat ${owed>0?'danger':''}"><div class="corner">${svg(IC.debt)}</div><div class="k">${esc(t('outstanding'))}</div><div class="v mono">${money(owed)}</div></div>
     <div class="stat"><div class="corner">${svg(IC.box)}</div><div class="k">${esc(t('inStock'))}</div><div class="v">${inStock}</div></div>
+    ${canOwner?`<div class="stat${depositsHeld>0?' link':''}" id="statDeposits"><div class="corner">${svg(IC.money)}</div><div class="k">${esc(t('depositsHeld'))}</div><div class="v mono">${money(depositsHeld)}</div></div>`:''}
   </div>
   <div class="card pad" style="margin-bottom:18px">
     <div style="display:flex;align-items:center;gap:10px"><h3>${esc(t('alertsHub'))}</h3>
@@ -1752,11 +1768,6 @@ async function viewDash(){
       </div>`).join('')}
     </div>` : `<p class="subtle" style="padding:10px 0">${esc(t('noAlerts'))}</p>`}
   </div>
-  ${canOwner?`<div class="card pad" style="margin-bottom:18px">
-    <div style="display:flex;align-items:center;gap:10px"><h3>${esc(t('depositsHeld'))}</h3>
-      <span class="v mono" style="margin-inline-start:auto;font-size:20px;font-weight:800">${money(depositsHeld)}</span>
-      ${depositsHeld>0?`<button class="btn ghost sm" id="btnDeposits">${esc(t('viewDeposits'))}</button>`:''}</div>
-  </div>`:''}
   <div class="card pad" style="margin-bottom:18px">
     <h3 style="margin-bottom:12px">${esc(t('quickActions'))}</h3>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -1767,20 +1778,22 @@ async function viewDash(){
       <button class="btn secondary" id="qaExpense">${svg(IC.chart,'ic')}${esc(t('addExpense'))}</button>
     </div>
   </div>
-  <div class="card pad" style="margin-bottom:18px">
-    <div style="display:flex;align-items:center"><h3>${esc(t('todayExpenses'))}</h3><span class="v mono" style="margin-inline-start:auto;font-size:18px;font-weight:800">${money(todayExpTotal)}</span></div>
-    ${todayExpenses.length? `<table style="margin-top:8px"><tbody>${todayExpenses.slice(0,6).map(x=>`<tr>
-        <td>${esc(x.label)}<div class="subtle" style="font-size:11px">${esc(x.categoryLabel||x.category||'')}${x.userName?' · '+esc(x.userName):''}</div></td>
-        <td class="t-right mono">${money(x.amount)}</td>
-      </tr>`).join('')}</tbody></table>` : `<p class="subtle" style="padding:8px 0 0">${esc(t('noExpenses'))}</p>`}
-  </div>
-  <div class="card pad">
-    <h3 style="margin-bottom:6px">${esc(t('recentActivity'))}</h3>
-    ${acts.length? `<table><tbody>${acts.map(a=>`<tr>
-        <td style="width:44px"><span class="badge ${a.type==='sale'?'green':'brand'}"><span class="dot"></span></span></td>
-        <td>${esc(a.txt)}</td>
-        <td class="t-right subtle mono">${new Date(a.ts).toLocaleTimeString(State.lang,{hour:'2-digit',minute:'2-digit'})}</td>
-      </tr>`).join('')}</tbody></table>` : `<p class="subtle" style="padding:14px 0">${esc(t('noActivity'))}</p>`}
+  <div class="dashgrid">
+    <div class="card pad">
+      <div style="display:flex;align-items:center"><h3>${esc(t('todayExpenses'))}</h3><span class="v mono" style="margin-inline-start:auto;font-size:18px;font-weight:800">${money(todayExpTotal)}</span></div>
+      ${todayExpenses.length? `<table style="margin-top:8px"><tbody>${todayExpenses.slice(0,6).map(x=>`<tr>
+          <td>${esc(x.label)}<div class="subtle" style="font-size:11px">${esc(x.categoryLabel||x.category||'')}${x.userName?' · '+esc(x.userName):''}</div></td>
+          <td class="t-right mono">${money(x.amount)}</td>
+        </tr>`).join('')}</tbody></table>` : `<p class="subtle" style="padding:8px 0 0">${esc(t('noExpenses'))}</p>`}
+    </div>
+    <div class="card pad">
+      <h3 style="margin-bottom:6px">${esc(t('recentActivity'))}</h3>
+      ${acts.length? `<table><tbody>${acts.map(a=>`<tr>
+          <td style="width:44px"><span class="badge ${a.type==='sale'?'green':'brand'}"><span class="dot"></span></span></td>
+          <td>${esc(a.txt)}</td>
+          <td class="t-right subtle mono">${new Date(a.ts).toLocaleTimeString(State.lang,{hour:'2-digit',minute:'2-digit'})}</td>
+        </tr>`).join('')}</tbody></table>` : `<p class="subtle" style="padding:14px 0">${esc(t('noActivity'))}</p>`}
+    </div>
   </div>`;
   view.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{
     State.route=b.dataset.q; renderApp();
@@ -1789,7 +1802,8 @@ async function viewDash(){
     if(b.dataset.q==='ledger') setTimeout(()=>{},80);
   });
   document.getElementById('btnBackupNow')&&(document.getElementById('btnBackupNow').onclick=()=>doBackup().then(()=>viewDash()));
-  document.getElementById('btnDeposits')&&(document.getElementById('btnDeposits').onclick=()=>{ rentalTab='deposits'; rentalView='list'; State.route='rentals'; renderApp(); });
+  const statDeposits=document.getElementById('statDeposits');
+  if(statDeposits && depositsHeld>0) statDeposits.onclick=()=>{ rentalTab='deposits'; rentalView='list'; State.route='rentals'; renderApp(); };
   view.querySelectorAll('[data-alert-rent]').forEach(el=>el.style.cursor='pointer');
   view.querySelectorAll('[data-alert-rent]').forEach(el=>el.onclick=async()=>{ const r=await idbGet('rentals',el.dataset.alertRent); if(!r)return; State.route='rentals'; rentalTab='active'; renderApp(); setTimeout(()=>openReturnModal(r),60); });
   document.getElementById('qaExpense').onclick=()=>openExpenseModal(()=>viewDash());
