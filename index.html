@@ -545,6 +545,7 @@ const I18N = {
     reserveItem:"Reserve for future date", reserved:"Reserved",
     postpone:"Postpone", postponed:"Postponed", postponeConfirm:"Postpone this reservation? The date is cleared until a new one is set — the booking, customer and deposit are kept.", logPostpone:"Reservation postponed", setNewDate:"Set new date",
     highlight:"Highlight", highlightRental:"Highlight this rental", clearHighlight:"No highlight", colorRed:"Red", colorAmber:"Amber", colorGreen:"Green", colorBlue:"Blue", colorPurple:"Purple", logHighlight:"Rental highlight changed",
+    badgeColor:"Badge color", badgeColorHint:"Spot this client at a glance in lists", logBadgeColor:"Client badge color changed",
     futureReserveHint:"Pickup is a future date — saved as a reservation until then.",
     activateConfirm:"Mark this reservation as picked up now? This takes the item out of stock.", backToReserved:"Back to reserved", backToReservedConfirm:"Move this rental back to reserved? The item returns to stock — use this if the customer hasn't picked it up yet.", revertedToReserved:"Moved back to reserved", logRevertReserve:"Reverted to reserved", availability:"Availability", available:"Available",
     lateFeePerDay:"Late fee per day", suggestedLateFee:"Suggested late fee", requireReason:"Reason required",
@@ -711,6 +712,7 @@ const I18N = {
     reserveItem:"Réserver pour plus tard", reserved:"Réservé",
     postpone:"Reporter", postponed:"Reportée", postponeConfirm:"Reporter cette réservation ? La date est effacée jusqu'à ce qu'une nouvelle soit fixée — la réservation, le client et la caution sont conservés.", logPostpone:"Réservation reportée", setNewDate:"Fixer une nouvelle date",
     highlight:"Surligner", highlightRental:"Surligner cette location", clearHighlight:"Aucun surlignage", colorRed:"Rouge", colorAmber:"Ambre", colorGreen:"Vert", colorBlue:"Bleu", colorPurple:"Violet", logHighlight:"Surlignage de la location modifié",
+    badgeColor:"Couleur du badge", badgeColorHint:"Repérez ce client en un coup d'œil dans les listes", logBadgeColor:"Couleur du badge client modifiée",
     futureReserveHint:"Le retrait est à une date future — enregistré comme réservation jusque-là.",
     activateConfirm:"Marquer cette réservation comme retirée maintenant ? L'article sort du stock.", backToReserved:"Remettre en réservé", backToReservedConfirm:"Remettre cette location en réservé ? L'article revient en stock — utilisez ceci si le client n'a pas encore retiré l'article.", revertedToReserved:"Remis en réservé", logRevertReserve:"Remis en réservé", availability:"Disponibilité", available:"Disponible",
     lateFeePerDay:"Pénalité par jour", suggestedLateFee:"Pénalité suggérée", requireReason:"Raison requise",
@@ -876,6 +878,7 @@ const I18N = {
     reserveItem:"حجز لتاريخ لاحق", reserved:"محجوز",
     postpone:"تأجيل", postponed:"مؤجَّل", postponeConfirm:"تأجيل هذا الحجز؟ يُمسح التاريخ حتى يُحدَّد تاريخ جديد — يبقى الحجز والعميل والتأمين كما هم.", logPostpone:"تم تأجيل الحجز", setNewDate:"تحديد تاريخ جديد",
     highlight:"تمييز", highlightRental:"تمييز هذا الإيجار", clearHighlight:"بلا تمييز", colorRed:"أحمر", colorAmber:"كهرماني", colorGreen:"أخضر", colorBlue:"أزرق", colorPurple:"بنفسجي", logHighlight:"تغيير تمييز الإيجار",
+    badgeColor:"لون الشارة", badgeColorHint:"اكتشف هذا العميل بسرعة في القوائم", logBadgeColor:"تغيير لون شارة العميل",
     futureReserveHint:"تاريخ الاستلام مستقبلي — يُحفَظ كحجز حتى ذلك الحين.",
     activateConfirm:"تحديد هذا الحجز كمُستلَم الآن؟ سيخرج العنصر من المخزون.", backToReserved:"إرجاع إلى محجوز", backToReservedConfirm:"إرجاع هذا الإيجار إلى محجوز؟ يعود العنصر إلى المخزون — استخدم هذا إذا لم يستلم العميل العنصر بعد.", revertedToReserved:"أُعيد إلى محجوز", logRevertReserve:"أُعيد إلى محجوز", availability:"التوفر", available:"متاح",
     lateFeePerDay:"غرامة التأخير يومياً", suggestedLateFee:"الغرامة المقترحة", requireReason:"السبب مطلوب",
@@ -1024,6 +1027,11 @@ function colorSwatchesHtml(current,attr){
   const clear=`<button type="button" data-${attr}="" title="${esc(t('clearHighlight'))}" style="width:30px;height:30px;border-radius:50%;border:1px dashed var(--line);background:none;color:var(--muted);font-size:14px;line-height:28px">×</button>`;
   const dots=Object.keys(TAG_COLORS).map(c=>`<button type="button" data-${attr}="${c}" title="${esc(tagColorLabel(c))}" style="width:30px;height:30px;border-radius:50%;background:${TAG_COLORS[c]};border:${current===c?'3px solid var(--ink)':'1px solid var(--line)'}"></button>`).join('');
   return `<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:6px 0">${clear}${dots}</div>`;
+}
+// Small colored dot shown next to a customer's name in list views, so a
+// tagged client (e.g. VIP, blocked) is spottable while scrolling.
+function custDotHtml(color){
+  return color && TAG_COLORS[color] ? `<span title="${esc(tagColorLabel(color))}" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${TAG_COLORS[color]};margin-inline-end:6px;flex-shrink:0;vertical-align:middle"></span>` : '';
 }
 function now(){ return Date.now(); }
 function startOf(period){
@@ -2716,11 +2724,12 @@ async function viewRentals(){
       const seen=new Set(); const displayGroups=[];
       const keyOf=x=> x.groupId? ('g:'+x.groupId+'|'+x.status) : ('r:'+x.id);
       filt.forEach(r=>{ const k=keyOf(r); if(seen.has(k)) return; seen.add(k); displayGroups.push(filt.filter(x=>keyOf(x)===k)); });
+      const custColorById=Object.fromEntries((await idbAll('customers')).filter(c=>c.badgeColor).map(c=>[c.id,c.badgeColor]));
       body=tabs+pickupNav+(filt.length? `<div class="tablewrap"><table><thead><tr>
        <th>${esc(t('item'))}</th><th>${esc(t('customer'))}</th><th>${esc(t('dueDate'))}</th>
        <th class="t-right">${esc(t('rentalPrice'))}</th><th class="t-right">${esc(t('balance'))}</th>
        <th>${esc(t('status'))}</th><th class="t-right">${esc(t('actions'))}</th>
-     </tr></thead><tbody>${displayGroups.map(g=>rowRental(g)).join('')}</tbody></table></div>`
+     </tr></thead><tbody>${displayGroups.map(g=>rowRental(g,custColorById)).join('')}</tbody></table></div>`
      : (rentalTab==='pickups'? emptyState(IC.cal,t('noPickupsDay'),'')
         : rentalTab==='dropoffs'? emptyState(IC.cal,t('noDropoffsDay'),'')
         : emptyState(IC.rent,t('noRentals'),'',`<button class="btn" id="newRent2">${svg(IC.plus,'ic')}${esc(t('rentOut'))}</button>`)));
@@ -2789,6 +2798,7 @@ async function openCalDayModal(dateStr){
   const seen=new Set(); const groups=[];
   const keyOf=x=> x.groupId? ('g:'+x.groupId+'|'+x.status) : ('r:'+x.id);
   all.forEach(r=>{ const k=keyOf(r); if(seen.has(k)) return; seen.add(k); groups.push(all.filter(x=>keyOf(x)===k)); });
+  const custColorById=Object.fromEntries((await idbAll('customers')).filter(c=>c.badgeColor).map(c=>[c.id,c.badgeColor]));
   const rows=groups.map(group=>{
     const r=group[0];
     const names=group.map(x=>x.name).join(' + ');
@@ -2797,7 +2807,7 @@ async function openCalDayModal(dateStr){
     const statusBadge = isPickup? `<span class="badge brand">${esc(t('reserved'))}</span>`
       : overdue? `<span class="badge red">${esc(t('overdue'))}</span>` : `<span class="badge gold">${esc(t('rented'))}</span>`;
     return `<div class="citem" style="align-items:center;flex-wrap:wrap;padding:9px 4px;gap:8px">
-      <div class="nm" style="flex:1 1 160px">${esc(names)}<div class="subtle" style="font-size:11.5px">${esc(r.customerName||'—')}</div></div>
+      <div class="nm" style="flex:1 1 160px">${esc(names)}<div class="subtle" style="font-size:11.5px">${custDotHtml(custColorById[r.customerId])}${esc(r.customerName||'—')}</div></div>
       ${statusBadge}
       <button class="btn secondary sm" data-calday-act="${r.id}">${isPickup?esc(t('rentOut')):esc(t('markReturned'))}</button>
     </div>`;
@@ -2815,7 +2825,7 @@ async function openCalDayModal(dateStr){
    the store is holding (and owes back). Searchable by customer or item. */
 async function buildDepositsRegister(rentals){
   const custs=await getCustomers();
-  const phoneOf={}; custs.forEach(c=>{ phoneOf[c.id]=c.phone||''; });
+  const phoneOf={}, colorOf={}; custs.forEach(c=>{ phoneOf[c.id]=c.phone||''; if(c.badgeColor) colorOf[c.id]=c.badgeColor; });
   const held=rentals.filter(r=>(r.status==='active'||r.status==='reserved') && (r.deposit||0)>0 && !r.depositRefunded);
   const grandTotal=held.reduce((a,r)=>a+(r.deposit||0),0);
   const q=depositSearch.trim().toLowerCase();
@@ -2834,7 +2844,7 @@ async function buildDepositsRegister(rentals){
         const overdue=r.dueDate && daysLate(r.dueDate)>0;
         const phone=phoneOf[r.customerId];
         return `<tr>
-         <td><b>${esc(r.customerName||'—')}</b>${phone?`<div class="subtle" style="font-size:11px;font-variant-numeric:tabular-nums">${esc(phone)}</div>`:''}</td>
+         <td><b>${custDotHtml(colorOf[r.customerId])}${esc(r.customerName||'—')}</b>${phone?`<div class="subtle" style="font-size:11px;font-variant-numeric:tabular-nums">${esc(phone)}</div>`:''}</td>
          <td>${esc(r.name)}</td>
          <td class="mono subtle">${r.startDate?fmtDate(Date.parse(r.startDate)):fmtDate(r.createdAt)}</td>
          <td class="mono">${r.dueDate?(overdue?`<span class="badge red">${fmtDate(Date.parse(r.dueDate))}</span>`:fmtDate(Date.parse(r.dueDate))):'—'}</td>
@@ -3166,7 +3176,7 @@ async function openEditDatesModal(r){
 // bundle collapses to one line; a single item is a group of one). Money is
 // summed across the group; all row actions act on the representative and, via
 // the group-aware handlers, on every sibling in that same-status group.
-function rowRental(group){
+function rowRental(group,custColorById){
   const r=group[0];
   const isBundle=group.length>1;
   const price=group.reduce((a,x)=>a+(x.price||0),0);
@@ -3186,7 +3196,7 @@ function rowRental(group){
   const hlColor=r.highlight && TAG_COLORS[r.highlight];
   return `<tr${hlColor?` style="background:${hlColor}17"`:''}>
     <td${hlColor?` style="border-inline-start:4px solid ${hlColor}"`:''}><b>${esc(names)}</b>${bundleBadge}</td>
-    <td>${esc(r.customerName||'—')}</td>
+    <td>${custDotHtml(custColorById&&custColorById[r.customerId])}${esc(r.customerName||'—')}</td>
     <td class="mono">${dateCell}</td>
     <td class="t-right mono">${money(price)}</td>
     <td class="t-right mono">${bal>0?`<span class="badge red">${money(bal)}</span>`:`<span class="badge green">${esc(t('settled'))}</span>`}</td>
@@ -3667,7 +3677,7 @@ function clientCard(m,i){
     <span class="rank ${rcls}">${rank}</span>
     ${cliAvatar(c)}
     <div class="cli-main">
-      <div class="cli-name">${esc(c.name||'—')}</div>
+      <div class="cli-name">${custDotHtml(c.badgeColor)}${esc(c.name||'—')}</div>
       <div class="cli-phone">${esc(c.phone||t('neverVisited'))}</div>
       <div class="cli-stars">${stars}</div>
       <div class="cli-meta">
@@ -3745,7 +3755,7 @@ async function viewLedger(){
     (rows.length? `<div class="tablewrap"><table><thead><tr>
        <th>${esc(t('customer'))}</th><th>${esc(t('phone'))}</th><th class="t-right">${esc(t('owes'))}</th><th>${esc(t('debtAge'))}</th><th class="t-right">${esc(t('actions'))}</th>
      </tr></thead><tbody>${rows.map(({c,b,oldest})=>`<tr>
-       <td><b>${esc(c.name)}</b></td><td class="subtle">${esc(c.phone||'—')}</td>
+       <td><b>${custDotHtml(c.badgeColor)}${esc(c.name)}</b></td><td class="subtle">${esc(c.phone||'—')}</td>
        <td class="t-right"><span class="badge red mono">${money(b)}</span></td>
        <td>${ageBadge(oldest)}</td>
        <td class="t-right" style="white-space:nowrap">
@@ -3873,6 +3883,7 @@ async function openCustomerLedger(cust){
       </div>
     </div>`:''}
     <div class="field"><label>${esc(t('rating'))}</label><div id="cust_stars">${starRow}</div></div>
+    <div class="field"><label>${esc(t('badgeColor'))}</label>${colorSwatchesHtml(cust.badgeColor,'badgepick')}<div class="subtle" style="font-size:11.5px;margin-top:-4px">${esc(t('badgeColorHint'))}</div></div>
     ${isCaution?`<div style="background:var(--danger-100);color:var(--danger);border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:13px">⚠ ${esc(t('caution'))} (${lateCount})</div>`:''}
     <div class="field"><label>${esc(t('tags'))}</label><input id="cust_tags" type="text" value="${esc(cust.tags||'')}" placeholder="VIP, wholesale..."></div>
     <div class="field"><label>${esc(t('measurements'))}</label><input id="cust_measure" type="text" value="${esc(cust.measurements||'')}" placeholder="${esc(t('measureHint'))}"></div>
@@ -3896,6 +3907,14 @@ async function openCustomerLedger(cust){
     ${bal>0?`<button class="btn" id="cl_pay">${esc(t('addPayment'))}</button>`:''}`,{lg:true});
   let selRating=rating;
   document.querySelectorAll('#cust_stars .star').forEach(s=>s.onclick=()=>{ selRating=Number(s.dataset.star); document.querySelectorAll('#cust_stars .star').forEach(x=>{ const on=Number(x.dataset.star)<=selRating; x.style.color=on?'var(--gold)':'var(--line)'; }); });
+  let selBadgeColor=cust.badgeColor||null;
+  document.querySelectorAll('[data-badgepick]').forEach(b=>b.onclick=()=>{
+    selBadgeColor=b.dataset.badgepick||null;
+    document.querySelectorAll('[data-badgepick]').forEach(x=>{
+      const c=x.dataset.badgepick;
+      x.style.border = c ? (c===selBadgeColor?'3px solid var(--ink)':'1px solid var(--line)') : '1px dashed '+(selBadgeColor?'var(--line)':'var(--ink)');
+    });
+  });
   let idPhotoData=cust.idPhoto||'';
   const idBtn=document.getElementById('cust_idBtn'), idFile=document.getElementById('cust_idFile'), idWrap=document.getElementById('cust_idWrap'), idRemove=document.getElementById('cust_idRemove');
   idBtn.onclick=()=>idFile.click();
@@ -3933,7 +3952,10 @@ async function openCustomerLedger(cust){
     cust.notes=document.getElementById('cust_notes').value.trim();
     cust.rating=selRating;
     cust.idPhoto=idPhotoData;
+    const badgeChanged = (cust.badgeColor||null)!==selBadgeColor;
+    if(selBadgeColor) cust.badgeColor=selBadgeColor; else delete cust.badgeColor;
     await idbPut('customers',cust);
+    if(badgeChanged) await logAct('logBadgeColor', cust.name);
     // Keep the denormalised name in sync across this client's sales & rentals,
     // so a corrected name shows everywhere (lists, history) not just the profile.
     if(nameChanged){
@@ -3965,6 +3987,7 @@ async function viewSales(){
   const searchHtml=`<div class="searchbar" style="margin-bottom:12px">${svg(IC.search,'ic')}<input id="salesSearch" type="search" placeholder="${esc(t('searchProducts'))}" value="${esc(salesSearch)}"></div>`;
 
   let body;
+  const custColorById=Object.fromEntries((await idbAll('customers')).filter(c=>c.badgeColor).map(c=>[c.id,c.badgeColor]));
   if(historyTab==='rentals'){
     const rentals=(await idbAll('rentals')).sort((a,b)=>b.createdAt-a.createdAt);
     const filt=rentals.filter(r=> r.createdAt>=from && r.createdAt<=to &&
@@ -3978,7 +4001,7 @@ async function viewSales(){
        <th>${esc(t('date'))}</th><th>${esc(t('customer'))}</th><th>${esc(t('item'))}</th>
        <th class="t-right">${esc(t('rentalPrice'))}</th><th class="t-right">${esc(t('paid'))}</th><th class="t-right">${esc(t('balance'))}</th>
        <th>${esc(t('status'))}</th><th class="t-right">${esc(t('actions'))}</th>
-     </tr></thead><tbody>${groups.slice(0,salesLimit).map(rowRentalHist).join('')}</tbody></table></div>
+     </tr></thead><tbody>${groups.slice(0,salesLimit).map(g=>rowRentalHist(g,custColorById)).join('')}</tbody></table></div>
      ${groups.length>salesLimit?`<div style="text-align:center;margin-top:14px"><button class="btn secondary" id="salesMore">${esc(t('showMore'))} (${groups.length-salesLimit})</button></div>`:''}
      <p class="subtle" style="text-align:center;font-size:12px;margin-top:8px">${Math.min(salesLimit,groups.length)} / ${groups.length}</p>`
      : emptyState(IC.rent,t('nothingYet'),''));
@@ -3989,7 +4012,7 @@ async function viewSales(){
     body=(filt.length? `<div class="tablewrap"><table><thead><tr>
        <th>${esc(t('date'))}</th><th>${esc(t('customer'))}</th><th>${esc(t('item'))}</th>
        <th class="t-right">${esc(t('total'))}</th><th class="t-right">${esc(t('paid'))}</th><th class="t-right">${esc(t('balance'))}</th><th class="t-right">${esc(t('actions'))}</th>
-     </tr></thead><tbody>${filt.slice(0,salesLimit).map(rowSale).join('')}</tbody></table></div>
+     </tr></thead><tbody>${filt.slice(0,salesLimit).map(s=>rowSale(s,custColorById)).join('')}</tbody></table></div>
      ${filt.length>salesLimit?`<div style="text-align:center;margin-top:14px"><button class="btn secondary" id="salesMore">${esc(t('showMore'))} (${filt.length-salesLimit})</button></div>`:''}
      <p class="subtle" style="text-align:center;font-size:12px;margin-top:8px">${Math.min(salesLimit,filt.length)} / ${filt.length}</p>`
      : emptyState(IC.cart,t('nothingYet'),''));
@@ -4031,7 +4054,7 @@ async function viewSales(){
    badge and money math, but only offers non-destructive actions (print the
    agreement, WhatsApp reminder); editing/returning/cancelling stays on the
    Rentals page itself. */
-function rowRentalHist(group){
+function rowRentalHist(group,custColorById){
   const r=group[0];
   const price=group.reduce((a,x)=>a+(x.price||0),0);
   const late=group.reduce((a,x)=>a+(x.lateFee||0),0);
@@ -4045,7 +4068,7 @@ function rowRentalHist(group){
   const names=group.map(x=>x.name).join(' + ');
   return `<tr${r.status==='cancelled'?' style="opacity:.55"':''}>
     <td class="mono subtle">${fmtDate(r.createdAt)}</td>
-    <td>${esc(r.customerName||'—')}</td>
+    <td>${custDotHtml(custColorById&&custColorById[r.customerId])}${esc(r.customerName||'—')}</td>
     <td style="max-width:220px" class="subtle">${esc(names)}</td>
     <td class="t-right mono">${money(price)}</td>
     <td class="t-right mono">${money(paid)}</td>
@@ -4057,7 +4080,7 @@ function rowRentalHist(group){
     </td>
   </tr>`;
 }
-function rowSale(s){
+function rowSale(s,custColorById){
   const itemsLabel=(s.items||[]).map(i=>`${i.name}×${i.qty}`).join(', ');
   const refunded=s.refunded? `<span class="badge red">${esc(t('refund'))}</span>` : '';
   const voided=s.voided? `<span class="badge red">${esc(t('voided'))}</span>` : '';
@@ -4065,7 +4088,7 @@ function rowSale(s){
   const canVoid = !s.refunded && !s.voided && (Date.now()-s.createdAt) < 3600000;
   return `<tr${s.voided?' style="opacity:.55"':''}>
     <td class="mono subtle">${fmtDate(s.createdAt)}</td>
-    <td>${esc(s.customerName||t('walkIn'))}</td>
+    <td>${custDotHtml(custColorById&&custColorById[s.customerId])}${esc(s.customerName||t('walkIn'))}</td>
     <td style="max-width:220px" class="subtle">${esc(itemsLabel)}</td>
     <td class="t-right mono">${money(s.total)}</td>
     <td class="t-right mono">${money(s.paid)} ${refunded}${voided}</td>
