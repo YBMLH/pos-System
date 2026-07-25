@@ -419,7 +419,8 @@ const IC = {
   chat:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5A8 8 0 1 1 21 12z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
   doc:'<path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M15 3v4h4M9 12h6M9 16h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
   copy:'<rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
-  cal:'<rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>'
+  cal:'<rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3 9h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+  flag:'<path d="M5 3v18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M5 4h11l-3 4 3 4H5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>'
 };
 function svg(p,cls){return `<svg class="${cls||''}" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true">${p}</svg>`}
 
@@ -543,6 +544,7 @@ const I18N = {
     globalSearch:"Search everything...", undo:"Undo", undone:"Action undone", darkMode:"Dark mode",
     reserveItem:"Reserve for future date", reserved:"Reserved",
     postpone:"Postpone", postponed:"Postponed", postponeConfirm:"Postpone this reservation? The date is cleared until a new one is set — the booking, customer and deposit are kept.", logPostpone:"Reservation postponed", setNewDate:"Set new date",
+    highlight:"Highlight", highlightRental:"Highlight this rental", clearHighlight:"No highlight", colorRed:"Red", colorAmber:"Amber", colorGreen:"Green", colorBlue:"Blue", colorPurple:"Purple", logHighlight:"Rental highlight changed",
     futureReserveHint:"Pickup is a future date — saved as a reservation until then.",
     activateConfirm:"Mark this reservation as picked up now? This takes the item out of stock.", backToReserved:"Back to reserved", backToReservedConfirm:"Move this rental back to reserved? The item returns to stock — use this if the customer hasn't picked it up yet.", revertedToReserved:"Moved back to reserved", logRevertReserve:"Reverted to reserved", availability:"Availability", available:"Available",
     lateFeePerDay:"Late fee per day", suggestedLateFee:"Suggested late fee", requireReason:"Reason required",
@@ -708,6 +710,7 @@ const I18N = {
     globalSearch:"Tout rechercher...", undo:"Annuler", undone:"Action annulée", darkMode:"Mode sombre",
     reserveItem:"Réserver pour plus tard", reserved:"Réservé",
     postpone:"Reporter", postponed:"Reportée", postponeConfirm:"Reporter cette réservation ? La date est effacée jusqu'à ce qu'une nouvelle soit fixée — la réservation, le client et la caution sont conservés.", logPostpone:"Réservation reportée", setNewDate:"Fixer une nouvelle date",
+    highlight:"Surligner", highlightRental:"Surligner cette location", clearHighlight:"Aucun surlignage", colorRed:"Rouge", colorAmber:"Ambre", colorGreen:"Vert", colorBlue:"Bleu", colorPurple:"Violet", logHighlight:"Surlignage de la location modifié",
     futureReserveHint:"Le retrait est à une date future — enregistré comme réservation jusque-là.",
     activateConfirm:"Marquer cette réservation comme retirée maintenant ? L'article sort du stock.", backToReserved:"Remettre en réservé", backToReservedConfirm:"Remettre cette location en réservé ? L'article revient en stock — utilisez ceci si le client n'a pas encore retiré l'article.", revertedToReserved:"Remis en réservé", logRevertReserve:"Remis en réservé", availability:"Disponibilité", available:"Disponible",
     lateFeePerDay:"Pénalité par jour", suggestedLateFee:"Pénalité suggérée", requireReason:"Raison requise",
@@ -872,6 +875,7 @@ const I18N = {
     globalSearch:"ابحث في كل شيء...", undo:"تراجع", undone:"تم التراجع", darkMode:"الوضع الداكن",
     reserveItem:"حجز لتاريخ لاحق", reserved:"محجوز",
     postpone:"تأجيل", postponed:"مؤجَّل", postponeConfirm:"تأجيل هذا الحجز؟ يُمسح التاريخ حتى يُحدَّد تاريخ جديد — يبقى الحجز والعميل والتأمين كما هم.", logPostpone:"تم تأجيل الحجز", setNewDate:"تحديد تاريخ جديد",
+    highlight:"تمييز", highlightRental:"تمييز هذا الإيجار", clearHighlight:"بلا تمييز", colorRed:"أحمر", colorAmber:"كهرماني", colorGreen:"أخضر", colorBlue:"أزرق", colorPurple:"بنفسجي", logHighlight:"تغيير تمييز الإيجار",
     futureReserveHint:"تاريخ الاستلام مستقبلي — يُحفَظ كحجز حتى ذلك الحين.",
     activateConfirm:"تحديد هذا الحجز كمُستلَم الآن؟ سيخرج العنصر من المخزون.", backToReserved:"إرجاع إلى محجوز", backToReservedConfirm:"إرجاع هذا الإيجار إلى محجوز؟ يعود العنصر إلى المخزون — استخدم هذا إذا لم يستلم العميل العنصر بعد.", revertedToReserved:"أُعيد إلى محجوز", logRevertReserve:"أُعيد إلى محجوز", availability:"التوفر", available:"متاح",
     lateFeePerDay:"غرامة التأخير يومياً", suggestedLateFee:"الغرامة المقترحة", requireReason:"السبب مطلوب",
@@ -1006,6 +1010,20 @@ function wireFridayFlag(inputId,badgeId){
   if(!inp||!badge) return;
   const sync=()=>badge.classList.toggle('hidden',!isFridayISO(inp.value));
   inp.addEventListener('input',sync); inp.addEventListener('change',sync); sync();
+}
+// Shared 5-colour palette for both rental highlights and client badges, so a
+// colour means the same thing everywhere it's used. Names, not just hex,
+// so a swatch can be labelled/localised.
+const TAG_COLORS={red:'#E5484D',amber:'#C9A34E',green:'#2E7D5B',blue:'#3B82C4',purple:'#8B5CF6'};
+function tagColorLabel(c){ return t('color'+c.charAt(0).toUpperCase()+c.slice(1)); }
+/* Small circular swatch picker used by both the rental-highlight and
+   client-badge colour modals: a "clear" (×) button plus one dot per colour,
+   the current selection ringed. `attr` is the data-attribute name each
+   button carries its colour in (empty string on the clear button). */
+function colorSwatchesHtml(current,attr){
+  const clear=`<button type="button" data-${attr}="" title="${esc(t('clearHighlight'))}" style="width:30px;height:30px;border-radius:50%;border:1px dashed var(--line);background:none;color:var(--muted);font-size:14px;line-height:28px">×</button>`;
+  const dots=Object.keys(TAG_COLORS).map(c=>`<button type="button" data-${attr}="${c}" title="${esc(tagColorLabel(c))}" style="width:30px;height:30px;border-radius:50%;background:${TAG_COLORS[c]};border:${current===c?'3px solid var(--ink)':'1px solid var(--line)'}"></button>`).join('');
+  return `<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:6px 0">${clear}${dots}</div>`;
 }
 function now(){ return Date.now(); }
 function startOf(period){
@@ -2728,6 +2746,7 @@ async function viewRentals(){
   view.querySelectorAll('[data-extend]').forEach(b=>b.onclick=async()=>openExtendModal(await idbGet('rentals',b.dataset.extend)));
   view.querySelectorAll('[data-editdates]').forEach(b=>b.onclick=async()=>openEditDatesModal(await idbGet('rentals',b.dataset.editdates)));
   view.querySelectorAll('[data-postpone]').forEach(b=>b.onclick=async()=>postponeReservation(await idbGet('rentals',b.dataset.postpone)));
+  view.querySelectorAll('[data-hl]').forEach(b=>b.onclick=async()=>openHighlightPicker(await idbGet('rentals',b.dataset.hl)));
   view.querySelectorAll('[data-wa]').forEach(b=>b.onclick=async()=>{
     const r=await idbGet('rentals',b.dataset.wa); if(!r) return;
     const c=r.customerId? await idbGet('customers',r.customerId) : null;
@@ -2941,6 +2960,22 @@ async function postponeReservation(r){
     toast(t('postponed'),'ok'); viewRentals();
   });
 }
+/* Manual colour flag on a rental — purely visual, no effect on status or
+   money — so a specific booking (reserved, active, postponed, whatever) can
+   be spotted at a glance while scrolling a long list. Applies to the whole
+   bundle shown on that row. */
+async function openHighlightPicker(r){
+  if(!r) return;
+  const group=(await rentalGroupOf(r)).filter(x=>x.status===r.status);
+  modal(t('highlightRental'), colorSwatchesHtml(r.highlight,'hlpick'),
+   `<button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>`);
+  document.querySelectorAll('[data-hlpick]').forEach(b=>b.onclick=async()=>{
+    const color=b.dataset.hlpick||null;
+    for(const it of group){ if(color) it.highlight=color; else delete it.highlight; await idbPut('rentals',it); }
+    await logAct('logHighlight', group.map(x=>x.name).join(' + ')+(r.customerName?' · '+r.customerName:''));
+    closeModal(); viewRentals();
+  });
+}
 /* Cancel a rental or reservation: restore stock (only if it was checked out),
    reverse any rent paid + deposit in the till, and mark it cancelled so it
    drops out of balances, points and reports. Cashiers need the manager code. */
@@ -3148,14 +3183,16 @@ function rowRental(group){
   const isPostponed=r.status==='reserved' && r.postponed;
   const dateCell = isPostponed? `<span class="badge warnb">${esc(t('postponed'))}</span>`
     : r.status==='reserved'&&r.startDate?fmtDate(Date.parse(r.startDate)):(r.dueDate?fmtDate(Date.parse(r.dueDate)):'—');
-  return `<tr>
-    <td><b>${esc(names)}</b>${bundleBadge}</td>
+  const hlColor=r.highlight && TAG_COLORS[r.highlight];
+  return `<tr${hlColor?` style="background:${hlColor}17"`:''}>
+    <td${hlColor?` style="border-inline-start:4px solid ${hlColor}"`:''}><b>${esc(names)}</b>${bundleBadge}</td>
     <td>${esc(r.customerName||'—')}</td>
     <td class="mono">${dateCell}</td>
     <td class="t-right mono">${money(price)}</td>
     <td class="t-right mono">${bal>0?`<span class="badge red">${money(bal)}</span>`:`<span class="badge green">${esc(t('settled'))}</span>`}</td>
     <td>${statusBadge}</td>
     <td class="t-right" style="white-space:nowrap">
+      <button class="btn ghost sm" data-hl="${r.id}" title="${esc(t('highlight'))}"${hlColor?` style="color:${hlColor}"`:''}>${svg(IC.flag,'ic')}</button>
       <button class="btn ghost sm" data-agr="${r.id}" title="${esc(t('rentAgreement'))}">${svg(IC.print,'ic')}</button>
       ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-wa="${r.id}" title="${esc(t('waRemind'))}" style="color:var(--ok)">${svg(IC.chat,'ic')}</button>`:''}
       ${r.status==='reserved'&&!isPostponed?`<button class="btn secondary sm" data-activate="${r.id}">${esc(t('rentOut'))}</button>`:''}
