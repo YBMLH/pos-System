@@ -1565,6 +1565,7 @@ async function openAddToTillModal(){
   };
 }
 async function openWithdrawModal(){
+  if(!isOwner()) return; // the one action a cashier can never trigger: taking money out of the till
   modal(t('ownerWithdrawal'),
    `<div class="field"><label>${esc(t('amount'))} *</label><input id="wd_amt" type="number" min="0" step="0.01" autofocus></div>
     <div class="field"><label>${esc(t('reasonForAction'))}</label><input id="wd_note" type="text" placeholder="${esc(t('optional'))}"></div>`,
@@ -3028,27 +3029,26 @@ async function openHighlightPicker(r){
 }
 /* Cancel a rental or reservation: restore stock (only if it was checked out),
    reverse any rent paid + deposit in the till, and mark it cancelled so it
-   drops out of balances, points and reports. Cashiers need the manager code. */
+   drops out of balances, points and reports. Any signed-in user can do this —
+   it's a normal operational correction, not a withdrawal of store money. */
 async function cancelRental(r,onDone,whole){
   if(!r || (r.status!=='active' && r.status!=='reserved')) return;
   // From the collapsed rentals list a bundle cancels as one unit; from the
   // client profile each item is its own row and cancels individually.
   const group=whole? (await rentalGroupOf(r)).filter(x=>x.status===r.status) : [r];
-  confirmDialog(t('cancelRentalConfirm'),()=>{
-    requireAuth(async(how)=>{
-      for(const it of group){
-        const method=it.method||'cash';
-        // reversing money that came in
-        if((it.paid||0)>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-(it.paid||0),method,createdAt:now(),userId:State.user.id});
-        if((it.deposit||0)>0 && !it.depositRefunded) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:-(it.deposit||0),method,createdAt:now(),userId:State.user.id});
-        // an active rental had a unit removed from stock; a reservation did not
-        if(it.status==='active' && it.productId){ const p=await idbGet('products',it.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); } }
-        it.status='cancelled'; it.cancelledAt=now(); if((it.deposit||0)>0) it.depositRefunded=true;
-        await idbPut('rentals',it);
-        await logAct('logCancelRental', it.name+(it.customerName?' · '+it.customerName:'')+(how==='code'?(' · '+t('authorizedBy')):''));
-      }
-      toast(t('rentalCancelled'),'ok'); (onDone||viewRentals)();
-    });
+  confirmDialog(t('cancelRentalConfirm'),async()=>{
+    for(const it of group){
+      const method=it.method||'cash';
+      // reversing money that came in
+      if((it.paid||0)>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-(it.paid||0),method,createdAt:now(),userId:State.user.id});
+      if((it.deposit||0)>0 && !it.depositRefunded) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:-(it.deposit||0),method,createdAt:now(),userId:State.user.id});
+      // an active rental had a unit removed from stock; a reservation did not
+      if(it.status==='active' && it.productId){ const p=await idbGet('products',it.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); } }
+      it.status='cancelled'; it.cancelledAt=now(); if((it.deposit||0)>0) it.depositRefunded=true;
+      await idbPut('rentals',it);
+      await logAct('logCancelRental', it.name+(it.customerName?' · '+it.customerName:''));
+    }
+    toast(t('rentalCancelled'),'ok'); (onDone||viewRentals)();
   },true);
 }
 async function openExtendModal(r){
@@ -3170,11 +3170,9 @@ async function openEditDatesModal(r){
     const gid = lines.length>1 ? (existingGroupId||uid()) : null;
     const keptIds=new Set(lines.filter(l=>l.rentalId).map(l=>l.rentalId));
     // Correcting "amount paid" down (e.g. a mistaken payment recorded at pickup)
-    // writes a reversing refund entry so the till stays right — like any other
-    // money leaving the till, a cashier needs the manager code for that.
+    // writes a reversing refund entry so the till stays right.
     const paidDelta=l=> Math.max(0,Number(l.paid||0)) - (l.rentalId? (origPaidById[l.rentalId]||0) : 0);
-    const needsAuth = lines.some(l=>paidDelta(l)<0);
-    const finalize=async(how)=>{
+    const finalize=async()=>{
       for(const l of lines){
         const delta=paidDelta(l);
         if(l.rentalId){
@@ -3206,10 +3204,10 @@ async function openEditDatesModal(r){
       }
       const namesTxt=lines.map(l=>l.name).join(' + ');
       await logAct(editable?'logEditItems':'logEditDates', namesTxt+(r.customerName?' · '+r.customerName:'')+' · '+(start||'—')+' → '+(due||'—'));
-      if(lines.some(l=>paidDelta(l)!==0)) await logAct('logEditPaid', namesTxt+(r.customerName?' · '+r.customerName:'')+(how==='code'?(' · '+t('authorizedBy')):''));
+      if(lines.some(l=>paidDelta(l)!==0)) await logAct('logEditPaid', namesTxt+(r.customerName?' · '+r.customerName:''));
       closeModal(); toast(t('saved')||t('datesUpdated'),'ok'); viewRentals();
     };
-    if(needsAuth && !isOwner()) requireAuth(finalize); else finalize('owner');
+    finalize();
   };
 }
 // A display row is a group of one or more rentals sharing the same status (a
@@ -3602,7 +3600,7 @@ async function openReturnModal(r){
     const payAmt=payChecked?Number(document.getElementById('rt_payAmt').value||0):0;
     const refundOn=!!(refEl && refEl.checked && totalDeposit>0);
     const refundAmt=refundOn?Math.min(totalDeposit,Math.max(0,Number(refAmtI.value||0))):0;
-    const finalize=async(how)=>{
+    const finalize=async()=>{
       // late fee splits by each item's own overdue suggestion (fallback: by price);
       // payment goes FIFO across item balances; deposit refund splits by each deposit.
       let lateBasis=totalSuggested;
@@ -3626,44 +3624,41 @@ async function openReturnModal(r){
         if(payShare>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'rental',amount:payShare,method:it.method||'cash',createdAt:now(),userId:State.user.id});
         if(refShare>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:-refShare,method:it.method||'cash',createdAt:now(),userId:State.user.id});
         const p=await idbGet('products',it.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); }
-        if(refShare>0){ await logAct('logRefund', it.name+' · '+money(refShare)+(how==='code'?(' · '+t('authorizedBy')):'')); }
+        if(refShare>0){ await logAct('logRefund', it.name+' · '+money(refShare)); }
         if(kept>0){ await logAct('logDepositKept', it.name+(it.customerName?' · '+it.customerName:'')+' · '+money(kept)); }
       }
       await logAct('logReturn', names+(r.customerName?' · '+r.customerName:''));
       closeModal(); toast(t('itemReturned'),'ok'); viewRentals();
     };
-    // Paying out a deposit refund as a cashier requires the manager code.
-    if(refundAmt>0 && !isOwner()) requireAuth(finalize); else finalize('owner');
+    finalize();
   };
 }
 /* Undo an accidental return: put the rental back to active, take the unit out of
    stock again, and reverse the money the return moved (any extra payment
    collected, and re-hold a refunded deposit). Uses the returnTxn deltas stored
    at return time; falls back to the record's fields for returns made before
-   that was tracked. Confirmation + manager code (cashiers), like other reversals. */
+   that was tracked. Just a confirmation — no manager code needed. */
 async function undoReturn(r){
   if(!r || r.status!=='returned') return;
   const group=(await rentalGroupOf(r)).filter(x=>x.status==='returned'); // whole bundle
-  confirmDialog(t('undoReturnConfirm'),()=>{
-    requireAuth(async(how)=>{
-      for(const it of group){
-        const txn=it.returnTxn || { lateFeeAdded:(it.lateFee||0), payAmtAdded:0, refundAmt:(it.depositRefundedAmount||0) };
-        const method=it.method||'cash';
-        // reverse any extra rent collected at return (money back out of the till)
-        if(txn.payAmtAdded>0){ it.paid=Math.max(0,(it.paid||0)-txn.payAmtAdded); await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-txn.payAmtAdded,method,createdAt:now(),userId:State.user.id}); }
-        // re-hold a refunded deposit (offset the negative depositRefund entry)
-        if(txn.refundAmt>0){ await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:txn.refundAmt,method,createdAt:now(),userId:State.user.id}); }
-        // undo the late fee this return added
-        it.lateFee=Math.max(0,(it.lateFee||0)-(txn.lateFeeAdded||0));
-        delete it.depositRefunded; delete it.depositRefundedAmount; delete it.depositKept; delete it.depositRefundedAt; delete it.returnTxn; delete it.returnedAt;
-        // item is back out with the customer
-        const p=await idbGet('products',it.productId); if(p){ p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
-        it.status='active';
-        await idbPut('rentals',it);
-        await logAct('logUndoReturn', it.name+(it.customerName?' · '+it.customerName:'')+(how==='code'?(' · '+t('authorizedBy')):''));
-      }
-      toast(t('returnUndone'),'ok'); viewRentals();
-    });
+  confirmDialog(t('undoReturnConfirm'),async()=>{
+    for(const it of group){
+      const txn=it.returnTxn || { lateFeeAdded:(it.lateFee||0), payAmtAdded:0, refundAmt:(it.depositRefundedAmount||0) };
+      const method=it.method||'cash';
+      // reverse any extra rent collected at return (money back out of the till)
+      if(txn.payAmtAdded>0){ it.paid=Math.max(0,(it.paid||0)-txn.payAmtAdded); await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-txn.payAmtAdded,method,createdAt:now(),userId:State.user.id}); }
+      // re-hold a refunded deposit (offset the negative depositRefund entry)
+      if(txn.refundAmt>0){ await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:txn.refundAmt,method,createdAt:now(),userId:State.user.id}); }
+      // undo the late fee this return added
+      it.lateFee=Math.max(0,(it.lateFee||0)-(txn.lateFeeAdded||0));
+      delete it.depositRefunded; delete it.depositRefundedAmount; delete it.depositKept; delete it.depositRefundedAt; delete it.returnTxn; delete it.returnedAt;
+      // item is back out with the customer
+      const p=await idbGet('products',it.productId); if(p){ p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
+      it.status='active';
+      await idbPut('rentals',it);
+      await logAct('logUndoReturn', it.name+(it.customerName?' · '+it.customerName:''));
+    }
+    toast(t('returnUndone'),'ok'); viewRentals();
   });
 }
 
@@ -4153,7 +4148,7 @@ async function voidSale(sale){
     await logAct('logVoidSale', `${sale.customerName||t('walkIn')} · ${money(sale.total)}`);
     toast(t('voided'),'ok'); viewSales();
   };
-  confirmDialog(t('voidConfirm'),()=>{ if(!isOwner()) requireAuth(doVoid); else doVoid(); },true);
+  confirmDialog(t('voidConfirm'),doVoid,true);
 }
 async function openRefundModal(sale){
   modal(t('refundSale'),
@@ -4180,7 +4175,7 @@ async function openRefundModal(sale){
       await logAct('logRefundSale', `${sale.customerName||t('walkIn')} · ${money(amt)} · ${reason}`);
       closeModal(); toast(t('stockAdded'),'ok'); viewSales();
     };
-    if(!isOwner()) requireAuth(finalize); else finalize();
+    finalize();
   };
 }
 let repPeriod='month', repCustomFrom='', repCustomTo='', bestMode='volume';
