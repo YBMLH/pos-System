@@ -617,7 +617,8 @@ const I18N = {
     depositKeepHint:"Reduce the refund to keep part of the deposit for damage, cleaning, late fees, or a lost item.",
     logDepositKept:"Deposit kept", totalCollected:"Total collected today", depositRefundable:"Deposit refundable on return",
     cancelRental:"Cancel rental", cancelled:"Cancelled", rentalCancelled:"Rental cancelled", logCancelRental:"Rental cancelled",
-    cancelRentalConfirm:"Cancel this rental? Stock will be restored and any rent paid or deposit will be reversed.",
+    cancelRentalConfirm:"Cancel this rental? Stock will be restored.",
+    refundPaid:"Refund amount paid", logCancelKeep:"Kept on cancellation",
     dueToday:"Due today", dueTomorrow:"Due tomorrow", moreNav:"More", depositForItem:"Deposit held", menu:"Menu",
     storeDataFolder:"Store Data folder", fsFolderHint:"Your data is auto-saved to a \"Store Data\" folder on your computer, so nothing is lost if the app or browser closes.",
     fsCreateFolder:"Create folder on Desktop", changeFolder:"Change folder", fsSaveNow:"Save now", fsLoadFolder:"Load from folder",
@@ -789,7 +790,8 @@ const I18N = {
     depositKeepHint:"Réduisez le remboursement pour garder une partie de la caution (dégâts, nettoyage, retard, article perdu).",
     logDepositKept:"Caution gardée", totalCollected:"Total encaissé aujourd'hui", depositRefundable:"Caution remboursable au retour",
     cancelRental:"Annuler la location", cancelled:"Annulée", rentalCancelled:"Location annulée", logCancelRental:"Location annulée",
-    cancelRentalConfirm:"Annuler cette location ? Le stock sera restauré et tout loyer payé ou caution sera remboursé.",
+    cancelRentalConfirm:"Annuler cette location ? Le stock sera restauré.",
+    refundPaid:"Rembourser le montant payé", logCancelKeep:"Conservé lors de l'annulation",
     dueToday:"À rendre aujourd'hui", dueTomorrow:"À rendre demain", moreNav:"Plus", depositForItem:"Caution détenue", menu:"Menu",
     storeDataFolder:"Dossier Store Data", fsFolderHint:"Vos données sont enregistrées automatiquement dans un dossier « Store Data » sur votre ordinateur, pour ne rien perdre à la fermeture.",
     fsCreateFolder:"Créer le dossier sur le Bureau", changeFolder:"Changer de dossier", fsSaveNow:"Enregistrer maintenant", fsLoadFolder:"Charger depuis le dossier",
@@ -960,7 +962,8 @@ const I18N = {
     depositKeepHint:"قلّل مبلغ الاسترجاع للاحتفاظ بجزء من التأمين مقابل الأضرار أو التنظيف أو التأخير أو فقدان الصنف.",
     logDepositKept:"تم الاحتفاظ بالتأمين", totalCollected:"إجمالي المحصّل اليوم", depositRefundable:"التأمين قابل للاسترجاع عند الإرجاع",
     cancelRental:"إلغاء الإيجار", cancelled:"ملغى", rentalCancelled:"تم إلغاء الإيجار", logCancelRental:"تم إلغاء الإيجار",
-    cancelRentalConfirm:"إلغاء هذا الإيجار؟ سيُعاد المخزون وسيُسترجع أي إيجار مدفوع أو تأمين.",
+    cancelRentalConfirm:"إلغاء هذا الإيجار؟ سيُعاد المخزون.",
+    refundPaid:"استرجاع المبلغ المدفوع", logCancelKeep:"تم الاحتفاظ به عند الإلغاء",
     dueToday:"مستحق اليوم", dueTomorrow:"مستحق غداً", moreNav:"المزيد", depositForItem:"تأمين محتجز", menu:"القائمة",
     storeDataFolder:"مجلد بيانات المتجر", fsFolderHint:"تُحفظ بياناتك تلقائياً في مجلد «Store Data» على جهازك، حتى لا تفقد شيئاً عند إغلاق التطبيق.",
     fsCreateFolder:"إنشاء المجلد على سطح المكتب", changeFolder:"تغيير المجلد", fsSaveNow:"احفظ الآن", fsLoadFolder:"تحميل من المجلد",
@@ -3054,29 +3057,90 @@ async function openHighlightPicker(r){
     closeModal(); viewRentals();
   });
 }
-/* Cancel a rental or reservation: restore stock (only if it was checked out),
-   reverse any rent paid + deposit in the till, and mark it cancelled so it
-   drops out of balances, points and reports. Any signed-in user can do this —
-   it's a normal operational correction, not a withdrawal of store money. */
+/* Cancel a rental or reservation: restore stock (only if it was checked out)
+   and mark it cancelled so it drops out of balances, points and reports.
+   Refunding any rent already paid or the deposit is a choice, not automatic —
+   the store doesn't always refund a cancelled reservation, so whatever isn't
+   ticked (or is reduced) simply stays as money the store keeps. Any
+   signed-in user can do this — it's a normal operational correction, not a
+   withdrawal of store money. */
 async function cancelRental(r,onDone,whole){
   if(!r || (r.status!=='active' && r.status!=='reserved')) return;
   // From the collapsed rentals list a bundle cancels as one unit; from the
   // client profile each item is its own row and cancels individually.
   const group=whole? (await rentalGroupOf(r)).filter(x=>x.status===r.status) : [r];
-  confirmDialog(t('cancelRentalConfirm'),async()=>{
-    for(const it of group){
+  const totalPaid=group.reduce((a,it)=>a+(it.paid||0),0);
+  const totalDeposit=group.reduce((a,it)=>a+((it.deposit||0)>0 && !it.depositRefunded?it.deposit:0),0);
+  const names=group.map(x=>x.name).join(' + ');
+  const doCancel=async(refundPaidAmt,refundDepositAmt)=>{
+    let paidAssigned=0, depAssigned=0;
+    for(let i=0;i<group.length;i++){ const it=group[i]; const isLast=i===group.length-1;
       const method=it.method||'cash';
-      // reversing money that came in
-      if((it.paid||0)>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-(it.paid||0),method,createdAt:now(),userId:State.user.id});
-      if((it.deposit||0)>0 && !it.depositRefunded) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:-(it.deposit||0),method,createdAt:now(),userId:State.user.id});
+      const itDep=(it.deposit||0)>0 && !it.depositRefunded ? it.deposit : 0;
+      const pShare = totalPaid<=0?0 : isLast?(refundPaidAmt-paidAssigned):Math.round(refundPaidAmt*(it.paid||0)/totalPaid);
+      paidAssigned+=pShare;
+      const dShare = totalDeposit<=0?0 : isLast?(refundDepositAmt-depAssigned):Math.round(refundDepositAmt*itDep/totalDeposit);
+      depAssigned+=dShare;
+      if(pShare>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-pShare,method,createdAt:now(),userId:State.user.id});
+      if(dShare>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:-dShare,method,createdAt:now(),userId:State.user.id});
       // an active rental had a unit removed from stock; a reservation did not
       if(it.status==='active' && it.productId){ const p=await idbGet('products',it.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); } }
-      it.status='cancelled'; it.cancelledAt=now(); if((it.deposit||0)>0) it.depositRefunded=true;
+      const paidKept=(it.paid||0)-pShare, depKept=itDep-dShare;
+      it.status='cancelled'; it.cancelledAt=now();
+      if(itDep>0){ it.depositRefunded=dShare>0; it.depositRefundedAmount=dShare; it.depositKept=depKept; if(dShare>0) it.depositRefundedAt=now(); }
       await idbPut('rentals',it);
       await logAct('logCancelRental', it.name+(it.customerName?' · '+it.customerName:''));
+      if(paidKept>0 || depKept>0){ await logAct('logCancelKeep', it.name+(it.customerName?' · '+it.customerName:'')+' · '+money(paidKept+depKept)); }
     }
     toast(t('rentalCancelled'),'ok'); (onDone||viewRentals)();
-  },true);
+  };
+  if(totalPaid<=0 && totalDeposit<=0){
+    confirmDialog(t('cancelRentalConfirm'),()=>doCancel(0,0),true);
+    return;
+  }
+  modal(t('cancelRental'),
+   `<p style="font-weight:700;font-size:16px;margin-bottom:2px">${esc(names)}</p>
+    <p class="subtle" style="margin-bottom:14px">${esc(r.customerName||'')} · ${esc(t('cancelRentalConfirm'))}</p>
+    ${totalPaid>0?`<div class="field"><label class="check"><input type="checkbox" id="cn_pay" checked> ${esc(t('refundPaid'))} · ${money(totalPaid)}</label></div>
+     <div class="field" id="cn_payBox" style="margin-inline-start:26px">
+       <input id="cn_payAmt" type="number" min="0" max="${totalPaid}" step="0.01" value="${totalPaid}">
+       <div id="cn_payKeepLine" class="subtle" style="margin-top:6px"></div>
+     </div>`:''}
+    ${totalDeposit>0?`<div class="field"><label class="check"><input type="checkbox" id="cn_dep" checked> ${esc(t('refundDeposit'))} · ${esc(t('deposit'))}: ${money(totalDeposit)}</label></div>
+     <div class="field" id="cn_depBox" style="margin-inline-start:26px">
+       <input id="cn_depAmt" type="number" min="0" max="${totalDeposit}" step="0.01" value="${totalDeposit}">
+       <span class="hint">${esc(t('depositKeepHint'))}</span>
+       <div id="cn_depKeepLine" class="subtle" style="margin-top:6px"></div>
+     </div>`:''}`,
+   `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
+    <button class="btn danger" id="cn_go">${esc(t('cancelRental'))}</button>`,{lg:false});
+  const payEl=document.getElementById('cn_pay'), payBox=document.getElementById('cn_payBox'), payAmtI=document.getElementById('cn_payAmt'), payKeepLine=document.getElementById('cn_payKeepLine');
+  function syncPayKeep(){
+    if(!payEl) return;
+    const on=payEl.checked;
+    if(payBox) payBox.classList.toggle('hidden',!on);
+    const amt=on?Math.min(totalPaid,Math.max(0,Number(payAmtI.value||0))):0;
+    const kept=totalPaid-amt;
+    if(payKeepLine) payKeepLine.innerHTML=`${esc(t('refundToCustomer'))}: <b>${money(amt)}</b>${kept>0?` · ${esc(t('storeKeeps'))}: <b style="color:var(--warn)">${money(kept)}</b>`:''}`;
+  }
+  if(payEl){ payEl.onchange=syncPayKeep; payAmtI&&(payAmtI.oninput=syncPayKeep); syncPayKeep(); }
+  const depEl=document.getElementById('cn_dep'), depBox=document.getElementById('cn_depBox'), depAmtI=document.getElementById('cn_depAmt'), depKeepLine=document.getElementById('cn_depKeepLine');
+  function syncDepKeep(){
+    if(!depEl) return;
+    const on=depEl.checked;
+    if(depBox) depBox.classList.toggle('hidden',!on);
+    const amt=on?Math.min(totalDeposit,Math.max(0,Number(depAmtI.value||0))):0;
+    const kept=totalDeposit-amt;
+    if(depKeepLine) depKeepLine.innerHTML=`${esc(t('refundToCustomer'))}: <b>${money(amt)}</b>${kept>0?` · ${esc(t('storeKeeps'))}: <b style="color:var(--warn)">${money(kept)}</b>`:''}`;
+  }
+  if(depEl){ depEl.onchange=syncDepKeep; depAmtI&&(depAmtI.oninput=syncDepKeep); syncDepKeep(); }
+  document.getElementById('cn_go').onclick=()=>{
+    const go=document.getElementById('cn_go'); if(go.disabled) return; go.disabled=true; // double-tap cancels twice
+    const refundPaidAmt = (payEl&&payEl.checked)? Math.min(totalPaid,Math.max(0,Number(payAmtI.value||0))) : 0;
+    const refundDepositAmt = (depEl&&depEl.checked)? Math.min(totalDeposit,Math.max(0,Number(depAmtI.value||0))) : 0;
+    closeModal();
+    doCancel(refundPaidAmt,refundDepositAmt);
+  };
 }
 async function openExtendModal(r){
   if(!r) return;
@@ -4250,7 +4314,7 @@ async function viewReports(){
   const salesRev=S.reduce((a,s)=>a+(s.paid||0),0);
   const rentRev=R.reduce((a,r)=>a+(r.paid||0),0);
   // Deposits kept (damage/cleaning/late/lost) are income, recognised when the item is returned.
-  const depKept=rentals.filter(r=>(r.depositKept||0)>0 && (r.returnedAt||r.createdAt)>=from && (r.returnedAt||r.createdAt)<=to).reduce((a,r)=>a+(r.depositKept||0),0);
+  const depKept=rentals.filter(r=>(r.depositKept||0)>0 && (r.returnedAt||r.cancelledAt||r.createdAt)>=from && (r.returnedAt||r.cancelledAt||r.createdAt)<=to).reduce((a,r)=>a+(r.depositKept||0),0);
   const revenue=salesRev+rentRev+depKept;
   const exp=E.reduce((a,x)=>a+(x.amount||0),0);
   // cost of goods sold (owner sees profit): sum cost of sold items in period
