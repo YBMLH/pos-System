@@ -458,6 +458,7 @@ const I18N = {
     nothingYet:"Nothing here yet", noActivity:"No activity yet today",
     // stock
     products:"Products", addNew:"Add product", searchProducts:"Search by name, color, barcode…",
+    searchRentals:"Search by item or customer…",
     name:"Name", size:"Size", color:"Color", fabric:"Fabric", mode:"Type",
     cost:"Cost price", price:"Sale price", rentRate:"Rental rate", qty:"On hand",
     forSale:"For sale", forRent:"For rent", both:"Both", barcode:"Barcode",
@@ -640,6 +641,7 @@ const I18N = {
     addProduct:"Ajouter produit", recordPayment:"Enregistrer paiement", recentActivity:"Activité récente",
     nothingYet:"Rien pour l'instant", noActivity:"Aucune activité aujourd'hui",
     products:"Produits", addNew:"Ajouter produit", searchProducts:"Rechercher nom, couleur, code…",
+    searchRentals:"Rechercher par article ou client…",
     name:"Nom", size:"Taille", color:"Couleur", fabric:"Tissu", mode:"Type",
     cost:"Prix d'achat", price:"Prix de vente", rentRate:"Tarif location", qty:"En stock",
     forSale:"À vendre", forRent:"À louer", both:"Les deux", barcode:"Code-barres",
@@ -813,6 +815,7 @@ const I18N = {
     addProduct:"إضافة منتج", recordPayment:"تسجيل دفعة", recentActivity:"النشاط الأخير",
     nothingYet:"لا شيء بعد", noActivity:"لا يوجد نشاط اليوم",
     products:"المنتجات", addNew:"إضافة منتج", searchProducts:"ابحث بالاسم، اللون، الباركود…",
+    searchRentals:"ابحث بالعنصر أو العميل…",
     name:"الاسم", size:"المقاس", color:"اللون", fabric:"القماش", mode:"النوع",
     cost:"سعر التكلفة", price:"سعر البيع", rentRate:"سعر الإيجار", qty:"المتوفر",
     forSale:"للبيع", forRent:"للإيجار", both:"كلاهما", barcode:"باركود",
@@ -2741,17 +2744,22 @@ function buildInvoiceHtml(sale,meta){
 /* ============================================================
    RENTALS
 ============================================================ */
-let rentalTab='active', rentalView='list', calMonth=new Date().getMonth(), calYear=new Date().getFullYear(), depositSearch='', pickupDay='', dropoffDay='';
+let rentalTab='active', rentalView='list', calMonth=new Date().getMonth(), calYear=new Date().getFullYear(), depositSearch='', pickupDay='', dropoffDay='', rentalSearch='';
 async function viewRentals(){
   const view=document.getElementById('view');
   if(!pickupDay) pickupDay=todayISO();
   if(!dropoffDay) dropoffDay=todayISO();
   let rentals=(await idbAll('rentals')).sort((a,b)=>b.createdAt-a.createdAt);
-  const filt = rentalTab==='all'? rentals
+  const filtTab = rentalTab==='all'? rentals
     : rentalTab==='pickups'? rentals.filter(r=>r.startDate===pickupDay && r.status!=='cancelled')
     : rentalTab==='dropoffs'? rentals.filter(r=>r.dueDate===dropoffDay && (r.status==='active'||r.status==='returned'))
     : rentalTab==='reserved'? rentals.filter(r=>r.status==='reserved')
     : rentals.filter(r=>r.status===(rentalTab==='active'?'active':'returned'));
+  // One search box works across every list tab (pickups, drop-offs, active,
+  // reserved, returned, all) — it just re-filters whichever tab is open by
+  // item name or customer name. The Deposits tab keeps its own separate search.
+  const q=rentalSearch.trim().toLowerCase();
+  const filt = q? filtTab.filter(r=>(r.name||'').toLowerCase().includes(q) || (r.customerName||'').toLowerCase().includes(q)) : filtTab;
   let body;
   if(rentalView==='cal'){ body=await buildRentalCalendar(rentals); }
   else{
@@ -2797,12 +2805,14 @@ async function viewRentals(){
       const keyOf=x=> x.groupId? ('g:'+x.groupId+'|'+x.status) : ('r:'+x.id);
       filt.forEach(r=>{ const k=keyOf(r); if(seen.has(k)) return; seen.add(k); displayGroups.push(filt.filter(x=>keyOf(x)===k)); });
       const custColorById=Object.fromEntries((await idbAll('customers')).filter(c=>c.badgeColor).map(c=>[c.id,c.badgeColor]));
-      body=tabs+pickupNav+(filt.length? `<div class="tablewrap"><table><thead><tr>
+      const searchHtml=`<div class="searchbar" style="margin-bottom:12px">${svg(IC.search,'ic')}<input id="rentSearch" type="search" placeholder="${esc(t('searchRentals'))}" value="${esc(rentalSearch)}"></div>`;
+      body=tabs+searchHtml+pickupNav+(filt.length? `<div class="tablewrap"><table><thead><tr>
        <th>${esc(t('item'))}</th><th>${esc(t('customer'))}</th><th>${esc(t('dueDate'))}</th>
        <th class="t-right">${esc(t('rentalPrice'))}</th><th class="t-right">${esc(t('balance'))}</th>
        <th>${esc(t('status'))}</th><th class="t-right">${esc(t('actions'))}</th>
      </tr></thead><tbody>${displayGroups.map(g=>rowRental(g,custColorById)).join('')}</tbody></table></div>`
-     : (rentalTab==='pickups'? emptyState(IC.cal,t('noPickupsDay'),'')
+     : (q? `<div class="empty"><h4>${esc(t('none'))}</h4></div>`
+        : rentalTab==='pickups'? emptyState(IC.cal,t('noPickupsDay'),'')
         : rentalTab==='dropoffs'? emptyState(IC.cal,t('noDropoffsDay'),'')
         : emptyState(IC.rent,t('noRentals'),'',`<button class="btn" id="newRent2">${svg(IC.plus,'ic')}${esc(t('rentOut'))}</button>`)));
     }
@@ -2814,6 +2824,7 @@ async function viewRentals(){
      </div>
      <button class="btn" id="newRent">${svg(IC.plus,'ic')}${esc(t('rentOut'))}</button>`)+body;
   const ds=document.getElementById('depSearch'); if(ds){ ds.oninput=()=>{ depositSearch=ds.value; const pos=ds.selectionStart; viewRentals().then(()=>{ const n=document.getElementById('depSearch'); if(n){n.focus(); n.setSelectionRange(pos,pos);} }); }; }
+  const rs=document.getElementById('rentSearch'); if(rs){ rs.oninput=()=>{ rentalSearch=rs.value; const pos=rs.selectionStart; viewRentals().then(()=>{ const n=document.getElementById('rentSearch'); if(n){n.focus(); n.setSelectionRange(pos,pos);} }); }; }
   view.querySelectorAll('#rentViewSeg button').forEach(b=>b.onclick=()=>{ rentalView=b.dataset.v; viewRentals(); });
   view.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{ rentalTab=b.dataset.tab; viewRentals(); });
   document.getElementById('newRent')&&(document.getElementById('newRent').onclick=()=>openRentalModal());
