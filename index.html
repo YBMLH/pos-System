@@ -542,6 +542,7 @@ const I18N = {
     paymentMethod:"Payment method", cash:"Cash", card:"Card", mobile:"Mobile", reprint:"Reprint receipt",
     globalSearch:"Search everything...", undo:"Undo", undone:"Action undone", darkMode:"Dark mode",
     reserveItem:"Reserve for future date", reserved:"Reserved",
+    postpone:"Postpone", postponed:"Postponed", postponeConfirm:"Postpone this reservation? The date is cleared until a new one is set — the booking, customer and deposit are kept.", logPostpone:"Reservation postponed", setNewDate:"Set new date",
     futureReserveHint:"Pickup is a future date — saved as a reservation until then.",
     activateConfirm:"Mark this reservation as picked up now? This takes the item out of stock.", backToReserved:"Back to reserved", backToReservedConfirm:"Move this rental back to reserved? The item returns to stock — use this if the customer hasn't picked it up yet.", revertedToReserved:"Moved back to reserved", logRevertReserve:"Reverted to reserved", availability:"Availability", available:"Available",
     lateFeePerDay:"Late fee per day", suggestedLateFee:"Suggested late fee", requireReason:"Reason required",
@@ -706,6 +707,7 @@ const I18N = {
     paymentMethod:"Mode de paiement", cash:"Espèces", card:"Carte", mobile:"Mobile", reprint:"Réimprimer",
     globalSearch:"Tout rechercher...", undo:"Annuler", undone:"Action annulée", darkMode:"Mode sombre",
     reserveItem:"Réserver pour plus tard", reserved:"Réservé",
+    postpone:"Reporter", postponed:"Reportée", postponeConfirm:"Reporter cette réservation ? La date est effacée jusqu'à ce qu'une nouvelle soit fixée — la réservation, le client et la caution sont conservés.", logPostpone:"Réservation reportée", setNewDate:"Fixer une nouvelle date",
     futureReserveHint:"Le retrait est à une date future — enregistré comme réservation jusque-là.",
     activateConfirm:"Marquer cette réservation comme retirée maintenant ? L'article sort du stock.", backToReserved:"Remettre en réservé", backToReservedConfirm:"Remettre cette location en réservé ? L'article revient en stock — utilisez ceci si le client n'a pas encore retiré l'article.", revertedToReserved:"Remis en réservé", logRevertReserve:"Remis en réservé", availability:"Disponibilité", available:"Disponible",
     lateFeePerDay:"Pénalité par jour", suggestedLateFee:"Pénalité suggérée", requireReason:"Raison requise",
@@ -869,6 +871,7 @@ const I18N = {
     paymentMethod:"طريقة الدفع", cash:"نقدي", card:"بطاقة", mobile:"محفظة إلكترونية", reprint:"إعادة الطباعة",
     globalSearch:"ابحث في كل شيء...", undo:"تراجع", undone:"تم التراجع", darkMode:"الوضع الداكن",
     reserveItem:"حجز لتاريخ لاحق", reserved:"محجوز",
+    postpone:"تأجيل", postponed:"مؤجَّل", postponeConfirm:"تأجيل هذا الحجز؟ يُمسح التاريخ حتى يُحدَّد تاريخ جديد — يبقى الحجز والعميل والتأمين كما هم.", logPostpone:"تم تأجيل الحجز", setNewDate:"تحديد تاريخ جديد",
     futureReserveHint:"تاريخ الاستلام مستقبلي — يُحفَظ كحجز حتى ذلك الحين.",
     activateConfirm:"تحديد هذا الحجز كمُستلَم الآن؟ سيخرج العنصر من المخزون.", backToReserved:"إرجاع إلى محجوز", backToReservedConfirm:"إرجاع هذا الإيجار إلى محجوز؟ يعود العنصر إلى المخزون — استخدم هذا إذا لم يستلم العميل العنصر بعد.", revertedToReserved:"أُعيد إلى محجوز", logRevertReserve:"أُعيد إلى محجوز", availability:"التوفر", available:"متاح",
     lateFeePerDay:"غرامة التأخير يومياً", suggestedLateFee:"الغرامة المقترحة", requireReason:"السبب مطلوب",
@@ -2724,6 +2727,7 @@ async function viewRentals(){
   view.querySelectorAll('[data-unactivate]').forEach(b=>b.onclick=async()=>revertToReserved(await idbGet('rentals',b.dataset.unactivate)));
   view.querySelectorAll('[data-extend]').forEach(b=>b.onclick=async()=>openExtendModal(await idbGet('rentals',b.dataset.extend)));
   view.querySelectorAll('[data-editdates]').forEach(b=>b.onclick=async()=>openEditDatesModal(await idbGet('rentals',b.dataset.editdates)));
+  view.querySelectorAll('[data-postpone]').forEach(b=>b.onclick=async()=>postponeReservation(await idbGet('rentals',b.dataset.postpone)));
   view.querySelectorAll('[data-wa]').forEach(b=>b.onclick=async()=>{
     const r=await idbGet('rentals',b.dataset.wa); if(!r) return;
     const c=r.customerId? await idbGet('customers',r.customerId) : null;
@@ -2918,6 +2922,25 @@ async function revertToReserved(r){
     toast(t('revertedToReserved'),'ok'); viewRentals();
   });
 }
+/* Postpone a reservation: the customer's event date changed and they don't
+   know the new one yet. Clears the start/due dates (the old ones are kept on
+   the record so nothing is lost) and flags it postponed — the booking,
+   customer and any deposit stay exactly as they were. It naturally drops out
+   of the Pickups day-view (no date to show up under) until dates are set
+   again via Edit rental, which auto-clears the flag once both are filled in. */
+async function postponeReservation(r){
+  if(!r || r.status!=='reserved') return;
+  const group=(await rentalGroupOf(r)).filter(x=>x.status==='reserved'); // whole bundle
+  confirmDialog(t('postponeConfirm'), async ()=>{
+    for(const it of group){
+      if(it.startDate||it.dueDate) it.postponedFrom={start:it.startDate||'',due:it.dueDate||''};
+      it.startDate=''; it.dueDate=''; it.postponed=true;
+      await idbPut('rentals',it);
+      await logAct('logPostpone', it.name+' · '+(it.customerName||''));
+    }
+    toast(t('postponed'),'ok'); viewRentals();
+  });
+}
 /* Cancel a rental or reservation: restore stock (only if it was checked out),
    reverse any rent paid + deposit in the till, and mark it cancelled so it
    drops out of balances, points and reports. Cashiers need the manager code. */
@@ -3073,12 +3096,14 @@ async function openEditDatesModal(r){
           const it=await idbGet('rentals',l.rentalId); if(!it) continue;
           it.productId=l.productId; it.name=l.name; it.price=Math.max(0,Number(l.price||0)); it.paid=Math.max(0,Number(l.paid||0));
           it.startDate=start; it.dueDate=due; if(days!=null) it.days=days; it.groupId=gid;
+          // Setting both dates resolves a postponed reservation; blanking them out again re-flags it.
+          if(start&&due){ delete it.postponed; delete it.postponedFrom; } else if(it.status==='reserved') it.postponed=true;
           await idbPut('rentals',it);
           if(delta!==0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:delta>0?'rental':'refund',amount:delta,method:it.method||'cash',createdAt:now(),userId:State.user.id});
         } else {
           await idbPut('rentals',{id:uid(),groupId:gid,productId:l.productId,name:l.name,customerId:r.customerId,customerName:r.customerName,
             startDate:start,dueDate:due,days:days||1,price:Math.max(0,Number(l.price||0)),deposit:0,paid:Math.max(0,Number(l.paid||0)),lateFee:0,
-            status:'reserved',method:r.method||'cash',createdAt:now(),userId:State.user.id});
+            postponed:!(start&&due),status:'reserved',method:r.method||'cash',createdAt:now(),userId:State.user.id});
           if(delta>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'rental',amount:delta,method:r.method||'cash',createdAt:now(),userId:State.user.id});
         }
       }
@@ -3120,18 +3145,22 @@ function rowRental(group){
     overdue? `<span class="badge red"><span class="dot"></span>${esc(t('overdue'))}</span>` : `<span class="badge gold"><span class="dot"></span>${esc(t('rented'))}</span>`;
   const names=group.map(x=>x.name).join(' + ');
   const bundleBadge = isBundle? `<span class="badge gold" style="margin-inline-start:6px">${esc(t('bundle'))} · ${group.length}</span>` : '';
+  const isPostponed=r.status==='reserved' && r.postponed;
+  const dateCell = isPostponed? `<span class="badge warnb">${esc(t('postponed'))}</span>`
+    : r.status==='reserved'&&r.startDate?fmtDate(Date.parse(r.startDate)):(r.dueDate?fmtDate(Date.parse(r.dueDate)):'—');
   return `<tr>
     <td><b>${esc(names)}</b>${bundleBadge}</td>
     <td>${esc(r.customerName||'—')}</td>
-    <td class="mono">${r.status==='reserved'&&r.startDate?fmtDate(Date.parse(r.startDate)):(r.dueDate?fmtDate(Date.parse(r.dueDate)):'—')}</td>
+    <td class="mono">${dateCell}</td>
     <td class="t-right mono">${money(price)}</td>
     <td class="t-right mono">${bal>0?`<span class="badge red">${money(bal)}</span>`:`<span class="badge green">${esc(t('settled'))}</span>`}</td>
     <td>${statusBadge}</td>
     <td class="t-right" style="white-space:nowrap">
       <button class="btn ghost sm" data-agr="${r.id}" title="${esc(t('rentAgreement'))}">${svg(IC.print,'ic')}</button>
       ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-wa="${r.id}" title="${esc(t('waRemind'))}" style="color:var(--ok)">${svg(IC.chat,'ic')}</button>`:''}
-      ${r.status==='reserved'?`<button class="btn secondary sm" data-activate="${r.id}">${esc(t('rentOut'))}</button>`:''}
-      ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-editdates="${r.id}" title="${esc(t('editRental'))}">${svg(IC.edit,'ic')}</button>`:''}
+      ${r.status==='reserved'&&!isPostponed?`<button class="btn secondary sm" data-activate="${r.id}">${esc(t('rentOut'))}</button>`:''}
+      ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-editdates="${r.id}" title="${esc(isPostponed?t('setNewDate'):t('editRental'))}">${svg(IC.edit,'ic')}</button>`:''}
+      ${r.status==='reserved'&&!isPostponed?`<button class="btn ghost sm" data-postpone="${r.id}" title="${esc(t('postpone'))}" style="color:var(--warn)">${svg(IC.cal,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn ghost sm" data-unactivate="${r.id}" title="${esc(t('backToReserved'))}">${svg(IC.back,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn ghost sm" data-extend="${r.id}" title="${esc(t('extendRental'))}">${svg(IC.plus,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn secondary sm" data-return="${r.id}">${svg(IC.ret,'ic')}${esc(t('markReturned'))}</button>`:''}
