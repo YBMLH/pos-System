@@ -524,7 +524,7 @@ const I18N = {
     memberSaved:"Member saved", removeMember:"Remove", cannotRemoveSelf:"You cannot remove yourself",
     active:"Active", editMember:"Edit member",
     // settings
-    language:"Language", currency:"Currency", data:"Data", backup:"Backup data",
+    language:"Language", currency:"Currency", currencyHint:"Shown after every amount, e.g. DZD, USD, €, MAD", data:"Data", backup:"Backup data",
     restore:"Restore data", backupHint:"Download all your data to a file. Keep it safe.",
     restoreHint:"Restore from a backup file (replaces current data).",
     restored:"Data restored", backupDone:"Backup downloaded", storeName:"Store name",
@@ -699,7 +699,7 @@ const I18N = {
     teamMembers:"Équipe", addStaff:"Ajouter membre", role:"Rôle", pin:"Code PIN",
     memberSaved:"Membre enregistré", removeMember:"Retirer", cannotRemoveSelf:"Vous ne pouvez pas vous retirer",
     active:"Actif", editMember:"Modifier membre",
-    language:"Langue", currency:"Devise", data:"Données", backup:"Sauvegarder",
+    language:"Langue", currency:"Devise", currencyHint:"Affiché après chaque montant, ex. DZD, USD, €, MAD", data:"Données", backup:"Sauvegarder",
     restore:"Restaurer", backupHint:"Téléchargez toutes vos données. Gardez-les en sécurité.",
     restoreHint:"Restaurer depuis une sauvegarde (remplace les données).",
     restored:"Données restaurées", backupDone:"Sauvegarde téléchargée", storeName:"Nom boutique",
@@ -871,7 +871,7 @@ const I18N = {
     teamMembers:"أعضاء الفريق", addStaff:"إضافة عضو", role:"الدور", pin:"الرمز",
     memberSaved:"تم حفظ العضو", removeMember:"إزالة", cannotRemoveSelf:"لا يمكنك إزالة نفسك",
     active:"نشط", editMember:"تعديل العضو",
-    language:"اللغة", currency:"العملة", data:"البيانات", backup:"نسخ احتياطي",
+    language:"اللغة", currency:"العملة", currencyHint:"تظهر بعد كل مبلغ، مثال: DZD, USD, €, MAD", data:"البيانات", backup:"نسخ احتياطي",
     restore:"استعادة", backupHint:"نزّل كل بياناتك إلى ملف. احتفظ به بأمان.",
     restoreHint:"استعادة من نسخة احتياطية (يستبدل البيانات الحالية).",
     restored:"تمت الاستعادة", backupDone:"تم تنزيل النسخة", storeName:"اسم المتجر",
@@ -1021,7 +1021,7 @@ function licenseKeyFor(name){
   const hex=(h>>>0).toString(16).padStart(8,'0').toUpperCase();
   return hex.slice(0,4)+'-'+hex.slice(4);
 }
-function money(n){ n=Number(n||0); const s=n.toLocaleString('en-US',{maximumFractionDigits:2}); return isRTL()? s+' دج' : s+' DZD'; }
+function money(n){ n=Number(n||0); const s=n.toLocaleString('en-US',{maximumFractionDigits:2}); return s+' '+(State.currency||'DZD'); }
 /* Local-timezone YYYY-MM-DD (toISOString is UTC and shifts the date for UTC+ zones) */
 function localISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function todayISO(){ return localISO(new Date()); }
@@ -1241,6 +1241,7 @@ async function render(){
   if(!meta || !meta.setupDone){ renderSetup(); return; }
   if(!meta.license){ meta.license=licenseKeyFor(meta.storeName||''); await idbPut('meta',meta); } // grandfather pre-license installs
   State.storeName=meta.storeName||t('app');
+  State.currency=meta.currency||State.currency||'DZD';
   State.logo=meta.logo||'';
   document.body.classList.toggle('dark',!!meta.darkMode);
   document.body.classList.toggle('tablet',!!meta.tabletMode);
@@ -2632,7 +2633,7 @@ async function openCheckout(subtotal){
     viewPOS();
   };
 }
-function money2(n){ return Number(n||0).toLocaleString('en-US',{maximumFractionDigits:2})+' DZD'; }
+function money2(n){ return Number(n||0).toLocaleString('en-US',{maximumFractionDigits:2})+' '+(State.currency||'DZD'); }
 /* Optional store logo at the top of receipts (grayscale/contrast for thermal print). */
 function receiptLogo(){ return State.logo?`<div style="text-align:center;margin-bottom:3px"><img src="${State.logo}" style="max-height:52px;max-width:60mm;filter:grayscale(1) contrast(1.4)"></div>`:''; }
 
@@ -4600,7 +4601,8 @@ async function viewSettings(){
        <div class="row2">
          <div class="field"><label>${esc(t('language'))}</label>
            <select id="set_lang"><option value="en" ${State.lang==='en'?'selected':''}>English</option><option value="fr" ${State.lang==='fr'?'selected':''}>Français</option><option value="ar" ${State.lang==='ar'?'selected':''}>العربية</option></select></div>
-         <div class="field"><label>${esc(t('currency'))}</label><input type="text" value="DZD — دينار جزائري" disabled></div>
+         <div class="field"><label>${esc(t('currency'))}</label><input type="text" id="set_currency" maxlength="8" value="${esc(meta.currency||State.currency||'DZD')}" placeholder="DZD">
+           <span class="hint">${esc(t('currencyHint'))}</span></div>
        </div>
        <div class="field"><label class="check"><input type="checkbox" id="set_dark" ${meta.darkMode?'checked':''}> ${esc(t('darkMode'))}</label></div>
        <div class="field"><label class="check"><input type="checkbox" id="set_tablet" ${meta.tabletMode?'checked':''}> ${esc(t('tabletMode'))}</label></div>
@@ -4682,6 +4684,7 @@ async function viewSettings(){
   document.getElementById('set_save').onclick=async()=>{
     meta.storeName=document.getElementById('set_name').value.trim()||t('app');
     State.lang=document.getElementById('set_lang').value; meta.lang=State.lang;
+    State.currency=document.getElementById('set_currency').value.trim()||'DZD'; meta.currency=State.currency;
     meta.darkMode=document.getElementById('set_dark').checked;
     meta.tabletMode=document.getElementById('set_tablet').checked;
     const lockSel=document.getElementById('set_lock'); if(lockSel) meta.autoLockMin=Number(lockSel.value||0);
