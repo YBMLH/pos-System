@@ -608,6 +608,7 @@ const I18N = {
     points:"points", rating:"Rating", autoLock:"Auto-lock when idle", autoLockOff:"Off", minutes:"minutes",
     autoLocked:"Locked due to inactivity", showMore:"Show more",
     idPhoto:"ID Photo", addPhoto:"Add photo", replacePhoto:"Replace photo", remove:"Remove", rentedTimes:"Rented {n}×",
+    changeSelection:"Change",
     clients:"Clients", clientsSub:"All customers, ranked by loyalty score", score:"Score",
     totalSpent:"Total spent", visits:"Visits", lastVisit:"Last visit", addCustomer:"Add customer",
     customerSaved:"Customer saved", deleteClient:"Delete client", deleteClientConfirm:"Delete this client profile? Their past sales and rentals stay in history.", clientHasDebt:"This client still owes money — settle the balance before deleting.", logCustDel:"Client deleted", rankBy:"Rank by", byScore:"Score", bySpent:"Spending", byRating:"Rating", byName:"Name",
@@ -782,6 +783,7 @@ const I18N = {
     points:"points", rating:"Évaluation", autoLock:"Verrouillage auto si inactif", autoLockOff:"Désactivé", minutes:"minutes",
     autoLocked:"Verrouillé pour inactivité", showMore:"Afficher plus",
     idPhoto:"Photo d'identité", addPhoto:"Ajouter une photo", replacePhoto:"Remplacer la photo", remove:"Supprimer", rentedTimes:"Loué {n}×",
+    changeSelection:"Changer",
     clients:"Clients", clientsSub:"Tous les clients, classés par score de fidélité", score:"Score",
     totalSpent:"Total dépensé", visits:"Visites", lastVisit:"Dernière visite", addCustomer:"Ajouter un client",
     customerSaved:"Client enregistré", deleteClient:"Supprimer le client", deleteClientConfirm:"Supprimer ce profil client ? Ses ventes et locations passées restent dans l'historique.", clientHasDebt:"Ce client doit encore de l'argent — réglez le solde avant de supprimer.", logCustDel:"Client supprimé", rankBy:"Classer par", byScore:"Score", bySpent:"Dépenses", byRating:"Évaluation", byName:"Nom",
@@ -955,6 +957,7 @@ const I18N = {
     points:"نقطة", rating:"التقييم", autoLock:"القفل التلقائي عند الخمول", autoLockOff:"معطّل", minutes:"دقائق",
     autoLocked:"تم القفل بسبب عدم النشاط", showMore:"عرض المزيد",
     idPhoto:"صورة الهوية", addPhoto:"إضافة صورة", replacePhoto:"استبدال الصورة", remove:"إزالة", rentedTimes:"أُجّر {n}×",
+    changeSelection:"تغيير",
     clients:"العملاء", clientsSub:"كل العملاء، مرتبون حسب نقاط الولاء", score:"النقاط",
     totalSpent:"إجمالي الإنفاق", visits:"الزيارات", lastVisit:"آخر زيارة", addCustomer:"إضافة عميل",
     customerSaved:"تم حفظ العميل", deleteClient:"حذف العميل", deleteClientConfirm:"حذف ملف هذا العميل؟ تبقى مبيعاته وإيجاراته السابقة في السجل.", clientHasDebt:"لا يزال على هذا العميل مبلغ مستحق — سوِّ الرصيد قبل الحذف.", logCustDel:"تم حذف العميل", rankBy:"الترتيب حسب", byScore:"النقاط", bySpent:"الإنفاق", byRating:"التقييم", byName:"الاسم",
@@ -3429,7 +3432,12 @@ async function openRentalModal(presetPid){
   if(!products.length){ toast(t('rentableOnly'),'err'); }
   modal(t('newRentalT'),
    `<div class="field"><label>${esc(t('customer'))} *</label>
-     <select id="r_cust"><option value="">—</option><option value="__new">+ ${esc(t('newCustomer'))}</option>${custs.map(c=>`<option value="${c.id}" data-measure="${esc(c.measurements||'')}">${esc(c.name)}</option>`).join('')}</select></div>
+     <div class="searchbar">${svg(IC.search,'ic')}<input id="r_custSearch" type="search" placeholder="${esc(t('searchClients'))}" autocomplete="off"></div>
+     <div id="r_custResults" style="max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:9px;margin-top:5px;display:none"></div>
+     <div id="r_custSelected" class="hidden" style="margin-top:6px;display:flex;align-items:center;gap:8px;background:var(--brand-100);padding:8px 12px;border-radius:9px">
+       <b id="r_custSelectedName"></b>
+       <button type="button" class="btn ghost sm" id="r_custClear" style="margin-inline-start:auto">${esc(t('changeSelection'))}</button>
+     </div></div>
     <div id="r_measureBox" class="subtle hidden" style="margin-bottom:6px;background:var(--brand-100);padding:6px 10px;border-radius:8px"></div>
     <div id="r_newCust" class="row2 hidden">
       <div class="field"><label>${esc(t('name'))}</label><input id="rc_name" type="text"></div>
@@ -3541,17 +3549,49 @@ async function openRentalModal(presetPid){
   document.getElementById('r_payFull').onclick=()=>{ paidI.value=totalsLine(); };
   let rMethod='cash';
   document.querySelectorAll('#r_method button').forEach(b=>b.onclick=()=>{ rMethod=b.dataset.m; document.querySelectorAll('#r_method button').forEach(x=>x.classList.toggle('on',x===b)); });
-  document.getElementById('r_cust').onchange=e=>{
-    document.getElementById('r_newCust').classList.toggle('hidden',e.target.value!=='__new');
-    const opt=e.target.selectedOptions[0]; const mBox=document.getElementById('r_measureBox');
-    const measure=opt?opt.dataset.measure:'';
-    if(measure){ mBox.textContent=`${t('measurements')}: ${measure}`; mBox.classList.remove('hidden'); } else { mBox.classList.add('hidden'); }
-  };
+  // Type-to-find customer picker: "+ New customer" always pinned as the first
+  // result (so it's never buried at the bottom of a long list), matches for
+  // whatever's typed follow below it — no more scrolling a full client list.
+  const custSearch=document.getElementById('r_custSearch'), custResults=document.getElementById('r_custResults'),
+        custSelected=document.getElementById('r_custSelected'), custSelectedName=document.getElementById('r_custSelectedName'),
+        custClearBtn=document.getElementById('r_custClear'), newCustBox=document.getElementById('r_newCust'), measureBox=document.getElementById('r_measureBox');
+  let selCustId='', selCustName='';
+  function renderCustResults(){
+    const q=custSearch.value.trim().toLowerCase();
+    const matches = q? custs.filter(c=>(c.name||'').toLowerCase().includes(q) || (c.phone||'').toLowerCase().includes(q)).slice(0,8) : [];
+    const newRow=`<button type="button" class="citem" data-newcust style="width:100%;text-align:start;border:none;background:none;border-bottom:1px solid var(--line);color:var(--brand-700)"><div class="nm"><b>+ ${esc(t('newCustomer'))}</b></div></button>`;
+    const matchRows=matches.map(c=>`<button type="button" class="citem" data-pickcust="${c.id}" style="width:100%;text-align:start;border:none;background:none;border-bottom:1px solid var(--line)"><div class="nm">${esc(c.name)}${c.phone?`<small>${esc(c.phone)}</small>`:''}</div></button>`).join('');
+    const hint = !q? `<div class="subtle" style="padding:10px 12px;font-size:12px">${esc(t('searchClients'))}</div>` : (!matches.length? `<div class="subtle" style="padding:10px 12px;font-size:12.5px">${esc(t('none'))}</div>` : '');
+    custResults.style.display='block';
+    custResults.innerHTML=newRow+hint+matchRows;
+    custResults.querySelector('[data-newcust]').onclick=()=>selectCustomer('__new','',null);
+    custResults.querySelectorAll('[data-pickcust]').forEach(b=>b.onclick=()=>{
+      const c=custs.find(x=>x.id===b.dataset.pickcust); if(c) selectCustomer(c.id,c.name,c.measurements||'');
+    });
+  }
+  function selectCustomer(id,name,measure){
+    selCustId=id; selCustName=name;
+    custSearch.value=''; custResults.style.display='none'; custResults.innerHTML='';
+    custSearch.closest('.searchbar').classList.add('hidden');
+    custSelectedName.textContent = id==='__new'? t('newCustomer') : name;
+    custSelected.classList.remove('hidden');
+    newCustBox.classList.toggle('hidden', id!=='__new');
+    if(measure){ measureBox.textContent=`${t('measurements')}: ${measure}`; measureBox.classList.remove('hidden'); } else { measureBox.classList.add('hidden'); }
+  }
+  function clearCustomer(){
+    selCustId=''; selCustName='';
+    custSelected.classList.add('hidden'); newCustBox.classList.add('hidden'); measureBox.classList.add('hidden');
+    custSearch.closest('.searchbar').classList.remove('hidden');
+    custSearch.value=''; custSearch.focus(); renderCustResults();
+  }
+  custSearch.oninput=renderCustResults;
+  custSearch.onfocus=renderCustResults;
+  custClearBtn.onclick=clearCustomer;
   document.getElementById('r_go').onclick=async()=>{
     const goBtn=document.getElementById('r_go');
     if(goBtn.disabled) return; goBtn.disabled=true; // double-tap creates duplicate rentals
     if(!lines.length){ toast(t('required'),'err'); goBtn.disabled=false; return; }
-    let cid=document.getElementById('r_cust').value, cname='';
+    let cid=selCustId, cname=selCustName;
     if(cid==='__new'){
       const nm=document.getElementById('rc_name').value.trim(); if(!nm){ toast(t('required'),'err'); goBtn.disabled=false; return; }
       const phone=document.getElementById('rc_phone').value.trim();
