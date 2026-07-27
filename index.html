@@ -3429,7 +3429,7 @@ async function openRentalModal(presetPid){
   if(!products.length){ toast(t('rentableOnly'),'err'); }
   modal(t('newRentalT'),
    `<div class="field"><label>${esc(t('customer'))} *</label>
-     <select id="r_cust"><option value="">—</option>${custs.map(c=>`<option value="${c.id}" data-measure="${esc(c.measurements||'')}">${esc(c.name)}</option>`).join('')}<option value="__new">+ ${esc(t('newCustomer'))}</option></select></div>
+     <select id="r_cust"><option value="">—</option><option value="__new">+ ${esc(t('newCustomer'))}</option>${custs.map(c=>`<option value="${c.id}" data-measure="${esc(c.measurements||'')}">${esc(c.name)}</option>`).join('')}</select></div>
     <div id="r_measureBox" class="subtle hidden" style="margin-bottom:6px;background:var(--brand-100);padding:6px 10px;border-radius:8px"></div>
     <div id="r_newCust" class="row2 hidden">
       <div class="field"><label>${esc(t('name'))}</label><input id="rc_name" type="text"></div>
