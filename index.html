@@ -2563,9 +2563,12 @@ async function openCheckout(subtotal){
     <div class="line total" style="display:flex;justify-content:space-between;font-size:20px;font-weight:800;margin-bottom:14px">
       <span>${esc(t('total'))}</span><span class="mono" id="ck_totalDisp">${money(subtotal)}</span></div>
     <div class="field"><label>${esc(t('customer'))}</label>
-      <select id="ck_cust"><option value="">${esc(t('walkIn'))}</option>
-        ${custs.map(c=>`<option value="${c.id}">${esc(c.name)}${c.phone?' · '+esc(c.phone):''}</option>`).join('')}
-        <option value="__new">+ ${esc(t('newCustomer'))}</option></select></div>
+      <div class="searchbar">${svg(IC.search,'ic')}<input id="ck_custSearch" type="search" placeholder="${esc(t('searchClients'))} (${esc(t('walkIn'))})" autocomplete="off"></div>
+      <div id="ck_custResults" style="max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:9px;margin-top:5px;display:none"></div>
+      <div id="ck_custSelected" class="hidden" style="margin-top:6px;display:flex;align-items:center;gap:8px;background:var(--brand-100);padding:8px 12px;border-radius:9px">
+        <b id="ck_custSelectedName"></b>
+        <button type="button" class="btn ghost sm" id="ck_custClear" style="margin-inline-start:auto">${esc(t('changeSelection'))}</button>
+      </div></div>
     <div id="newCustBox" class="row2 hidden">
       <div class="field"><label>${esc(t('name'))}</label><input id="nc_name" type="text"></div>
       <div class="field"><label>${esc(t('phone'))}</label><input id="nc_phone" type="tel"></div>
@@ -2595,26 +2598,62 @@ async function openCheckout(subtotal){
     let total=subtotal*(1-pct/100)-fixed;
     return Math.max(0,total);
   }
+  let selCustId='', selCustName='';
   function syncTotal(){ const total=currentTotal(); totalDisp.textContent=money(total); if(!paidInp._touched) paidInp.value=total; syncInfo(); }
   function syncInfo(){ const total=currentTotal(); const paid=Number(paidInp.value||0); const bal=total-paid;
-    const custChosen=document.getElementById('ck_cust').value;
     let html = bal>0? `<span class="badge red">${esc(t('balanceDue'))}: ${money(bal)}</span>` : bal<0? `<span class="badge green">${esc(t('change'))}: ${money(-bal)}</span>` : `<span class="badge green">${esc(t('paid'))}</span>`;
-    if(bal>0 && !custChosen) html += ` <span class="badge warnb">${esc(t('needCustomerForDebt'))}</span>`;
+    if(bal>0 && !selCustId) html += ` <span class="badge warnb">${esc(t('needCustomerForDebt'))}</span>`;
     info.innerHTML = html; }
   discPctI.oninput=syncTotal; discAmtI.oninput=syncTotal;
   paidInp.oninput=()=>{ paidInp._touched=true; syncInfo(); }; syncInfo();
   document.getElementById('payFull').onclick=()=>{ paidInp.value=currentTotal(); paidInp._touched=true; syncInfo(); };
-  document.getElementById('ck_cust').onchange=e=>{ document.getElementById('newCustBox').classList.toggle('hidden',e.target.value!=='__new'); syncInfo(); };
+  // Type-to-find customer picker, same pattern as the rental modal: "+ New
+  // customer" always pinned first, matches follow as you type — walk-in
+  // (no customer) stays the default until one is actually picked.
+  const custSearch=document.getElementById('ck_custSearch'), custResults=document.getElementById('ck_custResults'),
+        custSelected=document.getElementById('ck_custSelected'), custSelectedName=document.getElementById('ck_custSelectedName'),
+        custClearBtn=document.getElementById('ck_custClear');
+  function renderCustResults(){
+    const q=custSearch.value.trim().toLowerCase();
+    const matches = q? custs.filter(c=>(c.name||'').toLowerCase().includes(q) || (c.phone||'').toLowerCase().includes(q)).slice(0,8) : [];
+    const newRow=`<button type="button" class="citem" data-newcust style="width:100%;text-align:start;border:none;background:none;border-bottom:1px solid var(--line);color:var(--brand-700)"><div class="nm"><b>+ ${esc(t('newCustomer'))}</b></div></button>`;
+    const matchRows=matches.map(c=>`<button type="button" class="citem" data-pickcust="${c.id}" style="width:100%;text-align:start;border:none;background:none;border-bottom:1px solid var(--line)"><div class="nm">${esc(c.name)}${c.phone?`<small>${esc(c.phone)}</small>`:''}</div></button>`).join('');
+    const hint = !q? `<div class="subtle" style="padding:10px 12px;font-size:12px">${esc(t('searchClients'))}</div>` : (!matches.length? `<div class="subtle" style="padding:10px 12px;font-size:12.5px">${esc(t('none'))}</div>` : '');
+    custResults.style.display='block';
+    custResults.innerHTML=newRow+hint+matchRows;
+    custResults.querySelector('[data-newcust]').onclick=()=>selectCustomer('__new','');
+    custResults.querySelectorAll('[data-pickcust]').forEach(b=>b.onclick=()=>{
+      const c=custs.find(x=>x.id===b.dataset.pickcust); if(c) selectCustomer(c.id,c.name);
+    });
+  }
+  function selectCustomer(id,name){
+    selCustId=id; selCustName=name;
+    custSearch.value=''; custResults.style.display='none'; custResults.innerHTML='';
+    custSearch.closest('.searchbar').classList.add('hidden');
+    custSelectedName.textContent = id==='__new'? t('newCustomer') : name;
+    custSelected.classList.remove('hidden');
+    document.getElementById('newCustBox').classList.toggle('hidden', id!=='__new');
+    syncInfo();
+  }
+  function clearCustomer(){
+    selCustId=''; selCustName='';
+    custSelected.classList.add('hidden'); document.getElementById('newCustBox').classList.add('hidden');
+    custSearch.closest('.searchbar').classList.remove('hidden');
+    custSearch.value=''; custSearch.focus(); renderCustResults(); syncInfo();
+  }
+  custSearch.oninput=renderCustResults;
+  custSearch.onfocus=renderCustResults;
+  custClearBtn.onclick=clearCustomer;
   document.querySelectorAll('#ck_method button').forEach(b=>b.onclick=()=>{ method=b.dataset.m; document.querySelectorAll('#ck_method button').forEach(x=>x.classList.toggle('on',x===b)); });
   document.getElementById('ck_go').onclick=async()=>{
     const goBtn=document.getElementById('ck_go');
     if(goBtn.disabled) return; goBtn.disabled=true; // double-tap creates two sales
     const total=currentTotal();
-    let custId=document.getElementById('ck_cust').value, custName=t('walkIn');
+    let custId=selCustId, custName=selCustId?selCustName:t('walkIn');
     const paid=Math.max(0,Number(paidInp.value||0));
     const paidApplied=Math.min(paid,total);
     const willOwe = paidApplied < total;
-    if(willOwe && !custId){ toast(t('needCustomerForDebt'),'err'); document.getElementById('ck_cust').focus(); goBtn.disabled=false; return; }
+    if(willOwe && !custId){ toast(t('needCustomerForDebt'),'err'); custSearch.focus(); goBtn.disabled=false; return; }
     if(custId==='__new'){
       const nm=document.getElementById('nc_name').value.trim(); if(!nm){ toast(t('required'),'err'); goBtn.disabled=false; return; }
       const phone=document.getElementById('nc_phone').value.trim();
@@ -3023,12 +3062,17 @@ async function activateReservation(r){
       const p=await idbGet('products',it.productId);
       if(p){ if((p.qty||0)<=0){ toast(t('outOfStock')+' · '+it.name,'err'); continue; } p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
       // settle the balance now, FIFO across the bundle's items
-      if(payLeft>0){ const itemBal=Math.max(0,(it.price||0)+(it.lateFee||0)+(it.damageFee||0)-(it.paid||0)); const payShare=isLast?payLeft:Math.min(payLeft,itemBal);
+      let payShare=0;
+      if(payLeft>0){ const itemBal=Math.max(0,(it.price||0)+(it.lateFee||0)+(it.damageFee||0)-(it.paid||0)); payShare=isLast?payLeft:Math.min(payLeft,itemBal);
         if(payShare>0){ it.paid=(it.paid||0)+payShare; payLeft-=payShare; await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'rental',amount:payShare,method:it.method||'cash',createdAt:now(),userId:State.user.id}); } }
       const depWeight = totalDeposit>0? (it.deposit||0) : (it.price||0);
       const itDepDelta = isLast? (depositDelta-depAssigned) : Math.round(depositDelta*depWeight/depWeightBasis);
       depAssigned+=itDepDelta;
       it.deposit=(it.deposit||0)+itDepDelta;
+      // Snapshot exactly what activation added (not the full paid/deposit,
+      // which may include money already collected at booking) so reverting a
+      // mistaken "Rent out" can reverse just this, not the whole history.
+      it.activateTxn={payAdded:payShare, depositAdded:itDepDelta};
       it.status='active';
       await idbPut('rentals',it);
       await logAct('logRental', it.name+' · '+(it.customerName||''));
@@ -3038,8 +3082,11 @@ async function activateReservation(r){
     closeModal(); toast(t('rentalDone'),'ok'); viewRentals();
   };
 }
-/* Undo an activation done by mistake: put an active rental back to reserved and
-   return its unit to stock (the customer hasn't actually taken it). */
+/* Undo an activation done by mistake: put an active rental back to reserved,
+   return its unit to stock (the customer hasn't actually taken it), and
+   reverse whatever payment/deposit was collected at that same "Rent out"
+   moment (via the activateTxn snapshot) — money paid earlier at booking is
+   untouched, since that was real and stays true regardless of this revert. */
 async function revertToReserved(r){
   if(!r || r.status!=='active') return;
   const group=(await rentalGroupOf(r)).filter(x=>x.status==='active'); // whole bundle
@@ -3047,6 +3094,11 @@ async function revertToReserved(r){
     for(const it of group){
       const p=await idbGet('products',it.productId);
       if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); }
+      const txn=it.activateTxn||{payAdded:0,depositAdded:0};
+      const method=it.method||'cash';
+      if(txn.payAdded>0){ it.paid=Math.max(0,(it.paid||0)-txn.payAdded); await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-txn.payAdded,method,createdAt:now(),userId:State.user.id}); }
+      if(txn.depositAdded){ it.deposit=Math.max(0,(it.deposit||0)-txn.depositAdded); await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:-txn.depositAdded,method,createdAt:now(),userId:State.user.id}); }
+      delete it.activateTxn;
       it.status='reserved';
       await idbPut('rentals',it);
       await logAct('logRevertReserve', it.name+' · '+(it.customerName||''));
