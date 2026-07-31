@@ -567,6 +567,7 @@ const I18N = {
     cautionTill:"Caution till — customers' money", rentalsReservations:"Rentals & reservations",
     cautionsTaken:"Cautions taken in", cautionsReturned:"Cautions given back", allTime:"All time",
     cautionsKept:"Cautions kept (damage / fees)", storeOwnCash:"Store's own money",
+    cashInTodayExCaution:"Money in today (excl. caution)",
     dressRepair:"Dress repair & cleaning", repairFund:"Repair & cleaning fund",
     repairFundLeft:"Left in the fund", setAsideFromCautions:"Set aside from kept cautions",
     spentOnRepairs:"Spent on repair & cleaning",
@@ -758,6 +759,7 @@ const I18N = {
     cautionTill:"Caisse des cautions — argent des clients", rentalsReservations:"Locations & réservations",
     cautionsTaken:"Cautions encaissées", cautionsReturned:"Cautions rendues", allTime:"Depuis le début",
     cautionsKept:"Cautions retenues (dégâts / frais)", storeOwnCash:"Argent du magasin",
+    cashInTodayExCaution:"Entré aujourd'hui (hors caution)",
     dressRepair:"Réparation & nettoyage des robes", repairFund:"Fonds réparation & nettoyage",
     repairFundLeft:"Reste dans le fonds", setAsideFromCautions:"Mis de côté sur cautions retenues",
     spentOnRepairs:"Dépensé en réparation & nettoyage",
@@ -948,6 +950,7 @@ const I18N = {
     cautionTill:"صندوق التأمينات — أموال العملاء", rentalsReservations:"الإيجارات والحجوزات",
     cautionsTaken:"التأمينات المستلمة", cautionsReturned:"التأمينات المعادة", allTime:"منذ البداية",
     cautionsKept:"تأمينات محتجزة (أضرار / رسوم)", storeOwnCash:"أموال المتجر",
+    cashInTodayExCaution:"الداخل اليوم (بدون تأمين)",
     dressRepair:"إصلاح وتنظيف الفساتين", repairFund:"صندوق الإصلاح والتنظيف",
     repairFundLeft:"المتبقي في الصندوق", setAsideFromCautions:"مخصص من التأمينات المحتجزة",
     spentOnRepairs:"أُنفق على الإصلاح والتنظيف",
@@ -1586,6 +1589,10 @@ async function openTillModal(){
   // captioned underneath for reference).
   const startedTodayCash=T.till-todayCashNet;
   const todayIncome=incomeSince(t0);
+  // The headline "money in today" is the shop's own trading — caution is its
+  // own till, so it's added separately underneath to reach the drawer total.
+  const todayCashNetExCaution=td.sales+td.rent+td.repay+td.cashin+td.saleRefunds-tdExp-tdWithdraw;
+  const todayCautionNet=td.dep+td.depositRefunds;
   // Line-by-line of every cash movement today — who paid, what for, how much —
   // so the "into register today" total can be read transaction by transaction.
   const customers=await getCustomers(); const cname={}; customers.forEach(c=>cname[c.id]=c.name);
@@ -1603,16 +1610,17 @@ async function openTillModal(){
         <div class="subtle" style="font-size:11px;margin-top:2px">${esc(t('todayLabel'))}</div>
       </div>
       <table style="width:100%;font-size:13px">
-        <tr><td>${esc(t('startedToday'))}</td><td class="t-right mono">${money(startedTodayCash)}</td></tr>
+        <tr style="border-bottom:2px solid var(--line)"><td style="font-weight:800;font-size:15px;padding:8px 0">${esc(t('startedToday'))}</td><td class="t-right mono" style="font-weight:800;font-size:17px;color:${startedTodayCash<0?'var(--danger)':'var(--brand)'}">${money(startedTodayCash)}</td></tr>
         <tr><td>+ ${esc(t('rentalsReservations'))}</td><td class="t-right mono">${money(td.rent)}</td></tr>
         <tr><td>+ ${esc(t('salesRevenue'))}</td><td class="t-right mono">${money(td.sales)}</td></tr>
         <tr><td>+ ${esc(t('repayment'))}</td><td class="t-right mono">${money(td.repay)}</td></tr>
-        <tr><td>+ ${esc(t('cautionsTaken'))}</td><td class="t-right mono">${money(td.dep)}</td></tr>
         ${td.cashin?`<tr><td>+ ${esc(t('addToTill'))}</td><td class="t-right mono">${money(td.cashin)}</td></tr>`:''}
-        <tr><td>− ${esc(t('cautionsReturned'))}</td><td class="t-right mono">${money(-td.depositRefunds)}</td></tr>
         <tr><td>− ${esc(t('refundsOut'))}</td><td class="t-right mono">${money(-td.saleRefunds)}</td></tr>
         <tr><td>− ${esc(t('expenses'))}</td><td class="t-right mono">${money(tdExp)}</td></tr>
         ${tdWithdraw?`<tr><td>− ${esc(t('ownerWithdrawal'))}</td><td class="t-right mono">${money(tdWithdraw)}</td></tr>`:''}
+        <tr style="border-top:2px solid var(--line);border-bottom:2px solid var(--line)"><td style="font-weight:800;font-size:15px;padding:8px 0">${esc(t('cashInTodayExCaution'))}</td><td class="t-right mono" style="font-weight:800;font-size:17px;color:${todayCashNetExCaution<0?'var(--danger)':'var(--brand)'}">${todayCashNetExCaution>=0?'+':''}${money(todayCashNetExCaution)}</td></tr>
+        <tr><td class="subtle">+ ${esc(t('cautionsTaken'))}</td><td class="t-right mono subtle">${money(td.dep)}</td></tr>
+        <tr><td class="subtle">− ${esc(t('cautionsReturned'))}</td><td class="t-right mono subtle">${money(-td.depositRefunds)}</td></tr>
         <tr style="border-top:2px solid var(--line);font-weight:800"><td>${esc(t('tillAmount'))}</td><td class="t-right mono" style="color:${T.till<0?'var(--danger)':'var(--brand)'}">${money(T.till)}</td></tr>
       </table>
       <p class="subtle" style="margin:8px 0 0;font-size:11px">${esc(t('openingFloat'))}: ${money(T.float)} · ${esc(t('since'))} ${fmtDate(T.since)}</p>
