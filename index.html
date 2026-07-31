@@ -493,6 +493,7 @@ const I18N = {
     // rentals
     rentOut:"Rent out", activeTab:"Active", returnedTab:"Returned", allTab:"All",
     item:"Item", startDate:"Start date", dueDate:"Due date", deposit:"Deposit",
+    noDeposit:"No deposit", depositRefundedLbl:"Deposit refunded", depositKeptLbl:"Deposit kept",
     rentalPrice:"Rental price", period:"Period", days:"day(s)", status:"Status",
     rented:"Rented", returned:"Returned", overdue:"Overdue", due:"Due",
     markReturned:"Mark returned", newRentalT:"New rental",
@@ -676,6 +677,7 @@ const I18N = {
     selectCustomer:"Choisir / ajouter client", newCustomer:"Nouveau client", phone:"Téléphone",
     rentOut:"Louer", activeTab:"Actives", returnedTab:"Retournées", allTab:"Toutes",
     item:"Article", startDate:"Date début", dueDate:"Date retour", deposit:"Caution",
+    noDeposit:"Aucune caution", depositRefundedLbl:"Caution remboursée", depositKeptLbl:"Caution retenue",
     rentalPrice:"Prix location", period:"Durée", days:"jour(s)", status:"Statut",
     rented:"Loué", returned:"Retourné", overdue:"En retard", due:"Échéance",
     markReturned:"Marquer retourné", newRentalT:"Nouvelle location",
@@ -853,6 +855,7 @@ const I18N = {
     selectCustomer:"اختر / أضف عميل", newCustomer:"عميل جديد", phone:"الهاتف",
     rentOut:"تأجير", activeTab:"نشطة", returnedTab:"مُعادة", allTab:"الكل",
     item:"الصنف", startDate:"تاريخ البدء", dueDate:"تاريخ الإرجاع", deposit:"التأمين",
+    noDeposit:"بلا تأمين", depositRefundedLbl:"تم استرجاع التأمين", depositKeptLbl:"تم الاحتفاظ بالتأمين",
     rentalPrice:"سعر الإيجار", period:"المدة", days:"يوم", status:"الحالة",
     rented:"مؤجّر", returned:"مُعاد", overdue:"متأخر", due:"مستحق",
     markReturned:"تحديد كمُعاد", undoReturn:"تراجع عن الإرجاع", undoReturnConfirm:"التراجع عن هذا الإرجاع؟ يعود العنصر إلى العميل، ويُعدَّل المخزون، وتُحتجَز مجدداً أي كفالة أُعيدت عند الإرجاع.", returnUndone:"تم التراجع عن الإرجاع", logUndoReturn:"تم التراجع عن الإرجاع", newRentalT:"إيجار جديد",
@@ -3416,6 +3419,24 @@ async function openEditDatesModal(r){
     finalize();
   };
 }
+// Whether a caution/deposit was left for this booking, so a glance at
+// Pickups/Drop-offs/Active/Reserved answers "should I be holding an ID card
+// for this one" without opening it. For a returned booking, shows how the
+// held deposit was actually settled (refunded / kept / a bit of both).
+function depositBadgeHtml(group){
+  const totalDep=group.reduce((a,x)=>a+(x.deposit||0),0);
+  if(totalDep<=0) return `<span class="badge grey" style="margin-inline-start:4px">${esc(t('noDeposit'))}</span>`;
+  if(group[0].status==='returned' || group[0].status==='cancelled'){
+    const refunded=group.reduce((a,x)=>a+(x.depositRefundedAmount||0),0);
+    const kept=group.reduce((a,x)=>a+(x.depositKept||0),0);
+    const parts=[];
+    if(refunded>0) parts.push(`${esc(t('depositRefundedLbl'))}: ${money(refunded)}`);
+    if(kept>0) parts.push(`${esc(t('depositKeptLbl'))}: ${money(kept)}`);
+    if(!parts.length) return '';
+    return `<span class="badge ${kept>0?'warnb':'green'}" style="margin-inline-start:4px">${parts.join(' · ')}</span>`;
+  }
+  return `<span class="badge gold" style="margin-inline-start:4px">${esc(t('deposit'))}: ${money(totalDep)}</span>`;
+}
 // A display row is a group of one or more rentals sharing the same status (a
 // bundle collapses to one line; a single item is a group of one). Money is
 // summed across the group; all row actions act on the representative and, via
@@ -3445,7 +3466,7 @@ function rowRental(group,custColorById){
     <td class="mono">${dateCell}</td>
     <td class="t-right mono">${money(price)}</td>
     <td class="t-right mono">${bal>0?`<span class="badge red">${money(bal)}</span>`:`<span class="badge green">${esc(t('settled'))}</span>`}</td>
-    <td>${statusBadge}${damage>0?`<span class="badge warnb" style="margin-inline-start:4px" title="${esc(group.map(x=>x.damageNote).filter(Boolean).join(', '))}">${esc(t('damageFee'))}: ${money(damage)}</span>`:''}</td>
+    <td>${statusBadge}${depositBadgeHtml(group)}${damage>0?`<span class="badge warnb" style="margin-inline-start:4px" title="${esc(group.map(x=>x.damageNote).filter(Boolean).join(', '))}">${esc(t('damageFee'))}: ${money(damage)}</span>`:''}</td>
     <td class="t-right" style="white-space:nowrap">
       <button class="btn ghost sm" data-hl="${r.id}" title="${esc(t('highlight'))}"${hlColor?` style="color:${hlColor}"`:''}>${svg(IC.flag,'ic')}</button>
       <button class="btn ghost sm" data-agr="${r.id}" title="${esc(t('rentAgreement'))}">${svg(IC.print,'ic')}</button>
