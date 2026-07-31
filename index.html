@@ -451,6 +451,7 @@ const I18N = {
     owner:"Owner", staffRole:"Cashier",
     // dashboard
     welcome:"Welcome back", todaySales:"Today's sales", activeRentals:"Active rentals", todayRentals:"Today's rentals",
+    activeRentalClients:"Clients renting now", activeRentalClientsHint:"= ID cards you should have on hand",
     todayNet:"Today's net", todayLabel:"Today", storeStatusLabel:"Store status",
     outstanding:"Outstanding debt", lowStock:"Low stock items", inStock:"Items in stock",
     quickActions:"Quick actions", newSale:"New sale", newRental:"New rental",
@@ -637,6 +638,7 @@ const I18N = {
     manage:"Gestion", records:"Registres",
     owner:"Propriétaire", staffRole:"Caissier",
     welcome:"Bon retour", todaySales:"Ventes du jour", activeRentals:"Locations actives", todayRentals:"Locations du jour",
+    activeRentalClients:"Clients en location", activeRentalClientsHint:"= cartes d'identité que vous devriez avoir",
     todayNet:"Net du jour", todayLabel:"Aujourd'hui", storeStatusLabel:"État du magasin",
     outstanding:"Dettes impayées", lowStock:"Stock faible", inStock:"Articles en stock",
     quickActions:"Actions rapides", newSale:"Nouvelle vente", newRental:"Nouvelle location",
@@ -813,6 +815,7 @@ const I18N = {
     manage:"الإدارة", records:"السجلات",
     owner:"المالك", staffRole:"أمين الصندوق",
     welcome:"مرحباً بعودتك", todaySales:"مبيعات اليوم", activeRentals:"إيجارات نشطة", todayRentals:"إيجارات اليوم",
+    activeRentalClients:"عملاء يستأجرون الآن", activeRentalClientsHint:"= بطاقات الهوية التي يجب أن تكون بحوزتك",
     todayNet:"صافي اليوم", todayLabel:"اليوم", storeStatusLabel:"حالة المتجر",
     outstanding:"ديون مستحقة", lowStock:"مخزون منخفض", inStock:"أصناف في المخزون",
     quickActions:"إجراءات سريعة", newSale:"بيع جديد", newRental:"إيجار جديد",
@@ -1743,6 +1746,10 @@ async function viewDash(){
   const todayExpTotal=todayExpenses.reduce((a,x)=>a+(x.amount||0),0);
   const activeR=rentals.filter(r=>r.status==='active');
   const active=activeR.length;
+  // Distinct customers with something out right now — one ID card held per
+  // client regardless of how many items they took, so this should match a
+  // physical count of the ID cards on hand.
+  const activeClients=new Set(activeR.map(r=>r.customerId).filter(Boolean)).size;
   const owed=(await allCustomerStats()).reduce((a,m)=>a+m.balance,0);
   const inStock=products.reduce((a,p)=>a+(p.qty||0),0);
   // date buckets by calendar day (dueDate is a YYYY-MM-DD string, compared as strings).
@@ -1786,6 +1793,7 @@ async function viewDash(){
   <p class="section-eyebrow">${esc(t('storeStatusLabel'))}</p>
   <div class="cards" style="margin-bottom:22px">
     <div class="stat"><div class="corner">${svg(IC.rent)}</div><div class="k">${esc(t('activeRentals'))}</div><div class="v">${active}</div></div>
+    <div class="stat"><div class="corner">${svg(IC.users)}</div><div class="k">${esc(t('activeRentalClients'))}</div><div class="v">${activeClients}</div><div class="sub">${esc(t('activeRentalClientsHint'))}</div></div>
     <div class="stat ${owed>0?'danger':''}"><div class="corner">${svg(IC.debt)}</div><div class="k">${esc(t('outstanding'))}</div><div class="v mono">${money(owed)}</div></div>
     <div class="stat"><div class="corner">${svg(IC.box)}</div><div class="k">${esc(t('inStock'))}</div><div class="v">${inStock}</div></div>
     ${canOwner?`<div class="stat${depositsHeld>0?' link':''}" id="statDeposits"><div class="corner">${svg(IC.money)}</div><div class="k">${esc(t('depositsHeld'))}</div><div class="v mono">${money(depositsHeld)}</div></div>`:''}
