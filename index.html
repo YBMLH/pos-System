@@ -562,7 +562,7 @@ const I18N = {
     category:"Category", allCategories:"All categories", tags:"Tags", customerProfile:"Customer Profile",
     lowStockAlert:"Low stock alert", reorderNow:"items need reordering", depositsHeld:"Deposits Held", paymentHistory:"Payment history", added:"Added",
     cautionsHeld:"Cautions Held", cautionsHeldHint:"Cash in the till that belongs to customers — refundable when their item comes back, not store revenue.",
-    cautionToday:"Caution today",
+    cautionToday:"Caution today", cautionTillTotal:"Should be in caution till",
     overdueAlerts:"Overdue Rentals", alertsHub:"Alerts", noAlerts:"All clear — nothing urgent",
     discount:"Discount", discountPct:"Discount %", discountAmt:"Discount amount", refund:"Refund", refundSale:"Refund sale",
     parkSale:"Park sale", resumeSale:"Resume sale", parkedSales:"Parked sales", cashDrawer:"Cash Drawer",
@@ -741,7 +741,7 @@ const I18N = {
     category:"Catégorie", allCategories:"Toutes catégories", tags:"Étiquettes", customerProfile:"Profil client",
     lowStockAlert:"Alerte stock bas", reorderNow:"articles à réapprovisionner", depositsHeld:"Cautions détenues", paymentHistory:"Historique des paiements", added:"Ajouté",
     cautionsHeld:"Cautions détenues", cautionsHeldHint:"Argent dans la caisse qui appartient aux clients — remboursable au retour de l'article, pas un revenu du magasin.",
-    cautionToday:"Caution aujourd'hui",
+    cautionToday:"Caution aujourd'hui", cautionTillTotal:"Devrait être dans la caisse des cautions",
     overdueAlerts:"Locations en retard", alertsHub:"Alertes", noAlerts:"Tout est en ordre",
     discount:"Remise", discountPct:"Remise %", discountAmt:"Montant remise", refund:"Remboursement", refundSale:"Rembourser la vente",
     parkSale:"Mettre en attente", resumeSale:"Reprendre la vente", parkedSales:"Ventes en attente", cashDrawer:"Caisse",
@@ -919,7 +919,7 @@ const I18N = {
     category:"الفئة", allCategories:"كل الفئات", tags:"الوسوم", customerProfile:"ملف العميل",
     lowStockAlert:"تنبيه نقص المخزون", reorderNow:"عناصر تحتاج إعادة الطلب", depositsHeld:"التأمينات المحتجزة", paymentHistory:"سجل الدفعات", added:"أُضيف",
     cautionsHeld:"التأمينات المحتجزة", cautionsHeldHint:"أموال في الصندوق تعود للعملاء — تُسترجع عند إرجاع القطعة، وليست إيراداً للمتجر.",
-    cautionToday:"التأمين اليوم",
+    cautionToday:"التأمين اليوم", cautionTillTotal:"يجب أن يكون في صندوق التأمينات",
     overdueAlerts:"إيجارات متأخرة", alertsHub:"التنبيهات", noAlerts:"لا يوجد شيء عاجل",
     discount:"خصم", discountPct:"نسبة الخصم", discountAmt:"قيمة الخصم", refund:"استرجاع", refundSale:"استرجاع البيع",
     parkSale:"تعليق البيع", resumeSale:"استئناف البيع", parkedSales:"مبيعات معلقة", cashDrawer:"الصندوق النقدي",
@@ -1476,26 +1476,28 @@ async function tillTotals(){
   const sumBy=types=>cashJ.filter(p=>types.includes(p.refType)).reduce((a,p)=>a+(p.amount||0),0);
   const cashSales=sumBy(['sale']);
   const cashRentals=sumBy(['rental']);
-  const cashDeposits=sumBy(['deposit']);
   const cashPayments=sumBy(['repayment']);
   const cashInjections=sumBy(['cashin']); // owner top-ups (positive)
-  // Kept as two separate buckets — a caution given back is refundable customer
-  // money, not a sale reversal, so it's never folded into "refunds" (and never
-  // touches expenses/withdrawals at all — it only ever moves through payments).
   const cashSaleRefunds=sumBy(['refund','void']); // negative
-  const cashDepositRefunds=sumBy(['depositRefund']); // negative
-  const cashRefunds=cashSaleRefunds+cashDepositRefunds; // negative, kept for the till-balance math below
   const cashExpenses=expenses.filter(x=>x.createdAt>=since && !x.isWithdrawal).reduce((a,x)=>a+(x.amount||0),0);
   const withdrawals=expenses.filter(x=>x.createdAt>=since && x.isWithdrawal).reduce((a,x)=>a+(x.amount||0),0);
-  const cashIn=cashSales+cashRentals+cashDeposits+cashPayments+cashInjections;
-  const cashOut=cashExpenses+withdrawals-cashRefunds; // cashRefunds is negative, so subtracting adds its magnitude
+  // The OPERATING till (this register's sales/rental/repayment money) never
+  // includes caution — it's the customer's money, not the store's, so it lives
+  // in its own till entirely, tracked separately below.
+  const cashIn=cashSales+cashRentals+cashPayments+cashInjections;
+  const cashOut=cashExpenses+withdrawals-cashSaleRefunds; // cashSaleRefunds is negative, so subtracting adds its magnitude
   const till=float+cashIn-cashOut;
-  // Cautions currently held (a snapshot, not a since-float flow): cash sitting
-  // in the drawer that belongs to customers, not the store, across every
-  // active/reserved rental with an unrefunded deposit.
+  // The CAUTION till: its own running cash balance, independent of the
+  // operating float/reset — deposits collected in cash minus deposits
+  // returned in cash, ALL TIME (not just "since" the float was last set, since
+  // a caution taken before that reset is still physically in the drawer).
+  const allCashJ=payments.filter(p=>(p.method||'cash')==='cash');
+  const cautionTillCash=allCashJ.filter(p=>p.refType==='deposit').reduce((a,p)=>a+(p.amount||0),0) + allCashJ.filter(p=>p.refType==='depositRefund').reduce((a,p)=>a+(p.amount||0),0);
+  // Cautions currently held across every method (a business total, not a cash
+  // count) — used for the Dashboard/Reports "owed back to customers" figure.
   const rentalsForDeposits=await idbAll('rentals');
   const depositsHeldNow=rentalsForDeposits.filter(r=>(r.status==='active'||r.status==='reserved') && (r.deposit||0)>0 && !r.depositRefunded).reduce((a,r)=>a+(r.deposit||0),0);
-  return {float,cashSales,cashRentals,cashDeposits,cashPayments,cashInjections,cashRefunds,cashSaleRefunds,cashDepositRefunds,cashIn,cashExpenses,withdrawals,cashOut,till,since,depositsHeldNow};
+  return {float,cashSales,cashRentals,cashPayments,cashInjections,cashSaleRefunds,cashIn,cashExpenses,withdrawals,cashOut,till,since,depositsHeldNow,cautionTillCash};
 }
 async function openTillModal(){
   const T=await tillTotals();
@@ -1517,7 +1519,9 @@ async function openTillModal(){
   const jTodayCash=payments.filter(p=>p.createdAt>=t0 && (p.method||'cash')==='cash');
   const sumT=types=>jTodayCash.filter(p=>types.includes(p.refType)).reduce((a,p)=>a+(p.amount||0),0);
   const td={sales:sumT(['sale']),rent:sumT(['rental']),dep:sumT(['deposit']),repay:sumT(['repayment']),cashin:sumT(['cashin']),saleRefunds:sumT(['refund','void']),depositRefunds:sumT(['depositRefund'])};
-  const todayCashNet=td.sales+td.rent+td.dep+td.repay+td.cashin+td.saleRefunds+td.depositRefunds-tdExp-tdWithdraw;
+  // The operating till's "into register today" never includes caution — that
+  // money belongs to its own separate till, tracked entirely on its own below.
+  const todayCashNet=td.sales+td.rent+td.repay+td.cashin+td.saleRefunds-tdExp-tdWithdraw;
   const todayCautionNet=td.dep+td.depositRefunds; // collected minus returned, today
   // What the register held at the start of today = current drawer minus today's
   // cash movements. So: started-today + cash-in-today = cash in drawer now.
@@ -1549,7 +1553,7 @@ async function openTillModal(){
       <table style="width:100%;font-size:13px">
         <tr><td>+ ${esc(t('deposit'))}</td><td class="t-right mono">${money(td.dep)}</td></tr>
         <tr><td>− ${esc(t('refundDeposit'))}</td><td class="t-right mono">${money(-td.depositRefunds)}</td></tr>
-        <tr style="border-top:1px solid var(--line);font-weight:800"><td>${esc(t('cautionsHeld'))}</td><td class="t-right mono">${money(T.depositsHeldNow)}</td></tr>
+        <tr style="border-top:1px solid var(--line);font-weight:800"><td>${esc(t('cautionTillTotal'))}</td><td class="t-right mono">${money(T.cautionTillCash)}</td></tr>
       </table>
       <p class="subtle" style="margin:6px 0 0;font-size:11px">${esc(t('cautionsHeldHint'))}</p>
     </div>
@@ -1558,11 +1562,9 @@ async function openTillModal(){
     <table style="width:100%;font-size:13px;margin-bottom:16px">
       <tr><td>+ ${esc(t('salesRevenue'))}</td><td class="t-right mono">${money(td.sales)}</td></tr>
       <tr><td>+ ${esc(t('rentalRevenue'))}</td><td class="t-right mono">${money(td.rent)}</td></tr>
-      <tr><td>+ ${esc(t('deposit'))}</td><td class="t-right mono">${money(td.dep)}</td></tr>
       <tr><td>+ ${esc(t('repayment'))}</td><td class="t-right mono">${money(td.repay)}</td></tr>
       ${td.cashin?`<tr><td>+ ${esc(t('addToTill'))}</td><td class="t-right mono">${money(td.cashin)}</td></tr>`:''}
       <tr><td>− ${esc(t('refundsOut'))}</td><td class="t-right mono">${money(-td.saleRefunds)}</td></tr>
-      <tr><td>− ${esc(t('refundDeposit'))}</td><td class="t-right mono">${money(-td.depositRefunds)}</td></tr>
       <tr><td>− ${esc(t('expenses'))}</td><td class="t-right mono">${money(tdExp)}</td></tr>
       ${tdWithdraw?`<tr><td>− ${esc(t('ownerWithdrawal'))}</td><td class="t-right mono">${money(tdWithdraw)}</td></tr>`:''}
       <tr style="border-top:2px solid var(--line);font-weight:800"><td>${esc(t('intoRegisterToday'))}</td><td class="t-right mono" style="color:var(--brand)">${money(todayCashNet)}</td></tr>
@@ -1579,15 +1581,12 @@ async function openTillModal(){
       <tr><td>${esc(t('openingFloat'))}</td><td class="t-right mono">${money(T.float)}</td></tr>
       <tr><td class="subtle">+ ${esc(t('cash'))} ${esc(t('salesRevenue'))}</td><td class="t-right mono subtle">${money(T.cashSales)}</td></tr>
       <tr><td class="subtle">+ ${esc(t('cash'))} ${esc(t('rentalRevenue'))}</td><td class="t-right mono subtle">${money(T.cashRentals)}</td></tr>
-      <tr><td class="subtle">+ ${esc(t('cash'))} ${esc(t('deposit'))}</td><td class="t-right mono subtle">${money(T.cashDeposits)}</td></tr>
       <tr><td class="subtle">+ ${esc(t('cash'))} ${esc(t('repayment'))}</td><td class="t-right mono subtle">${money(T.cashPayments)}</td></tr>
       ${T.cashInjections?`<tr><td class="subtle">+ ${esc(t('addToTill'))}</td><td class="t-right mono subtle">${money(T.cashInjections)}</td></tr>`:''}
       <tr><td class="subtle">− ${esc(t('refundsOut'))}</td><td class="t-right mono subtle">${money(-T.cashSaleRefunds)}</td></tr>
-      <tr><td class="subtle">− ${esc(t('refundDeposit'))}</td><td class="t-right mono subtle">${money(-T.cashDepositRefunds)}</td></tr>
       <tr><td class="subtle">− ${esc(t('expenses'))}</td><td class="t-right mono subtle">${money(T.cashExpenses)}</td></tr>
       <tr><td class="subtle">− ${esc(t('ownerWithdrawal'))}</td><td class="t-right mono subtle">${money(T.withdrawals)}</td></tr>
-    </table>
-    <div class="subtle" style="font-size:11px;margin-top:10px;text-align:center">${esc(t('cautionsHeld'))}: <b>${money(T.depositsHeldNow)}</b> ${esc(t('cautionsHeldHint'))}</div>`,
+    </table>`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>
     <button class="btn secondary" id="btnCountCash">${esc(t('cashCount'))}</button>
     ${isOwner()?`<button class="btn secondary" id="btnAddTill">${esc(t('addToTill'))}</button>
@@ -1694,6 +1693,7 @@ async function openCloseOutModal(){
       <table style="width:100%;font-size:11px">
         <tr><td>${esc(t('openingFloat'))}</td><td style="text-align:right">${money2(T.float)}</td></tr>
         <tr><td>${esc(t('tillAmount'))}</td><td style="text-align:right;font-weight:700">${money2(T.till)}</td></tr>
+        <tr><td>${esc(t('cautionTillTotal'))}</td><td style="text-align:right;font-weight:700">${money2(T.cautionTillCash)}</td></tr>
       </table>
       <div style="font-size:9.5px">${esc(t('since'))} ${fmtDate(T.since)}</div>
       <div style="font-size:10px;margin-top:4px">${line}</div>
@@ -4618,12 +4618,13 @@ async function viewReports(){
   drawWithdrawals(W);
 }
 async function openCashDrawerModal(){
-  // Expected cash = the Till's number (opening float + every cash movement since
-  // the float was set) — the same single source of truth as the Till modal.
+  // Expected cash = both tills combined — the operating till and the caution
+  // till are tracked separately, but physically it's the same one drawer.
   const T=await tillTotals();
-  const expected=T.till;
+  const expected=T.till+T.cautionTillCash;
   modal(t('cashCount'),
-   `<p class="subtle" style="margin-bottom:14px">${esc(t('expectedCash'))}: <b class="mono">${money(expected)}</b></p>
+   `<p class="subtle" style="margin-bottom:4px">${esc(t('expectedCash'))}: <b class="mono">${money(expected)}</b></p>
+    <p class="subtle" style="margin-bottom:14px;font-size:11.5px">${esc(t('tillAmount'))}: ${money(T.till)} + ${esc(t('cautionTillTotal'))}: ${money(T.cautionTillCash)}</p>
     <div class="field"><label>${esc(t('actualCash'))}</label><input id="cd_actual" type="number" min="0" step="0.01" value="${expected}"></div>
     <p id="cd_diff" class="subtle" style="margin-top:8px"></p>`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>`);
