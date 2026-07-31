@@ -563,7 +563,7 @@ const I18N = {
     lowStockAlert:"Low stock alert", reorderNow:"items need reordering", depositsHeld:"Deposits Held", paymentHistory:"Payment history", added:"Added",
     cautionsHeld:"Cautions Held", cautionsHeldHint:"Cash in the till that belongs to customers — refundable when their item comes back, not store revenue.",
     cautionToday:"Caution today", cautionTillTotal:"Should be in caution till",
-    registerTill:"Cash drawer — everything in it",
+    registerTill:"Cash drawer — today",
     cautionTill:"Caution till — customers' money", rentalsReservations:"Rentals & reservations",
     cautionsTaken:"Cautions taken in", cautionsReturned:"Cautions given back", allTime:"All time",
     cautionsKept:"Cautions kept (damage / fees)", storeOwnCash:"Store's own money",
@@ -754,7 +754,7 @@ const I18N = {
     lowStockAlert:"Alerte stock bas", reorderNow:"articles à réapprovisionner", depositsHeld:"Cautions détenues", paymentHistory:"Historique des paiements", added:"Ajouté",
     cautionsHeld:"Cautions détenues", cautionsHeldHint:"Argent dans la caisse qui appartient aux clients — remboursable au retour de l'article, pas un revenu du magasin.",
     cautionToday:"Caution aujourd'hui", cautionTillTotal:"Devrait être dans la caisse des cautions",
-    registerTill:"Caisse — tout ce qu'elle contient",
+    registerTill:"Caisse — aujourd'hui",
     cautionTill:"Caisse des cautions — argent des clients", rentalsReservations:"Locations & réservations",
     cautionsTaken:"Cautions encaissées", cautionsReturned:"Cautions rendues", allTime:"Depuis le début",
     cautionsKept:"Cautions retenues (dégâts / frais)", storeOwnCash:"Argent du magasin",
@@ -944,7 +944,7 @@ const I18N = {
     lowStockAlert:"تنبيه نقص المخزون", reorderNow:"عناصر تحتاج إعادة الطلب", depositsHeld:"التأمينات المحتجزة", paymentHistory:"سجل الدفعات", added:"أُضيف",
     cautionsHeld:"التأمينات المحتجزة", cautionsHeldHint:"أموال في الصندوق تعود للعملاء — تُسترجع عند إرجاع القطعة، وليست إيراداً للمتجر.",
     cautionToday:"التأمين اليوم", cautionTillTotal:"يجب أن يكون في صندوق التأمينات",
-    registerTill:"الصندوق — كل ما فيه",
+    registerTill:"الصندوق — اليوم",
     cautionTill:"صندوق التأمينات — أموال العملاء", rentalsReservations:"الإيجارات والحجوزات",
     cautionsTaken:"التأمينات المستلمة", cautionsReturned:"التأمينات المعادة", allTime:"منذ البداية",
     cautionsKept:"تأمينات محتجزة (أضرار / رسوم)", storeOwnCash:"أموال المتجر",
@@ -1579,6 +1579,13 @@ async function openTillModal(){
   // Matches the drawer: caution moves real cash in and out of the register, so
   // it counts here too. What belongs to customers is separated in its own card.
   const todayCashNet=td.sales+td.rent+td.repay+td.cashin+td.dep+td.saleRefunds+td.depositRefunds-tdExp-tdWithdraw;
+  // The drawer breakdown reads as TODAY: what the register held when the day
+  // started, plus today's movements, lands on what's in it right now. Totals
+  // since the float was set run into the hundreds of thousands and bury the
+  // day's trading, so they stay out of the breakdown (the float is still
+  // captioned underneath for reference).
+  const startedTodayCash=T.till-todayCashNet;
+  const todayIncome=incomeSince(t0);
   // Line-by-line of every cash movement today — who paid, what for, how much —
   // so the "into register today" total can be read transaction by transaction.
   const customers=await getCustomers(); const cname={}; customers.forEach(c=>cname[c.id]=c.name);
@@ -1593,21 +1600,22 @@ async function openTillModal(){
       <div style="text-align:center;padding:2px 0 12px">
         <div class="subtle" style="font-size:12.5px">${esc(t('tillAmount'))}</div>
         <div class="mono" style="font-size:32px;font-weight:800;color:${T.till<0?'var(--danger)':'var(--brand)'}">${money(T.till)}</div>
-        <div class="subtle" style="font-size:11px;margin-top:2px">${esc(t('since'))} ${fmtDate(T.since)}</div>
+        <div class="subtle" style="font-size:11px;margin-top:2px">${esc(t('todayLabel'))}</div>
       </div>
       <table style="width:100%;font-size:13px">
-        <tr><td>${esc(t('openingFloat'))}</td><td class="t-right mono">${money(T.float)}</td></tr>
-        <tr><td>+ ${esc(t('rentalsReservations'))}</td><td class="t-right mono">${money(T.cashRentals)}</td></tr>
-        <tr><td>+ ${esc(t('salesRevenue'))}</td><td class="t-right mono">${money(T.cashSales)}</td></tr>
-        <tr><td>+ ${esc(t('repayment'))}</td><td class="t-right mono">${money(T.cashPayments)}</td></tr>
-        <tr><td>+ ${esc(t('cautionsTaken'))}</td><td class="t-right mono">${money(T.cashDeposits)}</td></tr>
-        ${T.cashInjections?`<tr><td>+ ${esc(t('addToTill'))}</td><td class="t-right mono">${money(T.cashInjections)}</td></tr>`:''}
-        <tr><td>− ${esc(t('cautionsReturned'))}</td><td class="t-right mono">${money(-T.cashDepositRefunds)}</td></tr>
-        <tr><td>− ${esc(t('refundsOut'))}</td><td class="t-right mono">${money(-T.cashSaleRefunds)}</td></tr>
-        <tr><td>− ${esc(t('expenses'))}</td><td class="t-right mono">${money(T.cashExpenses)}</td></tr>
-        <tr><td>− ${esc(t('ownerWithdrawal'))}</td><td class="t-right mono">${money(T.withdrawals)}</td></tr>
+        <tr><td>${esc(t('startedToday'))}</td><td class="t-right mono">${money(startedTodayCash)}</td></tr>
+        <tr><td>+ ${esc(t('rentalsReservations'))}</td><td class="t-right mono">${money(td.rent)}</td></tr>
+        <tr><td>+ ${esc(t('salesRevenue'))}</td><td class="t-right mono">${money(td.sales)}</td></tr>
+        <tr><td>+ ${esc(t('repayment'))}</td><td class="t-right mono">${money(td.repay)}</td></tr>
+        <tr><td>+ ${esc(t('cautionsTaken'))}</td><td class="t-right mono">${money(td.dep)}</td></tr>
+        ${td.cashin?`<tr><td>+ ${esc(t('addToTill'))}</td><td class="t-right mono">${money(td.cashin)}</td></tr>`:''}
+        <tr><td>− ${esc(t('cautionsReturned'))}</td><td class="t-right mono">${money(-td.depositRefunds)}</td></tr>
+        <tr><td>− ${esc(t('refundsOut'))}</td><td class="t-right mono">${money(-td.saleRefunds)}</td></tr>
+        <tr><td>− ${esc(t('expenses'))}</td><td class="t-right mono">${money(tdExp)}</td></tr>
+        ${tdWithdraw?`<tr><td>− ${esc(t('ownerWithdrawal'))}</td><td class="t-right mono">${money(tdWithdraw)}</td></tr>`:''}
         <tr style="border-top:2px solid var(--line);font-weight:800"><td>${esc(t('tillAmount'))}</td><td class="t-right mono" style="color:${T.till<0?'var(--danger)':'var(--brand)'}">${money(T.till)}</td></tr>
       </table>
+      <p class="subtle" style="margin:8px 0 0;font-size:11px">${esc(t('openingFloat'))}: ${money(T.float)} · ${esc(t('since'))} ${fmtDate(T.since)}</p>
     </div>
     <div class="card pad" style="margin-bottom:14px;background:var(--gold-soft)">
       <p class="section-eyebrow" style="margin:0">${esc(t('cautionTill'))}</p>
@@ -1647,20 +1655,7 @@ async function openTillModal(){
       </table>
       <p class="subtle" style="margin:6px 0 0;font-size:11px">${T.storeOwnCash<0?`<span style="color:var(--danger);font-weight:600">${esc(t('storeOwnShortHint'))}</span>`:esc(t('storeOwnHint'))}</p>
     </div>
-    <p class="section-eyebrow">${esc(t('todayLabel'))}</p>
-    <table style="width:100%;font-size:13px;margin-bottom:6px">
-      <tr><td>+ ${esc(t('salesRevenue'))}</td><td class="t-right mono">${money(td.sales)}</td></tr>
-      <tr><td>+ ${esc(t('rentalsReservations'))}</td><td class="t-right mono">${money(td.rent)}</td></tr>
-      <tr><td>+ ${esc(t('repayment'))}</td><td class="t-right mono">${money(td.repay)}</td></tr>
-      <tr><td>+ ${esc(t('cautionsTaken'))}</td><td class="t-right mono">${money(td.dep)}</td></tr>
-      ${td.cashin?`<tr><td>+ ${esc(t('addToTill'))}</td><td class="t-right mono">${money(td.cashin)}</td></tr>`:''}
-      <tr><td>− ${esc(t('cautionsReturned'))}</td><td class="t-right mono">${money(-td.depositRefunds)}</td></tr>
-      <tr><td>− ${esc(t('refundsOut'))}</td><td class="t-right mono">${money(-td.saleRefunds)}</td></tr>
-      <tr><td>− ${esc(t('expenses'))}</td><td class="t-right mono">${money(tdExp)}</td></tr>
-      ${tdWithdraw?`<tr><td>− ${esc(t('ownerWithdrawal'))}</td><td class="t-right mono">${money(tdWithdraw)}</td></tr>`:''}
-      <tr style="border-top:2px solid var(--line);font-weight:800"><td>${esc(t('intoRegisterToday'))}</td><td class="t-right mono" style="color:var(--brand)">${money(todayCashNet)}</td></tr>
-    </table>
-    <div class="subtle" style="font-size:11px;margin-bottom:14px">${esc(t('overallIncome'))}: ${money(overallIncome)}</div>
+    <div class="subtle" style="font-size:11px;margin-bottom:14px">${esc(t('intoRegisterToday'))}: <b class="mono">${money(todayCashNet)}</b> · ${esc(t('todaysIncome'))}: ${money(todayIncome)} · ${esc(t('overallIncome'))}: ${money(overallIncome)}</div>
     <div class="subtle" style="font-size:11px;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">${esc(t('cashDetail'))}</div>
     ${detail.length? `<div style="max-height:230px;overflow:auto;margin-bottom:16px;border:1px solid var(--line);border-radius:9px">${detail.map(d=>`
       <div style="display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:7px 10px;border-bottom:1px solid var(--line)">
