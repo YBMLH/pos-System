@@ -562,6 +562,7 @@ const I18N = {
     category:"Category", allCategories:"All categories", tags:"Tags", customerProfile:"Customer Profile",
     lowStockAlert:"Low stock alert", reorderNow:"items need reordering", depositsHeld:"Deposits Held", paymentHistory:"Payment history", added:"Added",
     cautionsHeld:"Cautions Held", cautionsHeldHint:"Cash in the till that belongs to customers — refundable when their item comes back, not store revenue.",
+    cautionToday:"Caution today", cautionTodayHint:"Collected minus returned, today",
     overdueAlerts:"Overdue Rentals", alertsHub:"Alerts", noAlerts:"All clear — nothing urgent",
     discount:"Discount", discountPct:"Discount %", discountAmt:"Discount amount", refund:"Refund", refundSale:"Refund sale",
     parkSale:"Park sale", resumeSale:"Resume sale", parkedSales:"Parked sales", cashDrawer:"Cash Drawer",
@@ -740,6 +741,7 @@ const I18N = {
     category:"Catégorie", allCategories:"Toutes catégories", tags:"Étiquettes", customerProfile:"Profil client",
     lowStockAlert:"Alerte stock bas", reorderNow:"articles à réapprovisionner", depositsHeld:"Cautions détenues", paymentHistory:"Historique des paiements", added:"Ajouté",
     cautionsHeld:"Cautions détenues", cautionsHeldHint:"Argent dans la caisse qui appartient aux clients — remboursable au retour de l'article, pas un revenu du magasin.",
+    cautionToday:"Caution aujourd'hui", cautionTodayHint:"Reçue moins rendue, aujourd'hui",
     overdueAlerts:"Locations en retard", alertsHub:"Alertes", noAlerts:"Tout est en ordre",
     discount:"Remise", discountPct:"Remise %", discountAmt:"Montant remise", refund:"Remboursement", refundSale:"Rembourser la vente",
     parkSale:"Mettre en attente", resumeSale:"Reprendre la vente", parkedSales:"Ventes en attente", cashDrawer:"Caisse",
@@ -917,6 +919,7 @@ const I18N = {
     category:"الفئة", allCategories:"كل الفئات", tags:"الوسوم", customerProfile:"ملف العميل",
     lowStockAlert:"تنبيه نقص المخزون", reorderNow:"عناصر تحتاج إعادة الطلب", depositsHeld:"التأمينات المحتجزة", paymentHistory:"سجل الدفعات", added:"أُضيف",
     cautionsHeld:"التأمينات المحتجزة", cautionsHeldHint:"أموال في الصندوق تعود للعملاء — تُسترجع عند إرجاع القطعة، وليست إيراداً للمتجر.",
+    cautionToday:"التأمين اليوم", cautionTodayHint:"المُحصَّل ناقص المُسترجَع، اليوم",
     overdueAlerts:"إيجارات متأخرة", alertsHub:"التنبيهات", noAlerts:"لا يوجد شيء عاجل",
     discount:"خصم", discountPct:"نسبة الخصم", discountAmt:"قيمة الخصم", refund:"استرجاع", refundSale:"استرجاع البيع",
     parkSale:"تعليق البيع", resumeSale:"استئناف البيع", parkedSales:"مبيعات معلقة", cashDrawer:"الصندوق النقدي",
@@ -1515,6 +1518,7 @@ async function openTillModal(){
   const sumT=types=>jTodayCash.filter(p=>types.includes(p.refType)).reduce((a,p)=>a+(p.amount||0),0);
   const td={sales:sumT(['sale']),rent:sumT(['rental']),dep:sumT(['deposit']),repay:sumT(['repayment']),cashin:sumT(['cashin']),saleRefunds:sumT(['refund','void']),depositRefunds:sumT(['depositRefund'])};
   const todayCashNet=td.sales+td.rent+td.dep+td.repay+td.cashin+td.saleRefunds+td.depositRefunds-tdExp-tdWithdraw;
+  const todayCautionNet=td.dep+td.depositRefunds; // collected minus returned, today
   // What the register held at the start of today = current drawer minus today's
   // cash movements. So: started-today + cash-in-today = cash in drawer now.
   const startedTodayCash=T.till-todayCashNet;
@@ -1532,25 +1536,14 @@ async function openTillModal(){
       <div class="mono" style="font-size:34px;font-weight:800;color:var(--brand)">${money(T.till)}</div>
       <div class="subtle" style="font-size:11px;margin-top:4px">${esc(t('since'))} ${fmtDate(T.since)}</div>
     </div>
-    <div style="display:flex;gap:10px;margin-bottom:6px;align-items:stretch">
-      <div style="flex:1;background:var(--brand-100);border-radius:10px;padding:10px 12px">
-        <div class="subtle" style="font-size:12px">${esc(t('startedToday'))}</div>
-        <div class="mono" style="font-size:19px;font-weight:800">${money(startedTodayCash)}</div>
-      </div>
-      <div style="display:flex;align-items:center;font-size:20px;font-weight:800;color:var(--brand-700)">+</div>
-      <div style="flex:1;background:var(--brand-100);border-radius:10px;padding:10px 12px">
-        <div class="subtle" style="font-size:12px">${esc(t('cashInToday'))}</div>
-        <div class="mono" style="font-size:19px;font-weight:800;color:var(--brand)">${money(todayCashNet)}</div>
-      </div>
+    <p class="section-eyebrow">${esc(t('todayLabel'))}</p>
+    <div class="cards" style="margin-bottom:6px">
+      <div class="stat"><div class="k">${esc(t('startedToday'))}</div><div class="v mono" style="font-size:19px">${money(startedTodayCash)}</div></div>
+      <div class="stat gold"><div class="k">${esc(t('rentalRevenue'))}</div><div class="v mono" style="font-size:19px">${money(td.rent)}</div></div>
+      <div class="stat"><div class="k">${esc(t('cautionToday'))}</div><div class="v mono" style="font-size:19px">${todayCautionNet>=0?'+':''}${money(todayCautionNet)}</div><div class="sub">${esc(t('cautionTodayHint'))}</div></div>
+      <div class="stat"><div class="k">${esc(t('cautionsHeld'))}</div><div class="v mono" style="font-size:19px">${money(T.depositsHeldNow)}</div><div class="sub">${esc(t('cautionsHeldHint'))}</div></div>
     </div>
-    <div class="subtle" style="text-align:center;font-size:11px;margin-bottom:14px">${esc(t('startedToday'))} + ${esc(t('cashInToday'))} = ${esc(t('tillAmount'))} · ${esc(t('overallIncome'))}: ${money(overallIncome)}</div>
-    <div class="card pad" style="margin-bottom:14px;padding:12px 14px;background:var(--gold-soft)">
-      <div style="display:flex;align-items:center;gap:8px">
-        <b style="font-size:13.5px">${esc(t('cautionsHeld'))}</b>
-        <span class="mono" style="margin-inline-start:auto;font-weight:800;font-size:17px">${money(T.depositsHeldNow)}</span>
-      </div>
-      <p class="subtle" style="margin:4px 0 0;font-size:11.5px">${esc(t('cautionsHeldHint'))}</p>
-    </div>
+    <div class="subtle" style="text-align:center;font-size:11px;margin-bottom:14px">${esc(t('startedToday'))} + ${esc(t('cashInToday'))} (${money(todayCashNet)}) = ${esc(t('tillAmount'))} · ${esc(t('overallIncome'))}: ${money(overallIncome)}</div>
     <div class="subtle" style="font-size:11px;font-weight:700;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">${esc(t('today'))} · ${esc(t('cash'))}</div>
     <table style="width:100%;font-size:13px;margin-bottom:16px">
       <tr><td>+ ${esc(t('salesRevenue'))}</td><td class="t-right mono">${money(td.sales)}</td></tr>
