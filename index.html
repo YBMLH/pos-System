@@ -358,6 +358,9 @@ kbd{background:#EEEDEA;border-radius:5px;padding:1px 6px;font-size:11px;font-fam
      its height and spilled the receipt across 5-6 pages, most of them blank). */
   #app,#modalRoot,#toasts{display:none !important}
   #printArea{position:static;margin:0;width:76mm;box-sizing:border-box;padding:0}
+  /* Browsers default to print-color-adjust:economy, which lets the driver
+     lighten or drop imagery to save ink — that silently loses the logo. */
+  #printArea img{print-color-adjust:exact;-webkit-print-color-adjust:exact}
   #printArea.report{width:100%}
   @page{size:76mm auto;margin:1mm}
   @page report-page{size:auto;margin:14mm}
@@ -2448,6 +2451,65 @@ function offerRentalPreview(rOrRentals){
   });
 }
 /* Resize + compress an uploaded/captured image to a small JPEG data URL (~40-80KB). */
+/*
+  Logos need different handling from photos. A thermal printer reproduces a
+  narrow tonal range and thresholds to pure black or white, so a pale logo —
+  gold lettering, or white artwork drawn for a dark background — flattens to
+  white and prints as nothing at all. Rather than lean on CSS filters (which
+  the print pipeline may lighten or ignore), bake the print-ready version in
+  at upload time so the Settings preview is exactly what comes out of the
+  printer:
+    · light artwork on transparency is inverted, so it prints as ink
+    · the tonal range is stretched so the darkest part is genuinely black
+    · saved lossless, because JPEG artefacts are ugly on line art
+*/
+function processLogo(file){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        const max=600; let w=img.width, h=img.height;
+        if(w>h && w>max){ h=Math.round(h*max/w); w=max; }
+        else if(h>=w && h>max){ w=Math.round(w*max/h); h=max; }
+        const c=document.createElement('canvas'); c.width=w; c.height=h;
+        const ctx=c.getContext('2d');
+        ctx.drawImage(img,0,0,w,h); // on transparency, so alpha is readable
+        try{
+          const d=ctx.getImageData(0,0,w,h), px=d.data;
+          const lum=new Float32Array(w*h); const alpha=new Float32Array(w*h);
+          let inkSum=0, inkCount=0, clearCount=0;
+          for(let i=0,p=0;i<px.length;i+=4,p++){
+            lum[p]=px[i]*0.299+px[i+1]*0.587+px[i+2]*0.114;
+            alpha[p]=px[i+3]/255;
+            if(alpha[p]>0.125){ inkSum+=lum[p]; inkCount++; } else clearCount++;
+          }
+          if(inkCount){
+            // Pale artwork drawn for a dark background would vanish on white paper,
+            // so flip it. Only ever when the file is genuinely cut out — on a flat
+            // image the pale "background" is part of the picture, and inverting it
+            // would print a solid black block.
+            const cutOut = clearCount > (w*h)*0.05;
+            if(cutOut && inkSum/inkCount>200){ for(let p=0;p<lum.length;p++) lum[p]=255-lum[p]; }
+            let lo=255, hi=0;
+            for(let p=0;p<lum.length;p++){ if(alpha[p]>0.125){ if(lum[p]<lo)lo=lum[p]; if(lum[p]>hi)hi=lum[p]; } }
+            const span=hi-lo;
+            if(span>4){ for(let p=0;p<lum.length;p++) lum[p]=Math.max(0,Math.min(255,(lum[p]-lo)*255/span)); }
+          }
+          // Flatten onto white, so transparency prints as paper rather than black.
+          for(let i=0,p=0;i<px.length;i+=4,p++){
+            const v=Math.round(lum[p]*alpha[p]+255*(1-alpha[p]));
+            px[i]=px[i+1]=px[i+2]=v; px[i+3]=255;
+          }
+          ctx.putImageData(d,0,0);
+          res(c.toDataURL('image/png'));
+        }catch(err){ rej(err); }
+      };
+      img.onerror=rej; img.src=fr.result;
+    };
+    fr.onerror=rej; fr.readAsDataURL(file);
+  });
+}
 function processImage(file){
   return new Promise((res,rej)=>{
     const fr=new FileReader();
@@ -2801,7 +2863,7 @@ async function openCheckout(subtotal){
 }
 function money2(n){ return Number(n||0).toLocaleString('en-US',{maximumFractionDigits:2})+' '+(State.currency||'DZD'); }
 /* Optional store logo at the top of receipts (grayscale/contrast for thermal print). */
-function receiptLogo(){ return State.logo?`<div style="text-align:center;margin-bottom:3px"><img src="${State.logo}" style="max-height:52px;max-width:60mm;filter:grayscale(1) contrast(1.4)"></div>`:''; }
+function receiptLogo(){ return State.logo?`<div style="text-align:center;margin-bottom:3px"><img src="${State.logo}" style="max-height:18mm;max-width:60mm;print-color-adjust:exact;-webkit-print-color-adjust:exact"></div>`:''; }
 
 /* -------- Lightweight inline SVG charts (no external library, fully offline) -------- */
 function barChartSvg(labels,series,opts){
@@ -4932,7 +4994,7 @@ async function viewSettings(){
   const logoPrev=document.getElementById('set_logoPrev'), logoRm=document.getElementById('set_logoRm'), logoFile=document.getElementById('set_logoFile');
   document.getElementById('set_logoBtn').onclick=()=>logoFile.click();
   logoFile.onchange=async()=>{ const f=logoFile.files[0]; if(!f) return;
-    try{ logoData=await processImage(f); logoPrev.innerHTML=`<img src="${logoData}" style="max-width:100%;max-height:100%">`; logoRm.style.display=''; }catch(e){ toast('⚠︎','err'); }
+    try{ logoData=await processLogo(f); logoPrev.innerHTML=`<img src="${logoData}" style="max-width:100%;max-height:100%">`; logoRm.style.display=''; }catch(e){ toast('⚠︎','err'); }
     logoFile.value='';
   };
   logoRm.onclick=()=>{ logoData=''; logoPrev.innerHTML=svg(IC.image); logoRm.style.display='none'; };
