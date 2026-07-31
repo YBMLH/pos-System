@@ -567,7 +567,13 @@ const I18N = {
     cautionTill:"Caution till — customers' money", rentalsReservations:"Rentals & reservations",
     cautionsTaken:"Cautions taken in", cautionsReturned:"Cautions given back", allTime:"All time",
     cautionsKept:"Cautions kept (damage / fees)", storeOwnCash:"Store's own money",
-    storeOwnHint:"What would be left in the drawer once every caution is handed back.",
+    dressRepair:"Dress repair & cleaning", repairFund:"Repair & cleaning fund",
+    repairFundLeft:"Left in the fund", setAsideFromCautions:"Set aside from kept cautions",
+    spentOnRepairs:"Spent on repair & cleaning",
+    repairFundHint:"Cautions you kept are set aside here to fix or wash the dress they came from. Record that work as an expense under \"Dress repair & cleaning\" and it comes out of this fund, not the shop's money.",
+    repairFundOverHint:"More has gone on repairs than the kept cautions set aside — the difference came out of the shop's own money.",
+    repairFromFundHint:"Comes out of the repair & cleaning fund",
+    storeOwnHint:"What would be left once every caution is handed back and the repair fund is set aside.",
     storeOwnShortHint:"The drawer can't cover every caution — caution money has gone out on withdrawals or expenses and needs putting back.",
     overdueAlerts:"Overdue Rentals", alertsHub:"Alerts", noAlerts:"All clear — nothing urgent",
     discount:"Discount", discountPct:"Discount %", discountAmt:"Discount amount", refund:"Refund", refundSale:"Refund sale",
@@ -752,7 +758,13 @@ const I18N = {
     cautionTill:"Caisse des cautions — argent des clients", rentalsReservations:"Locations & réservations",
     cautionsTaken:"Cautions encaissées", cautionsReturned:"Cautions rendues", allTime:"Depuis le début",
     cautionsKept:"Cautions retenues (dégâts / frais)", storeOwnCash:"Argent du magasin",
-    storeOwnHint:"Ce qui resterait dans la caisse une fois toutes les cautions rendues.",
+    dressRepair:"Réparation & nettoyage des robes", repairFund:"Fonds réparation & nettoyage",
+    repairFundLeft:"Reste dans le fonds", setAsideFromCautions:"Mis de côté sur cautions retenues",
+    spentOnRepairs:"Dépensé en réparation & nettoyage",
+    repairFundHint:"Les cautions retenues sont mises de côté ici pour réparer ou laver la robe concernée. Enregistrez ces frais comme dépense « Réparation & nettoyage des robes » : ils sortent de ce fonds, pas de l'argent du magasin.",
+    repairFundOverHint:"Plus a été dépensé en réparations que ce que les cautions retenues ont mis de côté — la différence est sortie de l'argent du magasin.",
+    repairFromFundHint:"Sort du fonds réparation & nettoyage",
+    storeOwnHint:"Ce qui resterait une fois toutes les cautions rendues et le fonds réparation mis de côté.",
     storeOwnShortHint:"La caisse ne couvre pas toutes les cautions — de l'argent des cautions est sorti en retraits ou dépenses et doit être remis.",
     overdueAlerts:"Locations en retard", alertsHub:"Alertes", noAlerts:"Tout est en ordre",
     discount:"Remise", discountPct:"Remise %", discountAmt:"Montant remise", refund:"Remboursement", refundSale:"Rembourser la vente",
@@ -936,7 +948,13 @@ const I18N = {
     cautionTill:"صندوق التأمينات — أموال العملاء", rentalsReservations:"الإيجارات والحجوزات",
     cautionsTaken:"التأمينات المستلمة", cautionsReturned:"التأمينات المعادة", allTime:"منذ البداية",
     cautionsKept:"تأمينات محتجزة (أضرار / رسوم)", storeOwnCash:"أموال المتجر",
-    storeOwnHint:"ما سيبقى في الصندوق بعد إعادة جميع التأمينات.",
+    dressRepair:"إصلاح وتنظيف الفساتين", repairFund:"صندوق الإصلاح والتنظيف",
+    repairFundLeft:"المتبقي في الصندوق", setAsideFromCautions:"مخصص من التأمينات المحتجزة",
+    spentOnRepairs:"أُنفق على الإصلاح والتنظيف",
+    repairFundHint:"التأمينات المحتجزة تُخصَّص هنا لإصلاح أو غسل الفستان المعني. سجّل هذه التكاليف كمصروف ضمن «إصلاح وتنظيف الفساتين» فتُخصم من هذا الصندوق لا من أموال المتجر.",
+    repairFundOverHint:"أُنفق على الإصلاح أكثر مما خصّصته التأمينات المحتجزة — الفارق خرج من أموال المتجر.",
+    repairFromFundHint:"يُخصم من صندوق الإصلاح والتنظيف",
+    storeOwnHint:"ما سيبقى بعد إعادة جميع التأمينات وتخصيص صندوق الإصلاح.",
     storeOwnShortHint:"الصندوق لا يغطي كل التأمينات — خرجت أموال تأمينات في السحوبات أو المصاريف ويجب إعادتها.",
     overdueAlerts:"إيجارات متأخرة", alertsHub:"التنبيهات", noAlerts:"لا يوجد شيء عاجل",
     discount:"خصم", discountPct:"نسبة الخصم", discountAmt:"قيمة الخصم", refund:"استرجاع", refundSale:"استرجاع البيع",
@@ -1522,12 +1540,19 @@ async function tillTotals(){
   // the kept part has to come off the caution total here or it inflates forever.
   const cautionKept=rentalsForDeposits.filter(r=>(r.method||'cash')==='cash').reduce((a,r)=>a+(r.depositKept||0),0);
   const cautionTillCash=cautionIn+cautionOut-cautionKept;
-  // Of the cash physically in the drawer, what's actually the store's own.
-  const storeOwnCash=till-cautionTillCash;
+  // A kept caution isn't profit — it's set aside to fix or wash the dress it
+  // came from. It sits in its own fund until that work is paid for, so repair
+  // and cleaning costs are drawn from here rather than from the store's money.
+  // All-time on both sides, to match cautionKept.
+  const repairSpent=expenses.filter(x=>x.category==='dressRepair').reduce((a,x)=>a+(x.amount||0),0);
+  const repairFund=cautionKept-repairSpent;
+  // Of the cash physically in the drawer, what's actually the store's own —
+  // once customers' cautions and the repair fund are both set aside.
+  const storeOwnCash=till-cautionTillCash-repairFund;
   // Cautions currently held across every method (a business total, not a cash
   // count) — used for the Dashboard/Reports "owed back to customers" figure.
   const depositsHeldNow=rentalsForDeposits.filter(r=>(r.status==='active'||r.status==='reserved') && (r.deposit||0)>0 && !r.depositRefunded).reduce((a,r)=>a+(r.deposit||0),0);
-  return {float,cashSales,cashRentals,cashPayments,cashInjections,cashSaleRefunds,cashDeposits,cashDepositRefunds,cashIn,cashExpenses,withdrawals,cashOut,till,since,depositsHeldNow,cautionTillCash,cautionIn,cautionOut,cautionKept,storeOwnCash};
+  return {float,cashSales,cashRentals,cashPayments,cashInjections,cashSaleRefunds,cashDeposits,cashDepositRefunds,cashIn,cashExpenses,withdrawals,cashOut,till,since,depositsHeldNow,cautionTillCash,cautionIn,cautionOut,cautionKept,repairSpent,repairFund,storeOwnCash};
 }
 async function openTillModal(){
   const T=await tillTotals();
@@ -1601,9 +1626,23 @@ async function openTillModal(){
       <p class="subtle" style="margin:6px 0 0;font-size:11px">${esc(t('cautionsHeldHint'))}</p>
     </div>
     <div class="card pad" style="margin-bottom:14px">
+      <p class="section-eyebrow" style="margin:0">${esc(t('repairFund'))}</p>
+      <div style="text-align:center;padding:2px 0 12px">
+        <div class="subtle" style="font-size:12.5px">${esc(t('repairFundLeft'))}</div>
+        <div class="mono" style="font-size:30px;font-weight:800;color:${T.repairFund<0?'var(--danger)':'inherit'}">${money(T.repairFund)}</div>
+      </div>
+      <table style="width:100%;font-size:13px">
+        <tr><td>+ ${esc(t('setAsideFromCautions'))}</td><td class="t-right mono">${money(T.cautionKept)}</td></tr>
+        <tr><td>− ${esc(t('spentOnRepairs'))}</td><td class="t-right mono">${money(T.repairSpent)}</td></tr>
+        <tr style="border-top:2px solid var(--line);font-weight:800"><td>${esc(t('repairFundLeft'))}</td><td class="t-right mono" style="color:${T.repairFund<0?'var(--danger)':'inherit'}">${money(T.repairFund)}</td></tr>
+      </table>
+      <p class="subtle" style="margin:6px 0 0;font-size:11px">${T.repairFund<0?`<span style="color:var(--danger);font-weight:600">${esc(t('repairFundOverHint'))}</span>`:esc(t('repairFundHint'))}</p>
+    </div>
+    <div class="card pad" style="margin-bottom:14px">
       <table style="width:100%;font-size:13px">
         <tr><td>${esc(t('tillAmount'))}</td><td class="t-right mono">${money(T.till)}</td></tr>
         <tr><td>− ${esc(t('cautionTillTotal'))}</td><td class="t-right mono">${money(T.cautionTillCash)}</td></tr>
+        <tr><td>− ${esc(t('repairFundLeft'))}</td><td class="t-right mono">${money(T.repairFund)}</td></tr>
         <tr style="border-top:2px solid var(--line);font-weight:800"><td>${esc(t('storeOwnCash'))}</td><td class="t-right mono" style="color:${T.storeOwnCash<0?'var(--danger)':'var(--brand)'}">${money(T.storeOwnCash)}</td></tr>
       </table>
       <p class="subtle" style="margin:6px 0 0;font-size:11px">${T.storeOwnCash<0?`<span style="color:var(--danger);font-weight:600">${esc(t('storeOwnShortHint'))}</span>`:esc(t('storeOwnHint'))}</p>
@@ -4696,11 +4735,13 @@ function drawWithdrawals(W){
    </tr>`).join('')}</tbody></table>` : `<p class="subtle" style="padding:10px 0">${esc(t('noWithdrawals'))}</p>`;
   el.querySelectorAll('[data-delx]').forEach(b=>b.onclick=()=>guardDelete('expenses',b.dataset.delx,'logExpDel','',()=>viewReports()));
 }
-function openExpenseModal(onDone){
-  const cats=['rent','electricity','water','cleaningSupplies','specificItem','other'];
+async function openExpenseModal(onDone){
+  const cats=['dressRepair','rent','electricity','water','cleaningSupplies','specificItem','other'];
+  const TF=await tillTotals();
   modal(t('addExpense'),
    `<div class="field"><label>${esc(t('category'))} *</label>
       <select id="e_cat">${cats.map(c=>`<option value="${c}">${esc(t(c))}</option>`).join('')}</select>
+      <p class="subtle hidden" id="e_fundHint" style="margin:6px 0 0;font-size:11.5px">${esc(t('repairFromFundHint'))} · <b class="mono">${money(TF.repairFund)}</b></p>
     </div>
     <div class="field" id="e_customBox"><label>${esc(t('expenseLabel'))} *</label><input id="e_label" type="text" placeholder="${esc(t('specifyItem'))}"></div>
     <div class="field"><label>${esc(t('amount'))} *</label><input id="e_amt" type="number" min="0" step="0.01"></div>
@@ -4708,7 +4749,8 @@ function openExpenseModal(onDone){
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
     <button class="btn" id="e_go">${esc(t('save'))}</button>`);
   const catSel=document.getElementById('e_cat'), labelBox=document.getElementById('e_customBox'), labelInp=document.getElementById('e_label');
-  function syncLabelBox(){ const needsLabel = catSel.value==='specificItem'||catSel.value==='other'; labelBox.classList.toggle('hidden',!needsLabel); if(!needsLabel) labelInp.value=t(catSel.value); }
+  const fundHint=document.getElementById('e_fundHint');
+  function syncLabelBox(){ const needsLabel = catSel.value==='specificItem'||catSel.value==='other'; labelBox.classList.toggle('hidden',!needsLabel); if(!needsLabel) labelInp.value=t(catSel.value); fundHint.classList.toggle('hidden',catSel.value!=='dressRepair'); }
   catSel.onchange=syncLabelBox; syncLabelBox();
   document.getElementById('e_go').onclick=async()=>{
     const cat=catSel.value;
