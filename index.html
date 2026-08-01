@@ -577,8 +577,9 @@ const I18N = {
     repairFundHint:"Cautions you kept are set aside here to fix or wash the dress they came from. Record that work as an expense under \"Dress repair & cleaning\" and it comes out of this fund, not the shop's money.",
     repairFundOverHint:"More has gone on repairs than the kept cautions set aside — the difference came out of the shop's own money.",
     repairFromFundHint:"Comes out of the repair & cleaning fund",
-    storeOwnHint:"What would be left once every caution is handed back and the repair fund is set aside.",
-    storeOwnShortHint:"The drawer can't cover every caution — caution money has gone out on withdrawals or expenses and needs putting back.",
+    storeOwnHint:"The till's own money, once the repair fund is set aside. Customers' cautions are not counted here — they have their own till.",
+    storeOwnShortHint:"The till is short — more has gone out in expenses and withdrawals than came in.",
+    cautionSeparateHint:"Cautions never move this till. Taking one in or handing one back belongs to the caution till below.",
     overdueAlerts:"Overdue Rentals", alertsHub:"Alerts", noAlerts:"All clear — nothing urgent",
     discount:"Discount", discountPct:"Discount %", discountAmt:"Discount amount", refund:"Refund", refundSale:"Refund sale",
     parkSale:"Park sale", resumeSale:"Resume sale", parkedSales:"Parked sales", cashDrawer:"Cash Drawer",
@@ -769,8 +770,9 @@ const I18N = {
     repairFundHint:"Les cautions retenues sont mises de côté ici pour réparer ou laver la robe concernée. Enregistrez ces frais comme dépense « Réparation & nettoyage des robes » : ils sortent de ce fonds, pas de l'argent du magasin.",
     repairFundOverHint:"Plus a été dépensé en réparations que ce que les cautions retenues ont mis de côté — la différence est sortie de l'argent du magasin.",
     repairFromFundHint:"Sort du fonds réparation & nettoyage",
-    storeOwnHint:"Ce qui resterait une fois toutes les cautions rendues et le fonds réparation mis de côté.",
-    storeOwnShortHint:"La caisse ne couvre pas toutes les cautions — de l'argent des cautions est sorti en retraits ou dépenses et doit être remis.",
+    storeOwnHint:"L'argent propre à la caisse, une fois le fonds réparation mis de côté. Les cautions des clients ne comptent pas ici — elles ont leur propre caisse.",
+    storeOwnShortHint:"La caisse est à découvert — plus est sorti en dépenses et retraits qu'il n'est entré.",
+    cautionSeparateHint:"Les cautions ne touchent jamais cette caisse. Encaisser ou rendre une caution relève de la caisse des cautions ci-dessous.",
     overdueAlerts:"Locations en retard", alertsHub:"Alertes", noAlerts:"Tout est en ordre",
     discount:"Remise", discountPct:"Remise %", discountAmt:"Montant remise", refund:"Remboursement", refundSale:"Rembourser la vente",
     parkSale:"Mettre en attente", resumeSale:"Reprendre la vente", parkedSales:"Ventes en attente", cashDrawer:"Caisse",
@@ -960,8 +962,9 @@ const I18N = {
     repairFundHint:"التأمينات المحتجزة تُخصَّص هنا لإصلاح أو غسل الفستان المعني. سجّل هذه التكاليف كمصروف ضمن «إصلاح وتنظيف الفساتين» فتُخصم من هذا الصندوق لا من أموال المتجر.",
     repairFundOverHint:"أُنفق على الإصلاح أكثر مما خصّصته التأمينات المحتجزة — الفارق خرج من أموال المتجر.",
     repairFromFundHint:"يُخصم من صندوق الإصلاح والتنظيف",
-    storeOwnHint:"ما سيبقى بعد إعادة جميع التأمينات وتخصيص صندوق الإصلاح.",
-    storeOwnShortHint:"الصندوق لا يغطي كل التأمينات — خرجت أموال تأمينات في السحوبات أو المصاريف ويجب إعادتها.",
+    storeOwnHint:"أموال الصندوق الخاصة بعد تخصيص صندوق الإصلاح. تأمينات العملاء غير محسوبة هنا — لها صندوقها الخاص.",
+    storeOwnShortHint:"الصندوق ناقص — الخارج في المصاريف والسحوبات أكثر من الداخل.",
+    cautionSeparateHint:"التأمينات لا تمسّ هذا الصندوق. استلامها أو إعادتها يخص صندوق التأمينات أدناه.",
     overdueAlerts:"إيجارات متأخرة", alertsHub:"التنبيهات", noAlerts:"لا يوجد شيء عاجل",
     discount:"خصم", discountPct:"نسبة الخصم", discountAmt:"قيمة الخصم", refund:"استرجاع", refundSale:"استرجاع البيع",
     parkSale:"تعليق البيع", resumeSale:"استئناف البيع", parkedSales:"مبيعات معلقة", cashDrawer:"الصندوق النقدي",
@@ -1525,26 +1528,27 @@ async function tillTotals(){
   const cashDepositRefunds=sumBy(['depositRefund']); // caution given back (negative)
   const cashExpenses=expenses.filter(x=>x.createdAt>=since && !x.isWithdrawal).reduce((a,x)=>a+(x.amount||0),0);
   const withdrawals=expenses.filter(x=>x.createdAt>=since && x.isWithdrawal).reduce((a,x)=>a+(x.amount||0),0);
-  // `till` is what is PHYSICALLY in the drawer — so caution cash counts here,
-  // because it really is sitting in the register. How much of it belongs to
-  // customers is tracked separately below (cautionTillCash), and the store's
-  // own share is the difference.
-  const cashIn=cashSales+cashRentals+cashPayments+cashInjections+cashDeposits;
-  const cashOut=cashExpenses+withdrawals-cashSaleRefunds-cashDepositRefunds; // both refund buckets are negative, so subtracting adds their magnitude
+  // Caution is a till of its own. Taking one in or giving one back moves the
+  // customer's money, not the shop's, so neither touches this balance — the
+  // float is counted the same way, as operating cash only. The one caution
+  // amount that does land here is a caution the shop KEEPS: at that moment it
+  // stops being the customer's and becomes takings.
+  const rentalsForDeposits=await idbAll('rentals');
+  const settledAt=r=>r.returnedAt||r.cancelledAt||r.createdAt||0;
+  const keptCash=r=>(r.method||'cash')==='cash'? (r.depositKept||0) : 0;
+  const cautionKeptSince=rentalsForDeposits.filter(r=>settledAt(r)>=since).reduce((a,r)=>a+keptCash(r),0);
+  const cashIn=cashSales+cashRentals+cashPayments+cashInjections+cautionKeptSince;
+  const cashOut=cashExpenses+withdrawals-cashSaleRefunds; // cashSaleRefunds is negative, so subtracting adds its magnitude
   const till=float+cashIn-cashOut;
-  // The CAUTION till: its own running cash balance, independent of the
-  // operating float/reset — deposits collected in cash minus deposits
-  // returned in cash, ALL TIME (not just "since" the float was last set, since
-  // a caution taken before that reset is still physically in the drawer).
+  // The CAUTION till: its own running balance, independent of the operating
+  // float/reset — cautions taken in, less those given back, less those kept,
+  // ALL TIME, because a caution taken before a float reset is still being held.
   const allCashJ=payments.filter(p=>(p.method||'cash')==='cash');
   const cautionIn=allCashJ.filter(p=>p.refType==='deposit').reduce((a,p)=>a+(p.amount||0),0); // positive
   const cautionOut=allCashJ.filter(p=>p.refType==='depositRefund').reduce((a,p)=>a+(p.amount||0),0); // negative
-  const rentalsForDeposits=await idbAll('rentals');
-  // A caution the store KEEPS (damage, late fees, a cancellation the store
-  // doesn't refund) stops being the customer's money — the cash stays in the
-  // drawer but it's the store's now. Only the refunded part is journalled, so
-  // the kept part has to come off the caution total here or it inflates forever.
-  const cautionKept=rentalsForDeposits.filter(r=>(r.method||'cash')==='cash').reduce((a,r)=>a+(r.depositKept||0),0);
+  // Only the refunded part of a caution is journalled, so the kept part has to
+  // come off here too or the caution till inflates forever.
+  const cautionKept=rentalsForDeposits.reduce((a,r)=>a+keptCash(r),0);
   const cautionTillCash=cautionIn+cautionOut-cautionKept;
   // A kept caution isn't profit — it's set aside to fix or wash the dress it
   // came from. It sits in its own fund until that work is paid for, so repair
@@ -1552,13 +1556,14 @@ async function tillTotals(){
   // All-time on both sides, to match cautionKept.
   const repairSpent=expenses.filter(x=>x.category==='dressRepair').reduce((a,x)=>a+(x.amount||0),0);
   const repairFund=cautionKept-repairSpent;
-  // Of the cash physically in the drawer, what's actually the store's own —
-  // once customers' cautions and the repair fund are both set aside.
-  const storeOwnCash=till-cautionTillCash-repairFund;
+  // What in the till is actually the shop's to spend. Customers' cautions live
+  // in their own till and were never in this figure; what is still sitting here
+  // and spoken for is the repair fund.
+  const storeOwnCash=till-repairFund;
   // Cautions currently held across every method (a business total, not a cash
   // count) — used for the Dashboard/Reports "owed back to customers" figure.
   const depositsHeldNow=rentalsForDeposits.filter(r=>(r.status==='active'||r.status==='reserved') && (r.deposit||0)>0 && !r.depositRefunded).reduce((a,r)=>a+(r.deposit||0),0);
-  return {float,cashSales,cashRentals,cashPayments,cashInjections,cashSaleRefunds,cashDeposits,cashDepositRefunds,cashIn,cashExpenses,withdrawals,cashOut,till,since,depositsHeldNow,cautionTillCash,cautionIn,cautionOut,cautionKept,repairSpent,repairFund,storeOwnCash};
+  return {float,cashSales,cashRentals,cashPayments,cashInjections,cashSaleRefunds,cashDeposits,cashDepositRefunds,cashIn,cashExpenses,withdrawals,cashOut,till,since,depositsHeldNow,cautionTillCash,cautionIn,cautionOut,cautionKept,cautionKeptSince,repairSpent,repairFund,storeOwnCash};
 }
 async function openTillModal(){
   const T=await tillTotals();
@@ -1582,9 +1587,11 @@ async function openTillModal(){
   const td={sales:sumT(['sale']),rent:sumT(['rental']),dep:sumT(['deposit']),repay:sumT(['repayment']),cashin:sumT(['cashin']),saleRefunds:sumT(['refund','void']),depositRefunds:sumT(['depositRefund'])};
   // The operating till's "into register today" never includes caution — that
   // money belongs to its own separate till, tracked entirely on its own below.
-  // Matches the drawer: caution moves real cash in and out of the register, so
-  // it counts here too. What belongs to customers is separated in its own card.
-  const todayCashNet=td.sales+td.rent+td.repay+td.cashin+td.dep+td.saleRefunds+td.depositRefunds-tdExp-tdWithdraw;
+  // Caution never moves this till — taking one in or handing one back is the
+  // customer's money going into or out of its own float. The exception is a
+  // caution the shop keeps, which becomes takings at that moment.
+  const tdKept=rentals.filter(r=>{const s=r.returnedAt||r.cancelledAt||r.createdAt||0; return s>=t0 && (r.method||'cash')==='cash';}).reduce((a,r)=>a+(r.depositKept||0),0);
+  const todayCashNet=td.sales+td.rent+td.repay+td.cashin+tdKept+td.saleRefunds-tdExp-tdWithdraw;
   // The drawer breakdown reads as TODAY: what the register held when the day
   // started, plus today's movements, lands on what's in it right now. Totals
   // since the float was set run into the hundreds of thousands and bury the
@@ -1592,9 +1599,6 @@ async function openTillModal(){
   // captioned underneath for reference).
   const startedTodayCash=T.till-todayCashNet;
   const todayIncome=incomeSince(t0);
-  // The headline "money in today" is the shop's own trading — caution is its
-  // own till, so it's added separately underneath to reach the drawer total.
-  const todayCashNetExCaution=td.sales+td.rent+td.repay+td.cashin+td.saleRefunds-tdExp-tdWithdraw;
   const todayCautionNet=td.dep+td.depositRefunds;
   // Line-by-line of every cash movement today — who paid, what for, how much —
   // so the "into register today" total can be read transaction by transaction.
@@ -1617,15 +1621,15 @@ async function openTillModal(){
         <tr><td>+ ${esc(t('rentalsReservations'))}</td><td class="t-right mono">${money(td.rent)}</td></tr>
         <tr><td>+ ${esc(t('salesRevenue'))}</td><td class="t-right mono">${money(td.sales)}</td></tr>
         <tr><td>+ ${esc(t('repayment'))}</td><td class="t-right mono">${money(td.repay)}</td></tr>
+        ${tdKept?`<tr><td>+ ${esc(t('cautionsKept'))}</td><td class="t-right mono">${money(tdKept)}</td></tr>`:''}
         ${td.cashin?`<tr><td>+ ${esc(t('addToTill'))}</td><td class="t-right mono">${money(td.cashin)}</td></tr>`:''}
         <tr><td>− ${esc(t('refundsOut'))}</td><td class="t-right mono">${money(-td.saleRefunds)}</td></tr>
         <tr><td>− ${esc(t('expenses'))}</td><td class="t-right mono">${money(tdExp)}</td></tr>
         ${tdWithdraw?`<tr><td>− ${esc(t('ownerWithdrawal'))}</td><td class="t-right mono">${money(tdWithdraw)}</td></tr>`:''}
-        <tr style="border-top:2px solid var(--line);border-bottom:2px solid var(--line)"><td style="font-weight:800;font-size:15px;padding:8px 0">${esc(t('cashInTodayExCaution'))}</td><td class="t-right mono" style="font-weight:800;font-size:17px;color:${todayCashNetExCaution<0?'var(--danger)':'var(--brand)'}">${todayCashNetExCaution>=0?'+':''}${money(todayCashNetExCaution)}</td></tr>
-        <tr><td class="subtle">+ ${esc(t('cautionsTaken'))}</td><td class="t-right mono subtle">${money(td.dep)}</td></tr>
-        <tr><td class="subtle">− ${esc(t('cautionsReturned'))}</td><td class="t-right mono subtle">${money(-td.depositRefunds)}</td></tr>
+        <tr style="border-top:2px solid var(--line);border-bottom:2px solid var(--line)"><td style="font-weight:800;font-size:15px;padding:8px 0">${esc(t('cashInTodayExCaution'))}</td><td class="t-right mono" style="font-weight:800;font-size:17px;color:${todayCashNet<0?'var(--danger)':'var(--brand)'}">${todayCashNet>=0?'+':''}${money(todayCashNet)}</td></tr>
         <tr style="border-top:2px solid var(--line);font-weight:800"><td>${esc(t('tillAmount'))}</td><td class="t-right mono" style="color:${T.till<0?'var(--danger)':'var(--brand)'}">${money(T.till)}</td></tr>
       </table>
+      <p class="subtle" style="margin:8px 0 0;font-size:11px">${esc(t('cautionSeparateHint'))}</p>
       <p class="subtle" style="margin:8px 0 0;font-size:11px">${esc(t('openingFloat'))}: ${money(T.float)} · ${esc(t('since'))} ${fmtDate(T.since)}</p>
     </div>
     <div class="card pad" style="margin-bottom:14px;background:var(--gold-soft)">
@@ -1660,7 +1664,6 @@ async function openTillModal(){
     <div class="card pad" style="margin-bottom:14px">
       <table style="width:100%;font-size:13px">
         <tr><td>${esc(t('tillAmount'))}</td><td class="t-right mono">${money(T.till)}</td></tr>
-        <tr><td>− ${esc(t('cautionTillTotal'))}</td><td class="t-right mono">${money(T.cautionTillCash)}</td></tr>
         <tr><td>− ${esc(t('repairFundLeft'))}</td><td class="t-right mono">${money(T.repairFund)}</td></tr>
         <tr style="border-top:2px solid var(--line);font-weight:800"><td>${esc(t('storeOwnCash'))}</td><td class="t-right mono" style="color:${T.storeOwnCash<0?'var(--danger)':'var(--brand)'}">${money(T.storeOwnCash)}</td></tr>
       </table>
@@ -4764,14 +4767,13 @@ async function viewReports(){
   drawWithdrawals(W);
 }
 async function openCashDrawerModal(){
-  // Expected cash = the drawer total, which already includes caution cash —
-  // it's all one physical drawer. The caution split is shown as a reminder of
-  // how much of that count isn't the store's money.
+  // The two tills are counted together because it is one physical count, but
+  // they are listed apart so each can be checked against its own float.
   const T=await tillTotals();
-  const expected=T.till;
+  const expected=T.till+T.cautionTillCash;
   modal(t('cashCount'),
    `<p class="subtle" style="margin-bottom:4px">${esc(t('expectedCash'))}: <b class="mono">${money(expected)}</b></p>
-    <p class="subtle" style="margin-bottom:14px;font-size:11.5px">${esc(t('cautionTillTotal'))}: ${money(T.cautionTillCash)} · ${esc(t('storeOwnCash'))}: ${money(T.storeOwnCash)}</p>
+    <p class="subtle" style="margin-bottom:14px;font-size:11.5px">${esc(t('tillAmount'))}: ${money(T.till)} + ${esc(t('cautionTillTotal'))}: ${money(T.cautionTillCash)}</p>
     <div class="field"><label>${esc(t('actualCash'))}</label><input id="cd_actual" type="number" min="0" step="0.01" value="${expected}"></div>
     <p id="cd_diff" class="subtle" style="margin-top:8px"></p>`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>`);
