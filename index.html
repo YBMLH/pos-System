@@ -570,6 +570,10 @@ const I18N = {
     cautionTill:"Caution till — customers' money", rentalsReservations:"Rentals & reservations",
     cautionsTaken:"Cautions taken in", cautionsReturned:"Cautions given back", allTime:"All time",
     cautionsKept:"Cautions kept (damage / fees)", storeOwnCash:"Store's own money",
+    owedOnBookings:"Owed back on current bookings", cautionLooseOnClosed:"Left over on finished bookings",
+    cautionGap:"Unexplained difference",
+    cautionGapHint:"The caution till holds more than the current bookings account for. Usually a booking was finished without its caution being given back or marked as kept — check recent returns and cancellations.",
+    cautionMatchesHint:"Matches the cautions owed back on current bookings.",
     cashInTodayExCaution:"Money in today (excl. caution)",
     dressRepair:"Dress repair & cleaning", repairFund:"Repair & cleaning fund",
     repairFundLeft:"Left in the fund", setAsideFromCautions:"Set aside from kept cautions",
@@ -763,6 +767,10 @@ const I18N = {
     cautionTill:"Caisse des cautions — argent des clients", rentalsReservations:"Locations & réservations",
     cautionsTaken:"Cautions encaissées", cautionsReturned:"Cautions rendues", allTime:"Depuis le début",
     cautionsKept:"Cautions retenues (dégâts / frais)", storeOwnCash:"Argent du magasin",
+    owedOnBookings:"Dû sur les locations en cours", cautionLooseOnClosed:"Restant sur locations terminées",
+    cautionGap:"Écart inexpliqué",
+    cautionGapHint:"La caisse des cautions contient plus que ce que justifient les locations en cours. En général une location a été terminée sans que sa caution soit rendue ni retenue — vérifiez les retours et annulations récents.",
+    cautionMatchesHint:"Correspond aux cautions dues sur les locations en cours.",
     cashInTodayExCaution:"Entré aujourd'hui (hors caution)",
     dressRepair:"Réparation & nettoyage des robes", repairFund:"Fonds réparation & nettoyage",
     repairFundLeft:"Reste dans le fonds", setAsideFromCautions:"Mis de côté sur cautions retenues",
@@ -955,6 +963,10 @@ const I18N = {
     cautionTill:"صندوق التأمينات — أموال العملاء", rentalsReservations:"الإيجارات والحجوزات",
     cautionsTaken:"التأمينات المستلمة", cautionsReturned:"التأمينات المعادة", allTime:"منذ البداية",
     cautionsKept:"تأمينات محتجزة (أضرار / رسوم)", storeOwnCash:"أموال المتجر",
+    owedOnBookings:"مستحق على الحجوزات الحالية", cautionLooseOnClosed:"متبقٍ على حجوزات منتهية",
+    cautionGap:"فرق غير مفسَّر",
+    cautionGapHint:"صندوق التأمينات يحتوي أكثر مما تبرره الحجوزات الحالية. غالباً أُنهي حجز دون إعادة تأمينه أو تسجيله كمحتجز — راجع الإرجاعات والإلغاءات الأخيرة.",
+    cautionMatchesHint:"يطابق التأمينات المستحقة على الحجوزات الحالية.",
     cashInTodayExCaution:"الداخل اليوم (بدون تأمين)",
     dressRepair:"إصلاح وتنظيف الفساتين", repairFund:"صندوق الإصلاح والتنظيف",
     repairFundLeft:"المتبقي في الصندوق", setAsideFromCautions:"مخصص من التأمينات المحتجزة",
@@ -1563,7 +1575,16 @@ async function tillTotals(){
   // Cautions currently held across every method (a business total, not a cash
   // count) — used for the Dashboard/Reports "owed back to customers" figure.
   const depositsHeldNow=rentalsForDeposits.filter(r=>(r.status==='active'||r.status==='reserved') && (r.deposit||0)>0 && !r.depositRefunded).reduce((a,r)=>a+(r.deposit||0),0);
-  return {float,cashSales,cashRentals,cashPayments,cashInjections,cashSaleRefunds,cashDeposits,cashDepositRefunds,cashIn,cashExpenses,withdrawals,cashOut,till,since,depositsHeldNow,cautionTillCash,cautionIn,cautionOut,cautionKept,cautionKeptSince,repairSpent,repairFund,storeOwnCash};
+  // Two ways of counting caution should agree, and when they don't the gap is
+  // worth chasing. The ledger above says what cash should be in the box; the
+  // bookings say what is actually owed back. Cash only, to match the ledger.
+  const cashRental=r=>(r.method||'cash')==='cash';
+  const cautionOnOpenBookings=rentalsForDeposits.filter(r=>(r.status==='active'||r.status==='reserved') && !r.depositRefunded && cashRental(r)).reduce((a,r)=>a+(r.deposit||0),0);
+  // A closed booking whose caution was neither handed back nor kept — the usual
+  // cause of a gap, and the thing to go and look at.
+  const cautionLooseOnClosed=rentalsForDeposits.filter(r=>(r.status==='returned'||r.status==='cancelled') && cashRental(r)).reduce((a,r)=>a+Math.max(0,(r.deposit||0)-(r.depositRefundedAmount||0)-(r.depositKept||0)),0);
+  const cautionGap=cautionTillCash-cautionOnOpenBookings-cautionLooseOnClosed;
+  return {float,cashSales,cashRentals,cashPayments,cashInjections,cashSaleRefunds,cashDeposits,cashDepositRefunds,cashIn,cashExpenses,withdrawals,cashOut,till,since,depositsHeldNow,cautionTillCash,cautionIn,cautionOut,cautionKept,cautionKeptSince,cautionOnOpenBookings,cautionLooseOnClosed,cautionGap,repairSpent,repairFund,storeOwnCash};
 }
 async function openTillModal(){
   const T=await tillTotals();
@@ -1647,6 +1668,12 @@ async function openTillModal(){
         <tr><td class="subtle">${esc(t('cautionToday'))}</td><td class="t-right mono subtle">+${money(td.dep)} / −${money(-td.depositRefunds)}</td></tr>
       </table>
       <p class="subtle" style="margin:6px 0 0;font-size:11px">${esc(t('cautionsHeldHint'))}</p>
+      <table style="width:100%;font-size:13px;margin-top:10px;border-top:1px dashed var(--line)">
+        <tr><td style="padding-top:8px">${esc(t('owedOnBookings'))}</td><td class="t-right mono" style="padding-top:8px">${money(T.cautionOnOpenBookings)}</td></tr>
+        ${T.cautionLooseOnClosed?`<tr><td>${esc(t('cautionLooseOnClosed'))}</td><td class="t-right mono">${money(T.cautionLooseOnClosed)}</td></tr>`:''}
+        ${T.cautionGap?`<tr style="font-weight:800;color:var(--danger)"><td>${esc(t('cautionGap'))}</td><td class="t-right mono">${money(T.cautionGap)}</td></tr>`:''}
+      </table>
+      <p class="subtle" style="margin:6px 0 0;font-size:11px">${(T.cautionGap||T.cautionLooseOnClosed)?`<span style="color:var(--danger);font-weight:600">${esc(t('cautionGapHint'))}</span>`:esc(t('cautionMatchesHint'))}</p>
     </div>
     <div class="card pad" style="margin-bottom:14px">
       <p class="section-eyebrow" style="margin:0">${esc(t('repairFund'))}</p>
