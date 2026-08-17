@@ -566,6 +566,10 @@ const I18N = {
     lowStockAlert:"Low stock alert", reorderNow:"items need reordering", depositsHeld:"Deposits Held", paymentHistory:"Payment history", added:"Added",
     cautionsHeld:"Cautions Held", cautionsHeldHint:"Cash in the till that belongs to customers — refundable when their item comes back, not store revenue.",
     cautionToday:"Caution today", cautionTillTotal:"Should be in caution till",
+    addonPieces:"Pieces that go with it", addPiece:"+ Add piece", piecePlaceholder:"e.g. Skirt",
+    addonHint:"Extra pieces this item can go out with — a skirt, a belt, a scarf. When you rent it you tick which ones the customer takes.",
+    includedPieces:"Pieces included", piecesToCheck:"Pieces to come back",
+    piecesBackHint:"Tick each piece as it comes back before finishing the return.",
     registerTill:"Cash drawer — today",
     cautionTill:"Caution till — customers' money", rentalsReservations:"Rentals & reservations",
     cautionsTaken:"Cautions taken in", cautionsReturned:"Cautions given back", allTime:"All time",
@@ -763,6 +767,10 @@ const I18N = {
     lowStockAlert:"Alerte stock bas", reorderNow:"articles à réapprovisionner", depositsHeld:"Cautions détenues", paymentHistory:"Historique des paiements", added:"Ajouté",
     cautionsHeld:"Cautions détenues", cautionsHeldHint:"Argent dans la caisse qui appartient aux clients — remboursable au retour de l'article, pas un revenu du magasin.",
     cautionToday:"Caution aujourd'hui", cautionTillTotal:"Devrait être dans la caisse des cautions",
+    addonPieces:"Pièces qui vont avec", addPiece:"+ Ajouter une pièce", piecePlaceholder:"ex. Jupe",
+    addonHint:"Pièces supplémentaires qui peuvent partir avec cet article — jupe, ceinture, foulard. À la location vous cochez celles que la cliente emporte.",
+    includedPieces:"Pièces incluses", piecesToCheck:"Pièces à rendre",
+    piecesBackHint:"Cochez chaque pièce à son retour avant de finaliser.",
     registerTill:"Caisse — aujourd'hui",
     cautionTill:"Caisse des cautions — argent des clients", rentalsReservations:"Locations & réservations",
     cautionsTaken:"Cautions encaissées", cautionsReturned:"Cautions rendues", allTime:"Depuis le début",
@@ -959,6 +967,10 @@ const I18N = {
     lowStockAlert:"تنبيه نقص المخزون", reorderNow:"عناصر تحتاج إعادة الطلب", depositsHeld:"التأمينات المحتجزة", paymentHistory:"سجل الدفعات", added:"أُضيف",
     cautionsHeld:"التأمينات المحتجزة", cautionsHeldHint:"أموال في الصندوق تعود للعملاء — تُسترجع عند إرجاع القطعة، وليست إيراداً للمتجر.",
     cautionToday:"التأمين اليوم", cautionTillTotal:"يجب أن يكون في صندوق التأمينات",
+    addonPieces:"القطع المرافقة", addPiece:"+ أضف قطعة", piecePlaceholder:"مثال: تنورة",
+    addonHint:"قطع إضافية يمكن أن تخرج مع هذه القطعة — تنورة، حزام، وشاح. عند الإيجار تختار ما تأخذه العميلة.",
+    includedPieces:"القطع المرفقة", piecesToCheck:"قطع يجب إرجاعها",
+    piecesBackHint:"أشّر على كل قطعة عند إرجاعها قبل إنهاء العملية.",
     registerTill:"الصندوق — اليوم",
     cautionTill:"صندوق التأمينات — أموال العملاء", rentalsReservations:"الإيجارات والحجوزات",
     cautionsTaken:"التأمينات المستلمة", cautionsReturned:"التأمينات المعادة", allTime:"منذ البداية",
@@ -2229,7 +2241,11 @@ function openProductModal(p){
       <div class="field"><label>${esc(t('category'))}</label><input id="f_cat" type="text" value="${esc(e.category||'')}" list="catList"><datalist id="catList"></datalist></div>
       <div class="field"><label>${esc(t('qty'))}</label><input id="f_qty" type="number" min="0" step="1" value="${e.qty!=null?e.qty:1}"><span class="hint">${esc(t('inStock'))}</span></div>
     </div>
-    <div class="field"><label>${esc(t('barcode'))}</label><input id="f_barcode" type="text" value="${esc(e.barcode||'')}" placeholder="auto"><span class="hint">${esc(t('optional'))}</span></div>`,
+    <div class="field"><label>${esc(t('barcode'))}</label><input id="f_barcode" type="text" value="${esc(e.barcode||'')}" placeholder="auto"><span class="hint">${esc(t('optional'))}</span></div>
+    <div class="field"><label>${esc(t('addonPieces'))}</label>
+      <div id="f_addons"></div>
+      <button type="button" class="btn secondary sm" id="f_addonAdd" style="margin-top:2px">${esc(t('addPiece'))}</button>
+      <span class="hint">${esc(t('addonHint'))}</span></div>`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
     <button class="btn" id="saveP">${esc(t('saveProduct'))}</button>`,{lg:true});
   (async()=>{ const all=await getProducts(); const cats=[...new Set(all.map(x=>x.category).filter(Boolean))]; const dl=document.getElementById('catList'); if(dl) dl.innerHTML=cats.map(c=>`<option value="${esc(c)}">`).join(''); })();
@@ -2246,6 +2262,20 @@ function openProductModal(p){
   document.getElementById('camInput').onchange=e2=>handleFile(e2.target);
   document.getElementById('galInput').onchange=e2=>handleFile(e2.target);
   rmBtn.onclick=()=>setPhoto('');
+  // Pieces that can go out with this item — a skirt under a caftan, a belt, a
+  // scarf. Kept as plain names; which ones a given customer takes is decided
+  // per rental, not here.
+  let addonList=(e.addons||[]).slice();
+  const addonsBox=document.getElementById('f_addons');
+  function renderAddons(){
+    addonsBox.innerHTML=addonList.map((a,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px">
+      <input type="text" data-addon="${i}" value="${esc(a)}" placeholder="${esc(t('piecePlaceholder'))}" style="flex:1">
+      <button class="qbtn rm" type="button" data-addon-rm="${i}" title="${esc(t('del'))}">${svg(IC.trash)}</button></div>`).join('');
+    addonsBox.querySelectorAll('[data-addon]').forEach(inp=>inp.oninput=()=>{ addonList[+inp.dataset.addon]=inp.value; });
+    addonsBox.querySelectorAll('[data-addon-rm]').forEach(b=>b.onclick=()=>{ addonList.splice(+b.dataset.addonRm,1); renderAddons(); });
+  }
+  document.getElementById('f_addonAdd').onclick=()=>{ addonList.push(''); renderAddons(); const last=addonsBox.querySelector(`[data-addon="${addonList.length-1}"]`); if(last) last.focus(); };
+  renderAddons();
   document.getElementById('saveP').onclick=async()=>{
     const name=document.getElementById('f_name').value.trim();
     if(!name){ toast(t('required'),'err'); return; }
@@ -2262,6 +2292,7 @@ function openProductModal(p){
       qty: Math.max(0,parseInt(document.getElementById('f_qty').value||0)),
       category: document.getElementById('f_cat').value.trim(),
       barcode: document.getElementById('f_barcode').value.trim(),
+      addons: addonList.map(x=>x.trim()).filter(Boolean),
       photo: photoData||'',
       createdAt: e.createdAt||now()
     };
@@ -3140,6 +3171,7 @@ async function openCalDayModal(dateStr){
   const rows=groups.map(group=>{
     const r=group[0];
     const names=group.map(x=>x.name).join(' + ');
+  const pieces=[...new Set(group.flatMap(x=>x.addons||[]))]; // what went out with it
     const isPickup=r.status==='reserved';
     const overdue=r.status==='active' && r.dueDate && daysLate(r.dueDate)>0;
     const statusBadge = isPickup? `<span class="badge brand">${esc(t('reserved'))}</span>`
@@ -3243,6 +3275,7 @@ async function activateReservation(r){
   if(!r || r.status!=='reserved') return;
   const group=(await rentalGroupOf(r)).filter(x=>x.status==='reserved'); // whole bundle
   const names=group.map(x=>x.name).join(' + ');
+  const pieces=[...new Set(group.flatMap(x=>x.addons||[]))]; // what went out with it
   const totalBal=group.reduce((a,it)=>a+Math.max(0,(it.price||0)+(it.lateFee||0)+(it.damageFee||0)-(it.paid||0)),0);
   const totalDeposit=group.reduce((a,it)=>a+(it.deposit||0),0);
   // Handing the item over: confirm, let the customer settle the balance now (not
@@ -3369,6 +3402,7 @@ async function cancelRental(r,onDone,whole){
   const totalPaid=group.reduce((a,it)=>a+(it.paid||0),0);
   const totalDeposit=group.reduce((a,it)=>a+((it.deposit||0)>0 && !it.depositRefunded?it.deposit:0),0);
   const names=group.map(x=>x.name).join(' + ');
+  const pieces=[...new Set(group.flatMap(x=>x.addons||[]))]; // what went out with it
   const doCancel=async(refundPaidAmt,refundDepositAmt)=>{
     let paidAssigned=0, depAssigned=0;
     for(let i=0;i<group.length;i++){ const it=group[i]; const isLast=i===group.length-1;
@@ -3443,6 +3477,7 @@ async function openExtendModal(r){
   if(!r) return;
   const group=(await rentalGroupOf(r)).filter(x=>x.status===r.status); // whole bundle
   const names=group.map(x=>x.name).join(' + ');
+  const pieces=[...new Set(group.flatMap(x=>x.addons||[]))]; // what went out with it
   // Flat-priced rentals: the per-extra-day charge is the item's day-equivalent
   // (its flat price spread over the days it was booked). Default = their sum.
   const perDayOf={};
@@ -3634,13 +3669,14 @@ function rowRental(group,custColorById){
     r.status==='reserved'? `<span class="badge brand">${esc(t('reserved'))}</span>` :
     overdue? `<span class="badge red"><span class="dot"></span>${esc(t('overdue'))}</span>` : `<span class="badge gold"><span class="dot"></span>${esc(t('rented'))}</span>`;
   const names=group.map(x=>x.name).join(' + ');
+  const pieces=[...new Set(group.flatMap(x=>x.addons||[]))]; // what went out with it
   const bundleBadge = isBundle? `<span class="badge gold" style="margin-inline-start:6px">${esc(t('bundle'))} · ${group.length}</span>` : '';
   const isPostponed=r.status==='reserved' && r.postponed;
   const dateCell = isPostponed? `<span class="badge warnb">${esc(t('postponed'))}</span>`
     : r.status==='reserved'&&r.startDate?fmtDate(Date.parse(r.startDate)):(r.dueDate?fmtDate(Date.parse(r.dueDate)):'—');
   const hlColor=r.highlight && TAG_COLORS[r.highlight];
   return `<tr${hlColor?` style="background:${hlColor}17"`:''}>
-    <td${hlColor?` style="border-inline-start:4px solid ${hlColor}"`:''}><b>${esc(names)}</b>${bundleBadge}</td>
+    <td${hlColor?` style="border-inline-start:4px solid ${hlColor}"`:''}><b>${esc(names)}</b>${bundleBadge}${pieces.length?`<div class="subtle" style="font-size:11px">+ ${esc(pieces.join(', '))}</div>`:''}</td>
     <td>${custDotHtml(custColorById&&custColorById[r.customerId])}${esc(r.customerName||'—')}</td>
     <td class="mono">${dateCell}</td>
     <td class="t-right mono">${money(price)}</td>
@@ -3772,6 +3808,10 @@ async function openRentalModal(presetPid){
           <input type="number" min="0" step="0.01" value="${l.deposit||''}" placeholder="${esc(t('depositOpt'))}" data-line-dep="${i}" style="width:92px" title="${esc(t('depositOpt'))}">
           <button class="qbtn rm" type="button" data-line-rm="${i}" title="${esc(t('del'))}">${svg(IC.trash)}</button>
         </div>
+        ${(l.allAddons&&l.allAddons.length)?`<div style="flex:1 1 100%;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+          <span class="subtle" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">${esc(t('includedPieces'))}</span>
+          ${l.allAddons.map(a=>`<label class="check" style="margin:0;font-size:12.5px"><input type="checkbox" data-line-ad="${i}" data-ad="${esc(a)}" ${l.addons.includes(a)?'checked':''}> ${esc(a)}</label>`).join('')}
+        </div>`:''}
       </div>`).join('');
     totalsLine();
     linesBox.querySelectorAll('[data-line-price]').forEach(inp=>inp.oninput=()=>{
@@ -3779,6 +3819,11 @@ async function openRentalModal(presetPid){
     });
     linesBox.querySelectorAll('[data-line-dep]').forEach(inp=>inp.oninput=()=>{
       lines[+inp.dataset.lineDep].deposit=Number(inp.value||0); totalsLine();
+    });
+    linesBox.querySelectorAll('[data-line-ad]').forEach(cb=>cb.onchange=()=>{
+      const i=+cb.dataset.lineAd, picked=new Set(lines[i].addons);
+      cb.checked? picked.add(cb.dataset.ad) : picked.delete(cb.dataset.ad);
+      lines[i].addons=lines[i].allAddons.filter(a=>picked.has(a)); // keep the item's own order
     });
     linesBox.querySelectorAll('[data-line-rm]').forEach(b=>b.onclick=()=>{ lines.splice(+b.dataset.lineRm,1); renderLines(); });
     lines.forEach(async(l,i)=>{
@@ -3791,7 +3836,8 @@ async function openRentalModal(presetPid){
     const p=products.find(x=>x.id===pid); if(!p) return;
     const rate=Number(p.rentRate||0);
     const label=(p.name+' '+[p.size,p.color].filter(Boolean).join(' ')).trim();
-    lines.push({productId:pid, name:label, rate, unit:'flat', price:defaultPrice(rate), deposit:0, touched:false});
+    const pieces=(p.addons||[]).slice();
+    lines.push({productId:pid, name:label, rate, unit:'flat', price:defaultPrice(rate), deposit:0, touched:false, allAddons:pieces, addons:pieces.slice()});
     renderLines();
   }
   // Type to find a dress by name / color / size / barcode; tap a result to add it.
@@ -3906,7 +3952,7 @@ async function openRentalModal(presetPid){
       const share = i===lines.length-1 ? Math.max(0,paidEntered-allocated) : Math.round(paidEntered*(l.price/(totalPrice||1)));
       allocated+=share;
       const rental={id:uid(),groupId,productId:l.productId,name:l.name,customerId:cid,customerName:cname,
-        startDate:start,dueDate:due,days,price:l.price,deposit:Number(l.deposit||0),
+        startDate:start,dueDate:due,days,price:l.price,deposit:Number(l.deposit||0),addons:(l.addons||[]).slice(),
         paid:share,lateFee:0,damageFee:0,status:isReserve?'reserved':'active',method:rMethod,createdAt:now(),userId:State.user.id,userName:State.user.name};
       await idbPut('rentals',rental);
       if(rental.paid>0) await idbPut('payments',{id:uid(),customerId:cid,refType:'rental',amount:rental.paid,method:rMethod,createdAt:now(),userId:State.user.id});
@@ -3942,7 +3988,7 @@ function buildGroupRentalAgreementHtml(rentals){
   const totalDamage=rentals.reduce((a,r)=>a+(r.damageFee||0),0);
   const bal=Math.max(0,totalPrice+totalLate+totalDamage-totalPaid);
   const itemRows=rentals.map(r=>`<div style="display:flex;justify-content:space-between;gap:6px;font-size:11px;padding:1px 0">
-      <span>${esc(r.name)}${r.dueDate!==first.dueDate?` <span style="color:#666">(${esc(t('dueDate'))} ${esc(r.dueDate||'—')})</span>`:''}</span>
+      <span>${esc(r.name)}${r.dueDate!==first.dueDate?` <span style="color:#666">(${esc(t('dueDate'))} ${esc(r.dueDate||'—')})</span>`:''}${(r.addons&&r.addons.length)?`<div style="font-size:9.5px;color:#444">+ ${esc(r.addons.join(', '))}</div>`:''}</span>
       <span style="flex-shrink:0">${money2(r.price)}</span>
     </div>`).join('');
   return `${receiptLogo()}<div style="text-align:center;font-weight:800;font-size:14px;margin-bottom:4px">${esc(State.storeName||t('app'))}</div>
@@ -3973,6 +4019,7 @@ function buildRentalAgreementHtml(r){
     <div style="text-align:center;font-weight:700;font-size:12px;margin-bottom:6px;text-transform:uppercase">${esc(t('rentAgreement'))}</div>
     <div style="font-size:11px;line-height:1.8;margin-bottom:6px">
       <div style="font-weight:600">${esc(t('item'))}: <span style="font-weight:700">${esc(r.name)}</span></div>
+      ${(r.addons&&r.addons.length)?`<div>${esc(t('includedPieces'))}: <span style="font-weight:600">${esc(r.addons.join(', '))}</span></div>`:''}
       <div>${esc(t('customer'))}: <span style="font-weight:600">${esc(r.customerName||'—')}</span></div>
       <div>${esc(t('startDate'))}: <span style="font-weight:600">${esc(r.startDate||'—')}</span></div>
       <div>${esc(t('dueDate'))}: <span style="font-weight:600">${esc(r.dueDate||'—')}</span></div>
@@ -3994,6 +4041,7 @@ async function openReturnModal(r){
   const group=(await rentalGroupOf(r)).filter(x=>x.status==='active');
   if(!group.length) return;
   const names=group.map(x=>x.name).join(' + ');
+  const pieces=[...new Set(group.flatMap(x=>x.addons||[]))]; // what went out with it
   const sug={}; let totalSuggested=0, maxDaysOver=0, totalBal=0, totalDeposit=0;
   for(const it of group){
     const dOver=daysLate(it.dueDate);
@@ -4003,9 +4051,16 @@ async function openReturnModal(r){
     totalBal+=Math.max(0,(it.price||0)-(it.paid||0)); totalDeposit+=(it.deposit||0);
   }
   const anyOver=maxDaysOver>0;
+  // Everything that went out with this booking, so nothing is forgotten at the
+  // counter — the caution usually rides on getting every piece back.
+  const piecesOut=[...new Set(group.flatMap(x=>x.addons||[]))];
   modal(t('returnItem'),
    `<p style="font-weight:700;font-size:16px;margin-bottom:2px">${esc(names)}</p>
     <p class="subtle" style="margin-bottom:14px">${esc(r.customerName||'')} · ${esc(t('dueDate'))}: ${r.dueDate?fmtDate(Date.parse(r.dueDate)):'—'}${anyOver?` · <span style="color:var(--danger)">${maxDaysOver}d ${esc(t('overdue'))}</span>`:''}</p>
+    ${piecesOut.length?`<div class="field" style="background:var(--gold-soft);padding:10px 12px;border-radius:9px">
+      <label style="font-weight:700">${esc(t('piecesToCheck'))}</label>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px">${piecesOut.map(a=>`<label class="check" style="margin:0"><input type="checkbox" class="rt_piece"> ${esc(a)}</label>`).join('')}</div>
+      <span class="hint">${esc(t('piecesBackHint'))}</span></div>`:''}
     <div class="field"><label class="check"><input type="checkbox" id="rt_late"> ${esc(t('applyLateFee'))}</label></div>
     <div class="field hidden" id="rt_lateBox">
       <label>${esc(t('lateFee'))}</label><input id="rt_lateAmt" type="number" min="0" step="0.01" value="0">
@@ -4574,6 +4629,7 @@ function rowRentalHist(group,custColorById){
     r.status==='reserved'? `<span class="badge brand">${esc(t('reserved'))}</span>` :
     overdue? `<span class="badge red"><span class="dot"></span>${esc(t('overdue'))}</span>` : `<span class="badge gold"><span class="dot"></span>${esc(t('rented'))}</span>`;
   const names=group.map(x=>x.name).join(' + ');
+  const pieces=[...new Set(group.flatMap(x=>x.addons||[]))]; // what went out with it
   return `<tr${r.status==='cancelled'?' style="opacity:.55"':''}>
     <td class="mono subtle">${fmtDate(r.createdAt)}</td>
     <td>${custDotHtml(custColorById&&custColorById[r.customerId])}${esc(r.customerName||'—')}</td>
