@@ -568,6 +568,8 @@ const I18N = {
     cautionToday:"Caution today", cautionTillTotal:"Should be in caution till",
     freeOnDate:"Free on a date", freeThatDay:"free on this date", bookedThatDay:"Booked on this date",
     noneFreeThatDay:"Nothing free on this date",
+    keepForLater:"Keep for later", draftRestored:"Unfinished rental brought back — carry on where you left off.",
+    startFresh:"Start fresh",
     attachments:"Attachments", addAttachment:"+ Attachment",
     attachmentsHint:"Skirts, belts, scarves… one shared list for the whole boutique. When renting, add any of them to what the customer takes.",
     noAttachments:"No attachments yet — add the pieces that can go out with a rental.",
@@ -774,6 +776,8 @@ const I18N = {
     cautionToday:"Caution aujourd'hui", cautionTillTotal:"Devrait être dans la caisse des cautions",
     freeOnDate:"Libres à une date", freeThatDay:"libres à cette date", bookedThatDay:"Réservés à cette date",
     noneFreeThatDay:"Rien de libre à cette date",
+    keepForLater:"Garder pour plus tard", draftRestored:"Location inachevée récupérée — reprenez où vous en étiez.",
+    startFresh:"Recommencer à zéro",
     attachments:"Pièces / accessoires", addAttachment:"+ Pièce",
     attachmentsHint:"Jupes, ceintures, foulards… une seule liste pour toute la boutique. À la location, ajoutez celles que la cliente emporte.",
     noAttachments:"Aucune pièce pour l'instant — ajoutez celles qui peuvent partir avec une location.",
@@ -979,6 +983,8 @@ const I18N = {
     cautionToday:"التأمين اليوم", cautionTillTotal:"يجب أن يكون في صندوق التأمينات",
     freeOnDate:"المتاح في تاريخ", freeThatDay:"متاح في هذا التاريخ", bookedThatDay:"محجوز في هذا التاريخ",
     noneFreeThatDay:"لا شيء متاح في هذا التاريخ",
+    keepForLater:"احتفظ به لاحقاً", draftRestored:"تمت استعادة إيجار غير مكتمل — تابع من حيث توقفت.",
+    startFresh:"البدء من جديد",
     attachments:"الملحقات", addAttachment:"+ ملحق",
     attachmentsHint:"تنانير، أحزمة، أوشحة… قائمة واحدة مشتركة للمتجر. عند الإيجار أضف ما تأخذه العميلة.",
     noAttachments:"لا ملحقات بعد — أضف القطع التي يمكن أن تخرج مع الإيجار.",
@@ -1243,9 +1249,18 @@ function toastUndo(msg,undoFn){
   el.querySelector('button').onclick=async()=>{ if(done)return; done=true; await undoFn(); el.remove(); toast(t('undone'),'ok'); };
   setTimeout(()=>{ if(done)return; el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); },6000);
 }
-function closeModal(){ document.getElementById('modalRoot').innerHTML=''; }
+/* One-shot hook fired when the open modal closes, however it closes (X,
+   overlay tap, cancel). The rental form uses it to keep a draft of half-done
+   work instead of losing it. Opening any new modal clears the hook, so it can
+   never fire against a different dialog's content. */
+let _onModalClose=null;
+function closeModal(){
+  document.getElementById('modalRoot').innerHTML='';
+  if(_onModalClose){ const f=_onModalClose; _onModalClose=null; f(); }
+}
 function modal(title,bodyHTML,footHTML,opts){
   opts=opts||{};
+  _onModalClose=null;
   document.getElementById('modalRoot').innerHTML=`
    <div class="overlay" id="ovl">
      <div class="modal ${opts.lg?'lg':''}" role="dialog" aria-modal="true">
@@ -3080,6 +3095,10 @@ function buildInvoiceHtml(sale,meta){
    RENTALS
 ============================================================ */
 let rentalTab='active', rentalView='list', calMonth=new Date().getMonth(), calYear=new Date().getFullYear(), depositSearch='', pickupDay='', dropoffDay='', rentalSearch='', availDay='', availSearch='';
+/* A half-finished rental kept aside — customer, dates, items, pieces, payment.
+   Written whenever the rental form closes with work in it; restored the next
+   time the form opens; cleared when a rental is actually created. */
+let rentalDraft=null;
 async function viewRentals(){
   const view=document.getElementById('view');
   if(!pickupDay) pickupDay=todayISO();
@@ -3866,7 +3885,12 @@ async function openRentalModal(presetPid){
   const custs=await getCustomers();
   const attachCatalog=((await idbGet('meta','app')).attachments)||[]; // shared pieces any line can take
   if(!products.length){ toast(t('rentableOnly'),'err'); }
+  const draft=rentalDraft; // restored below, once the form's controls exist
   modal(t('newRentalT'),
+   (draft?`<div style="display:flex;align-items:center;gap:8px;background:var(--gold-soft);padding:8px 12px;border-radius:9px;margin-bottom:12px">
+      <span style="font-size:12.5px;font-weight:600">${esc(t('draftRestored'))}</span>
+      <button type="button" class="btn ghost sm" id="r_draftDiscard" style="margin-inline-start:auto;color:var(--danger)">${esc(t('startFresh'))}</button>
+    </div>`:'')+
    `<div class="field"><label>${esc(t('customer'))} *</label>
      <div class="searchbar">${svg(IC.search,'ic')}<input id="r_custSearch" type="search" placeholder="${esc(t('searchClients'))}" autocomplete="off"></div>
      <div id="r_custResults" style="max-height:190px;overflow:auto;border:1px solid var(--line);border-radius:9px;margin-top:5px;display:none"></div>
@@ -3901,6 +3925,7 @@ async function openRentalModal(presetPid){
       </div>
     </div>`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
+    <button class="btn secondary" id="r_hold">${esc(t('keepForLater'))}</button>
     <button class="btn" id="r_go">${esc(t('rentOut'))}</button>`,{lg:true});
   const itemSearch=document.getElementById('r_itemSearch'), itemResults=document.getElementById('r_itemResults'), paidI=document.getElementById('r_paid');
   const startI=document.getElementById('r_start'), dueI=document.getElementById('r_due');
@@ -4087,11 +4112,44 @@ async function openRentalModal(presetPid){
       if(rental.deposit>0) await idbPut('payments',{id:uid(),customerId:cid,refType:'deposit',amount:rental.deposit,method:rMethod,createdAt:now(),userId:State.user.id});
       createdRentals.push(rental);
     }
+    _onModalClose=null; rentalDraft=null; // done for real — nothing to keep
     closeModal(); toast(isReserve?t('reserved'):t('rentalDone'),'ok');
     await logAct('logRental', createdRentals.map(r=>r.name).join(', ')+' · '+cname+(isReserve?' · '+t('reserved'):''));
     if(!isReserve) offerRentalPreview(createdRentals);
     viewRentals();
   };
+  /* ---- draft: keep half-done work when the form closes, bring it back ---- */
+  const snapshot=()=>({
+    lines:lines.map(l=>({...l, allAddons:(l.allAddons||[]).slice(), addons:(l.addons||[]).slice()})),
+    start:startI.value, due:dueI.value, reserve:reserveEl.checked,
+    paid:paidI.value, method:rMethod, custId:selCustId, custName:selCustName,
+    newName:document.getElementById('rc_name')?.value||'', newPhone:document.getElementById('rc_phone')?.value||''
+  });
+  const hasContent=()=>lines.length>0 || !!selCustId || Number(paidI.value||0)>0;
+  // Any way the form closes — X, overlay tap, cancel — work in progress is kept.
+  _onModalClose=()=>{ if(hasContent()) rentalDraft=snapshot(); };
+  document.getElementById('r_hold').onclick=()=>{ rentalDraft=snapshot(); _onModalClose=null; closeModal(); toast(t('keepForLater'),'ok'); };
+  const dd=document.getElementById('r_draftDiscard');
+  if(dd) dd.onclick=()=>{ rentalDraft=null; _onModalClose=null; closeModal(); openRentalModal(presetPid); };
+  if(draft){
+    lines=draft.lines.map(l=>({...l, allAddons:(l.allAddons||[]).slice(), addons:(l.addons||[]).slice()}));
+    startI.value=draft.start||todayISO(); dueI.value=draft.due||'';
+    syncReserveForDate(); if(!reserveEl.disabled) reserveEl.checked=!!draft.reserve;
+    paidI.value=draft.paid||0;
+    rMethod=draft.method||'cash';
+    document.querySelectorAll('#r_method button').forEach(b=>b.classList.toggle('on',b.dataset.m===rMethod));
+    if(draft.custId==='__new'){
+      selectCustomer('__new','',null);
+      document.getElementById('rc_name').value=draft.newName||'';
+      document.getElementById('rc_phone').value=draft.newPhone||'';
+    } else if(draft.custId){
+      const c=custs.find(x=>x.id===draft.custId);
+      if(c) selectCustomer(c.id,c.name,c.measurements||''); // deleted since? start unselected
+    }
+    // Came here from a "Rent out" shortcut on a specific item: add it on top of
+    // the draft rather than losing either.
+    if(presetPid && !lines.some(l=>l.productId===presetPid)) addLine(presetPid);
+  }
   renderLines();
 }
 /* All rental records created together in one multi-item transaction share a
