@@ -566,6 +566,8 @@ const I18N = {
     lowStockAlert:"Low stock alert", reorderNow:"items need reordering", depositsHeld:"Deposits Held", paymentHistory:"Payment history", added:"Added",
     cautionsHeld:"Cautions Held", cautionsHeldHint:"Cash in the till that belongs to customers — refundable when their item comes back, not store revenue.",
     cautionToday:"Caution today", cautionTillTotal:"Should be in caution till",
+    freeOnDate:"Free on a date", freeThatDay:"free on this date", bookedThatDay:"Booked on this date",
+    noneFreeThatDay:"Nothing free on this date",
     addonPieces:"Pieces that go with it", addPiece:"+ Add piece", piecePlaceholder:"e.g. Skirt",
     addonHint:"Extra pieces this item can go out with — a skirt, a belt, a scarf. When you rent it you tick which ones the customer takes.",
     includedPieces:"Pieces included", piecesToCheck:"Pieces to come back",
@@ -767,6 +769,8 @@ const I18N = {
     lowStockAlert:"Alerte stock bas", reorderNow:"articles à réapprovisionner", depositsHeld:"Cautions détenues", paymentHistory:"Historique des paiements", added:"Ajouté",
     cautionsHeld:"Cautions détenues", cautionsHeldHint:"Argent dans la caisse qui appartient aux clients — remboursable au retour de l'article, pas un revenu du magasin.",
     cautionToday:"Caution aujourd'hui", cautionTillTotal:"Devrait être dans la caisse des cautions",
+    freeOnDate:"Libres à une date", freeThatDay:"libres à cette date", bookedThatDay:"Réservés à cette date",
+    noneFreeThatDay:"Rien de libre à cette date",
     addonPieces:"Pièces qui vont avec", addPiece:"+ Ajouter une pièce", piecePlaceholder:"ex. Jupe",
     addonHint:"Pièces supplémentaires qui peuvent partir avec cet article — jupe, ceinture, foulard. À la location vous cochez celles que la cliente emporte.",
     includedPieces:"Pièces incluses", piecesToCheck:"Pièces à rendre",
@@ -967,6 +971,8 @@ const I18N = {
     lowStockAlert:"تنبيه نقص المخزون", reorderNow:"عناصر تحتاج إعادة الطلب", depositsHeld:"التأمينات المحتجزة", paymentHistory:"سجل الدفعات", added:"أُضيف",
     cautionsHeld:"التأمينات المحتجزة", cautionsHeldHint:"أموال في الصندوق تعود للعملاء — تُسترجع عند إرجاع القطعة، وليست إيراداً للمتجر.",
     cautionToday:"التأمين اليوم", cautionTillTotal:"يجب أن يكون في صندوق التأمينات",
+    freeOnDate:"المتاح في تاريخ", freeThatDay:"متاح في هذا التاريخ", bookedThatDay:"محجوز في هذا التاريخ",
+    noneFreeThatDay:"لا شيء متاح في هذا التاريخ",
     addonPieces:"القطع المرافقة", addPiece:"+ أضف قطعة", piecePlaceholder:"مثال: تنورة",
     addonHint:"قطع إضافية يمكن أن تخرج مع هذه القطعة — تنورة، حزام، وشاح. عند الإيجار تختار ما تأخذه العميلة.",
     includedPieces:"القطع المرفقة", piecesToCheck:"قطع يجب إرجاعها",
@@ -3030,11 +3036,12 @@ function buildInvoiceHtml(sale,meta){
 /* ============================================================
    RENTALS
 ============================================================ */
-let rentalTab='active', rentalView='list', calMonth=new Date().getMonth(), calYear=new Date().getFullYear(), depositSearch='', pickupDay='', dropoffDay='', rentalSearch='';
+let rentalTab='active', rentalView='list', calMonth=new Date().getMonth(), calYear=new Date().getFullYear(), depositSearch='', pickupDay='', dropoffDay='', rentalSearch='', availDay='', availSearch='';
 async function viewRentals(){
   const view=document.getElementById('view');
   if(!pickupDay) pickupDay=todayISO();
   if(!dropoffDay) dropoffDay=todayISO();
+  if(!availDay) availDay=todayISO();
   let rentals=(await idbAll('rentals')).sort((a,b)=>b.createdAt-a.createdAt);
   const filtTab = rentalTab==='all'? rentals
     : rentalTab==='pickups'? rentals.filter(r=>r.startDate===pickupDay && r.status!=='cancelled')
@@ -3054,6 +3061,7 @@ async function viewRentals(){
       <button data-tab="dropoffs" class="${rentalTab==='dropoffs'?'on':''}">${esc(t('dropoffsTab'))}</button>
       <button data-tab="active" class="${rentalTab==='active'?'on':''}">${esc(t('activeTab'))}</button>
       <button data-tab="reserved" class="${rentalTab==='reserved'?'on':''}">${esc(t('reserved'))}</button>
+      <button data-tab="avail" class="${rentalTab==='avail'?'on':''}">${esc(t('freeOnDate'))}</button>
       <button data-tab="returned" class="${rentalTab==='returned'?'on':''}">${esc(t('returnedTab'))}</button>
       <button data-tab="deposits" class="${rentalTab==='deposits'?'on':''}">${esc(t('depositsHeld'))}</button>
       <button data-tab="all" class="${rentalTab==='all'?'on':''}">${esc(t('allTab'))}</button>
@@ -3081,7 +3089,8 @@ async function viewRentals(){
         <button class="btn secondary sm" id="doToday" style="margin-inline-start:auto">${esc(t('today'))}</button>
       </div>`;
     }
-    if(rentalTab==='deposits'){ body=tabs+await buildDepositsRegister(rentals); }
+    if(rentalTab==='avail'){ body=tabs+await buildAvailabilityFinder(rentals); }
+    else if(rentalTab==='deposits'){ body=tabs+await buildDepositsRegister(rentals); }
     else{
       // Collapse bundle siblings that share the same status into a single row:
       // a bundle rented/reserved together shows as one line ("A + B"), while an
@@ -3144,6 +3153,13 @@ async function viewRentals(){
   document.getElementById('pkPrev')&&(document.getElementById('pkPrev').onclick=()=>shiftPickup(-1));
   document.getElementById('pkNext')&&(document.getElementById('pkNext').onclick=()=>shiftPickup(1));
   document.getElementById('pkToday')&&(document.getElementById('pkToday').onclick=()=>{ pickupDay=todayISO(); viewRentals(); });
+  const shiftAvail=delta=>{ const d=new Date(availDay+'T00:00:00'); d.setDate(d.getDate()+delta); availDay=localISO(d); viewRentals(); };
+  document.getElementById('avPrev')&&(document.getElementById('avPrev').onclick=()=>shiftAvail(-1));
+  document.getElementById('avNext')&&(document.getElementById('avNext').onclick=()=>shiftAvail(1));
+  document.getElementById('avToday')&&(document.getElementById('avToday').onclick=()=>{ availDay=todayISO(); viewRentals(); });
+  const avD=document.getElementById('avDate'); if(avD){ avD.onchange=()=>{ if(avD.value) availDay=avD.value; viewRentals(); }; }
+  const avS=document.getElementById('avSearch'); if(avS){ avS.oninput=()=>{ availSearch=avS.value; const pos=avS.selectionStart; viewRentals().then(()=>{ const n=document.getElementById('avSearch'); if(n){n.focus(); n.setSelectionRange(pos,pos);} }); }; }
+  view.querySelectorAll('[data-rentnow]').forEach(b=>b.onclick=()=>openRentalModal(b.dataset.rentnow));
   const shiftDropoff=delta=>{ const d=new Date(dropoffDay+'T00:00:00'); d.setDate(d.getDate()+delta); dropoffDay=localISO(d); viewRentals(); };
   document.getElementById('doPrev')&&(document.getElementById('doPrev').onclick=()=>shiftDropoff(-1));
   document.getElementById('doNext')&&(document.getElementById('doNext').onclick=()=>shiftDropoff(1));
@@ -3193,6 +3209,60 @@ async function openCalDayModal(dateStr){
 /* Deposits register — every active rental where a deposit is being held.
    Shows who, which item, when they took it, when it's due, and how much
    the store is holding (and owes back). Searchable by customer or item. */
+/* "Which dresses are free on that date?" — the question a phone enquiry asks.
+   Pick a day; every rent-able item is split into free vs booked for it, using
+   the same handoff convention as the rental modal: a booking occupies its
+   start day and frees on its due day (same-day turnaround), and an overdue
+   active rental is still out until it actually comes back. */
+async function buildAvailabilityFinder(rentals){
+  const D=Date.parse(availDay), DAY=86400000, today=Date.parse(todayISO());
+  const items=(await getProducts()).filter(p=>p.mode==='rent'||p.mode==='both');
+  const open=rentals.filter(x=>(x.status==='active'||x.status==='reserved'));
+  const byProduct={};
+  open.forEach(x=>{
+    let xs=Date.parse(x.startDate)||x.createdAt, xd=Date.parse(x.dueDate)||xs+DAY;
+    // Overdue and not back yet: the due date has passed without the dress
+    // coming home, so it's still out through today (presumed back tomorrow).
+    // Due exactly today keeps the normal same-day turnaround.
+    if(x.status==='active' && xd<today) xd=today+DAY;
+    (byProduct[x.productId]=byProduct[x.productId]||[]).push({...x,xs,xd});
+  });
+  const q=availSearch.trim().toLowerCase();
+  const rows=items
+    .filter(p=>!q || [p.name,p.color,p.size,p.category,p.barcode].some(v=>String(v||'').toLowerCase().includes(q)))
+    .map(p=>{
+      const bookings=(byProduct[p.id]||[]);
+      const totalUnits=(p.qty||0)+bookings.filter(b=>b.status==='active').length;
+      const clashes=bookings.filter(b=>b.xs<=D && D<b.xd);
+      return {p,totalUnits,clashes,free:Math.max(0,totalUnits-clashes.length)};
+    });
+  const freeRows=rows.filter(r=>r.free>0), busyRows=rows.filter(r=>r.free<=0);
+  const label=fmtDate(D)+(availDay===todayISO()?' · '+t('today'):'');
+  const meta=p=>[p.size,p.color,p.category].filter(Boolean).map(esc).join(' · ');
+  return `<div class="card pad" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <button class="btn ghost sm" id="avPrev" title="${esc(t('back'))}">${svg(IC.back,'ic')}</button>
+      <div style="text-align:center;min-width:150px"><b>${esc(label)}</b><div class="subtle" style="font-size:12px">${freeRows.length} / ${rows.length} ${esc(t('freeThatDay'))}</div></div>
+      <button class="btn ghost sm" id="avNext" style="transform:scaleX(-1)">${svg(IC.back,'ic')}</button>
+      <input type="date" id="avDate" value="${esc(availDay)}" style="margin-inline-start:auto;max-width:170px">
+      <button class="btn secondary sm" id="avToday">${esc(t('today'))}</button>
+    </div>
+    <div class="searchbar" style="margin-bottom:12px">${svg(IC.search,'ic')}<input id="avSearch" type="search" placeholder="${esc(t('searchProducts'))}" value="${esc(availSearch)}"></div>
+    ${freeRows.length? `<div class="tablewrap"><table><thead><tr>
+       <th>${esc(t('item'))}</th><th class="t-right">${esc(t('rentRate'))}</th><th>${esc(t('availability'))}</th><th class="t-right">${esc(t('actions'))}</th>
+     </tr></thead><tbody>${freeRows.map(({p,free,totalUnits})=>`<tr>
+       <td><b>${esc(p.name)}</b>${meta(p)?`<div class="subtle" style="font-size:11.5px">${meta(p)}</div>`:''}</td>
+       <td class="t-right mono">${p.rentRate?money(p.rentRate):'—'}</td>
+       <td><span class="badge green">${esc(t('available'))}${totalUnits>1?` · ${free}/${totalUnits}`:''}</span></td>
+       <td class="t-right"><button class="btn secondary sm" data-rentnow="${p.id}">${svg(IC.rent,'ic')}${esc(t('rentOut'))}</button></td>
+     </tr>`).join('')}</tbody></table></div>`
+     : emptyState(IC.rent,t('noneFreeThatDay'),'')}
+    ${busyRows.length? `<div class="subtle" style="font-size:11px;font-weight:700;margin:16px 0 4px;text-transform:uppercase;letter-spacing:.05em">${esc(t('bookedThatDay'))} · ${busyRows.length}</div>
+     <div class="tablewrap"><table><tbody>${busyRows.map(({p,clashes,totalUnits})=>`<tr style="opacity:.65">
+       <td>${esc(p.name)}${meta(p)?`<div class="subtle" style="font-size:11.5px">${meta(p)}</div>`:''}</td>
+       <td>${totalUnits<=0?`<span class="badge grey">${esc(t('outOfStock'))}</span>`:`<span class="badge red">${esc(t('availability'))}: 0/${totalUnits}</span>`}</td>
+       <td class="subtle" style="font-size:11.5px">${clashes.slice(0,2).map(b=>`${esc(b.customerName||'—')} · ${fmtDate(b.xs)} → ${fmtDate(b.xd)}${b.status==='reserved'?' · '+esc(t('reserved')):''}`).join('<br>')}${clashes.length>2?'<br>…':''}</td>
+     </tr>`).join('')}</tbody></table></div>`:''}`;
+}
 async function buildDepositsRegister(rentals){
   const custs=await getCustomers();
   const phoneOf={}, colorOf={}; custs.forEach(c=>{ phoneOf[c.id]=c.phone||''; if(c.badgeColor) colorOf[c.id]=c.badgeColor; });
@@ -3712,7 +3782,10 @@ async function computeAvailability(pid,startVal,dueVal,excludeId){
     .filter(x=>x.productId===pid && x.id!==excludeId && (x.status==='active'||x.status==='reserved'))
     .map(x=>{
       let xs=Date.parse(x.startDate)||x.createdAt, xd=Date.parse(x.dueDate)||xs+DAY;
-      if(x.status==='active' && xd<today) xd=today; // overdue: the unit is still out
+      // Overdue: still out through today (the due date only frees a unit when it
+      // actually came back), presumed home by tomorrow. Due exactly today keeps
+      // the normal same-day turnaround.
+      if(x.status==='active' && xd<today) xd=today+DAY;
       return {...x,xs,xd};
     }).sort((a,b)=>a.xs-b.xs);
   const activeCount=bookings.filter(b=>b.status==='active').length;
