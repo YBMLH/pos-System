@@ -568,6 +568,9 @@ const I18N = {
     cautionToday:"Caution today", cautionTillTotal:"Should be in caution till",
     freeOnDate:"Free on a date", freeThatDay:"free on this date", bookedThatDay:"Booked on this date",
     noneFreeThatDay:"Nothing free on this date",
+    attachments:"Attachments", addAttachment:"+ Attachment",
+    attachmentsHint:"Skirts, belts, scarves… one shared list for the whole boutique. When renting, add any of them to what the customer takes.",
+    noAttachments:"No attachments yet — add the pieces that can go out with a rental.",
     addonPieces:"Pieces that go with it", addPiece:"+ Add piece", piecePlaceholder:"e.g. Skirt",
     addonHint:"Extra pieces this item can go out with — a skirt, a belt, a scarf. When you rent it you tick which ones the customer takes.",
     includedPieces:"Pieces included", piecesToCheck:"Pieces to come back",
@@ -771,6 +774,9 @@ const I18N = {
     cautionToday:"Caution aujourd'hui", cautionTillTotal:"Devrait être dans la caisse des cautions",
     freeOnDate:"Libres à une date", freeThatDay:"libres à cette date", bookedThatDay:"Réservés à cette date",
     noneFreeThatDay:"Rien de libre à cette date",
+    attachments:"Pièces / accessoires", addAttachment:"+ Pièce",
+    attachmentsHint:"Jupes, ceintures, foulards… une seule liste pour toute la boutique. À la location, ajoutez celles que la cliente emporte.",
+    noAttachments:"Aucune pièce pour l'instant — ajoutez celles qui peuvent partir avec une location.",
     addonPieces:"Pièces qui vont avec", addPiece:"+ Ajouter une pièce", piecePlaceholder:"ex. Jupe",
     addonHint:"Pièces supplémentaires qui peuvent partir avec cet article — jupe, ceinture, foulard. À la location vous cochez celles que la cliente emporte.",
     includedPieces:"Pièces incluses", piecesToCheck:"Pièces à rendre",
@@ -973,6 +979,9 @@ const I18N = {
     cautionToday:"التأمين اليوم", cautionTillTotal:"يجب أن يكون في صندوق التأمينات",
     freeOnDate:"المتاح في تاريخ", freeThatDay:"متاح في هذا التاريخ", bookedThatDay:"محجوز في هذا التاريخ",
     noneFreeThatDay:"لا شيء متاح في هذا التاريخ",
+    attachments:"الملحقات", addAttachment:"+ ملحق",
+    attachmentsHint:"تنانير، أحزمة، أوشحة… قائمة واحدة مشتركة للمتجر. عند الإيجار أضف ما تأخذه العميلة.",
+    noAttachments:"لا ملحقات بعد — أضف القطع التي يمكن أن تخرج مع الإيجار.",
     addonPieces:"القطع المرافقة", addPiece:"+ أضف قطعة", piecePlaceholder:"مثال: تنورة",
     addonHint:"قطع إضافية يمكن أن تخرج مع هذه القطعة — تنورة، حزام، وشاح. عند الإيجار تختار ما تأخذه العميلة.",
     includedPieces:"القطع المرفقة", piecesToCheck:"قطع يجب إرجاعها",
@@ -2049,6 +2058,7 @@ async function viewStock(){
   const lowCount=products.filter(p=>p.mode!=='rent' && (p.qty||0)<=(p.lowStock??0)).length;
   view.innerHTML=pageHead(t('stock'),t('products'),
     `${lowCount?`<button class="btn secondary" id="reorderBtn">${svg(IC.box,'ic')}${esc(t('reorderList'))} (${lowCount})</button>`:''}
+     <button class="btn secondary" id="attachBtn">${svg(IC.box,'ic')}${esc(t('attachments'))}</button>
      <button class="btn" id="addP">${svg(IC.plus,'ic')}${esc(t('addNew'))}</button>`)+
     `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
       <div class="searchbar" style="flex:1;min-width:200px">${svg(IC.search,'ic')}<input id="pSearch" type="search" placeholder="${esc(t('searchProducts'))}" value="${esc(stockSearch)}"></div>
@@ -2069,6 +2079,7 @@ async function viewStock(){
   const cf=document.getElementById('catFilter'); if(cf){ cf.onchange=()=>{ stockCat=cf.value; viewStock(); }; }
   document.getElementById('addP')&&(document.getElementById('addP').onclick=()=>openProductModal());
   document.getElementById('reorderBtn')&&(document.getElementById('reorderBtn').onclick=()=>openReorderModal(products));
+  document.getElementById('attachBtn')&&(document.getElementById('attachBtn').onclick=()=>openAttachmentsModal());
   document.getElementById('addP2')&&(document.getElementById('addP2').onclick=()=>openProductModal());
   view.querySelectorAll('[data-edit]').forEach(b=>b.onclick=async()=>openProductModal(await idbGet('products',b.dataset.edit)));
   view.querySelectorAll('[data-dup]').forEach(b=>b.onclick=async()=>{
@@ -2208,6 +2219,37 @@ function rowProduct(p,rentCount){
     </td>
   </tr>`;
 }
+/* The boutique's shared attachment catalog — skirts, belts, scarves that can
+   go out with any rental. One list for the whole shop, kept on the meta
+   record; rentals store the chosen names, so renaming or deleting an entry
+   here never touches bookings already made. */
+async function openAttachmentsModal(){
+  const meta=await idbGet('meta','app');
+  let list=(meta.attachments||[]).slice();
+  modal(t('attachments'),
+   `<p class="subtle" style="margin-bottom:10px;font-size:12.5px">${esc(t('attachmentsHint'))}</p>
+    <div id="at_list"></div>
+    <button type="button" class="btn secondary sm" id="at_add" style="margin-top:2px">${esc(t('addAttachment'))}</button>`,
+   `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
+    <button class="btn" id="at_save">${esc(t('save'))}</button>`);
+  const box=document.getElementById('at_list');
+  function render(){
+    box.innerHTML=list.length? list.map((a,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px">
+      <input type="text" data-at="${i}" value="${esc(a)}" placeholder="${esc(t('piecePlaceholder'))}" style="flex:1">
+      <button class="qbtn rm" type="button" data-at-rm="${i}" title="${esc(t('del'))}">${svg(IC.trash)}</button></div>`).join('')
+      : `<p class="subtle" style="padding:8px 0;font-size:12.5px">${esc(t('noAttachments'))}</p>`;
+    box.querySelectorAll('[data-at]').forEach(inp=>inp.oninput=()=>{ list[+inp.dataset.at]=inp.value; });
+    box.querySelectorAll('[data-at-rm]').forEach(b=>b.onclick=()=>{ list.splice(+b.dataset.atRm,1); render(); });
+  }
+  document.getElementById('at_add').onclick=()=>{ list.push(''); render(); const last=box.querySelector(`[data-at="${list.length-1}"]`); if(last) last.focus(); };
+  document.getElementById('at_save').onclick=async()=>{
+    const m=await idbGet('meta','app');
+    m.attachments=[...new Set(list.map(x=>x.trim()).filter(Boolean))];
+    await idbPut('meta',m);
+    closeModal(); toast(t('saved'),'ok');
+  };
+  render();
+}
 function openProductModal(p){
   const e=p||{}; const mode=e.mode||'sale';
   modal((p&&p.id)?t('editProduct'):t('addNew'),
@@ -2249,12 +2291,13 @@ function openProductModal(p){
     </div>
     <div class="field"><label>${esc(t('barcode'))}</label><input id="f_barcode" type="text" value="${esc(e.barcode||'')}" placeholder="auto"><span class="hint">${esc(t('optional'))}</span></div>
     <div class="field"><label>${esc(t('addonPieces'))}</label>
-      <div id="f_addons"></div>
+      <div id="f_addons"></div><datalist id="attachDL"></datalist>
       <button type="button" class="btn secondary sm" id="f_addonAdd" style="margin-top:2px">${esc(t('addPiece'))}</button>
       <span class="hint">${esc(t('addonHint'))}</span></div>`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
     <button class="btn" id="saveP">${esc(t('saveProduct'))}</button>`,{lg:true});
-  (async()=>{ const all=await getProducts(); const cats=[...new Set(all.map(x=>x.category).filter(Boolean))]; const dl=document.getElementById('catList'); if(dl) dl.innerHTML=cats.map(c=>`<option value="${esc(c)}">`).join(''); })();
+  (async()=>{ const all=await getProducts(); const cats=[...new Set(all.map(x=>x.category).filter(Boolean))]; const dl=document.getElementById('catList'); if(dl) dl.innerHTML=cats.map(c=>`<option value="${esc(c)}">`).join('');
+    const at=((await idbGet('meta','app')).attachments)||[]; const adl=document.getElementById('attachDL'); if(adl) adl.innerHTML=at.map(a=>`<option value="${esc(a)}">`).join(''); })();
   let m=mode;
   function syncMode(){ document.getElementById('saleFields').style.display=(m==='rent')?'none':'grid'; document.getElementById('rentFields').style.display=(m==='sale')?'none':'grid'; }
   document.querySelectorAll('#f_mode button').forEach(b=>b.onclick=()=>{ m=b.dataset.m; document.querySelectorAll('#f_mode button').forEach(x=>x.classList.toggle('on',x===b)); syncMode(); });
@@ -2275,7 +2318,7 @@ function openProductModal(p){
   const addonsBox=document.getElementById('f_addons');
   function renderAddons(){
     addonsBox.innerHTML=addonList.map((a,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px">
-      <input type="text" data-addon="${i}" value="${esc(a)}" placeholder="${esc(t('piecePlaceholder'))}" style="flex:1">
+      <input type="text" data-addon="${i}" value="${esc(a)}" placeholder="${esc(t('piecePlaceholder'))}" list="attachDL" style="flex:1">
       <button class="qbtn rm" type="button" data-addon-rm="${i}" title="${esc(t('del'))}">${svg(IC.trash)}</button></div>`).join('');
     addonsBox.querySelectorAll('[data-addon]').forEach(inp=>inp.oninput=()=>{ addonList[+inp.dataset.addon]=inp.value; });
     addonsBox.querySelectorAll('[data-addon-rm]').forEach(b=>b.onclick=()=>{ addonList.splice(+b.dataset.addonRm,1); renderAddons(); });
@@ -3821,6 +3864,7 @@ async function openRentalModal(presetPid){
   const outOnRental=new Set((await idbAll('rentals')).filter(r=>r.status==='active').map(r=>r.productId));
   const products=(await getProducts()).filter(p=>(p.mode==='rent'||p.mode==='both') && ((p.qty||0)>0 || outOnRental.has(p.id)));
   const custs=await getCustomers();
+  const attachCatalog=((await idbGet('meta','app')).attachments)||[]; // shared pieces any line can take
   if(!products.length){ toast(t('rentableOnly'),'err'); }
   modal(t('newRentalT'),
    `<div class="field"><label>${esc(t('customer'))} *</label>
@@ -3881,9 +3925,13 @@ async function openRentalModal(presetPid){
           <input type="number" min="0" step="0.01" value="${l.deposit||''}" placeholder="${esc(t('depositOpt'))}" data-line-dep="${i}" style="width:92px" title="${esc(t('depositOpt'))}">
           <button class="qbtn rm" type="button" data-line-rm="${i}" title="${esc(t('del'))}">${svg(IC.trash)}</button>
         </div>
-        ${(l.allAddons&&l.allAddons.length)?`<div style="flex:1 1 100%;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        ${(l.allAddons.length||attachCatalog.some(a=>!l.allAddons.includes(a)))?`<div style="flex:1 1 100%;margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);display:flex;gap:12px;flex-wrap:wrap;align-items:center">
           <span class="subtle" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">${esc(t('includedPieces'))}</span>
           ${l.allAddons.map(a=>`<label class="check" style="margin:0;font-size:12.5px"><input type="checkbox" data-line-ad="${i}" data-ad="${esc(a)}" ${l.addons.includes(a)?'checked':''}> ${esc(a)}</label>`).join('')}
+          ${attachCatalog.some(a=>!l.allAddons.includes(a))?`<select data-line-adsel="${i}" style="font-size:12px;max-width:170px;padding:4px 8px">
+            <option value="">${esc(t('addAttachment'))}</option>
+            ${attachCatalog.filter(a=>!l.allAddons.includes(a)).map(a=>`<option value="${esc(a)}">${esc(a)}</option>`).join('')}
+          </select>`:''}
         </div>`:''}
       </div>`).join('');
     totalsLine();
@@ -3897,6 +3945,13 @@ async function openRentalModal(presetPid){
       const i=+cb.dataset.lineAd, picked=new Set(lines[i].addons);
       cb.checked? picked.add(cb.dataset.ad) : picked.delete(cb.dataset.ad);
       lines[i].addons=lines[i].allAddons.filter(a=>picked.has(a)); // keep the item's own order
+    });
+    // Attach a catalog piece to this line: it appears as a ticked checkbox and
+    // can be unticked like any other if the customer changes her mind.
+    linesBox.querySelectorAll('[data-line-adsel]').forEach(sel=>sel.onchange=()=>{
+      const i=+sel.dataset.lineAdsel, v=sel.value; if(!v) return;
+      if(!lines[i].allAddons.includes(v)){ lines[i].allAddons.push(v); lines[i].addons.push(v); }
+      renderLines();
     });
     linesBox.querySelectorAll('[data-line-rm]').forEach(b=>b.onclick=()=>{ lines.splice(+b.dataset.lineRm,1); renderLines(); });
     lines.forEach(async(l,i)=>{
