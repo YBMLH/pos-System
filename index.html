@@ -568,6 +568,22 @@ const I18N = {
     cautionToday:"Caution today", cautionTillTotal:"Should be in caution till",
     freeOnDate:"Free on a date", freeThatDay:"free on this date", bookedThatDay:"Booked on this date",
     noneFreeThatDay:"Nothing free on this date",
+    cautionsNav:"Cautions", cautionLedger:"Every caution movement", cautionByBooking:"By booking",
+    cautionMovements:"Movements", takenIn:"Taken in", givenBack:"Given back", keptByStore:"Kept by store",
+    whoDidIt:"Staff", whatFor:"For", reasonCol:"When",
+    atBooking:"At booking", atPickup:"At pickup", atReturn:"At return", atCancel:"At cancellation",
+    atUndo:"Undone", manualAdj:"Adjusted by hand",
+    redFlags:"Worth checking", noRedFlags:"Nothing looks out of place.",
+    flagUnsettled:"Finished without the caution being given back or kept",
+    flagOverRefund:"More was given back than was ever taken",
+    flagOrphan:"Caution movement with no booking attached",
+    flagKept:"Caution kept by the store",
+    flagSameDay:"Taken and given back the same day",
+    editCaution:"Edit caution movement", deleteCaution:"Delete this movement",
+    editReason:"Why are you changing this?", editReasonHint:"Recorded against your name in the activity log",
+    logCautionEdit:"Caution edited", logCautionDel:"Caution movement deleted",
+    cautionBalance:"Still held", allStaff:"All staff", noCautions:"No caution movements yet",
+    cautionsNavHint:"Where every caution came from, who handled it, and what is unaccounted for.",
     keepForLater:"Keep for later", draftRestored:"Unfinished rental brought back — carry on where you left off.",
     startFresh:"Start fresh",
     attachments:"Attachments", addAttachment:"+ Attachment",
@@ -776,6 +792,22 @@ const I18N = {
     cautionToday:"Caution aujourd'hui", cautionTillTotal:"Devrait être dans la caisse des cautions",
     freeOnDate:"Libres à une date", freeThatDay:"libres à cette date", bookedThatDay:"Réservés à cette date",
     noneFreeThatDay:"Rien de libre à cette date",
+    cautionsNav:"Cautions", cautionLedger:"Tous les mouvements de caution", cautionByBooking:"Par location",
+    cautionMovements:"Mouvements", takenIn:"Encaissée", givenBack:"Rendue", keptByStore:"Retenue par le magasin",
+    whoDidIt:"Employé", whatFor:"Pour", reasonCol:"Quand",
+    atBooking:"À la réservation", atPickup:"Au retrait", atReturn:"Au retour", atCancel:"À l'annulation",
+    atUndo:"Annulé", manualAdj:"Modifié à la main",
+    redFlags:"À vérifier", noRedFlags:"Rien d'anormal.",
+    flagUnsettled:"Terminée sans que la caution soit rendue ni retenue",
+    flagOverRefund:"Plus rendu qu'il n'a jamais été encaissé",
+    flagOrphan:"Mouvement de caution sans location rattachée",
+    flagKept:"Caution retenue par le magasin",
+    flagSameDay:"Encaissée et rendue le même jour",
+    editCaution:"Modifier le mouvement", deleteCaution:"Supprimer ce mouvement",
+    editReason:"Pourquoi cette modification ?", editReasonHint:"Enregistré à votre nom dans le journal",
+    logCautionEdit:"Caution modifiée", logCautionDel:"Mouvement de caution supprimé",
+    cautionBalance:"Encore détenue", allStaff:"Tout le personnel", noCautions:"Aucun mouvement de caution",
+    cautionsNavHint:"D'où vient chaque caution, qui l'a gérée, et ce qui reste inexpliqué.",
     keepForLater:"Garder pour plus tard", draftRestored:"Location inachevée récupérée — reprenez où vous en étiez.",
     startFresh:"Recommencer à zéro",
     attachments:"Pièces / accessoires", addAttachment:"+ Pièce",
@@ -983,6 +1015,22 @@ const I18N = {
     cautionToday:"التأمين اليوم", cautionTillTotal:"يجب أن يكون في صندوق التأمينات",
     freeOnDate:"المتاح في تاريخ", freeThatDay:"متاح في هذا التاريخ", bookedThatDay:"محجوز في هذا التاريخ",
     noneFreeThatDay:"لا شيء متاح في هذا التاريخ",
+    cautionsNav:"التأمينات", cautionLedger:"كل حركات التأمين", cautionByBooking:"حسب الحجز",
+    cautionMovements:"الحركات", takenIn:"مستلمة", givenBack:"معادة", keptByStore:"محتجزة للمتجر",
+    whoDidIt:"الموظف", whatFor:"لأجل", reasonCol:"متى",
+    atBooking:"عند الحجز", atPickup:"عند الاستلام", atReturn:"عند الإرجاع", atCancel:"عند الإلغاء",
+    atUndo:"تم التراجع", manualAdj:"عُدّل يدوياً",
+    redFlags:"يستحق المراجعة", noRedFlags:"لا شيء غير طبيعي.",
+    flagUnsettled:"انتهى دون إعادة التأمين أو احتجازه",
+    flagOverRefund:"أُعيد أكثر مما استُلم أصلاً",
+    flagOrphan:"حركة تأمين بلا حجز مرتبط",
+    flagKept:"تأمين احتجزه المتجر",
+    flagSameDay:"استُلم وأُعيد في نفس اليوم",
+    editCaution:"تعديل حركة التأمين", deleteCaution:"حذف هذه الحركة",
+    editReason:"لماذا هذا التعديل؟", editReasonHint:"يُسجَّل باسمك في سجل النشاط",
+    logCautionEdit:"تعديل تأمين", logCautionDel:"حذف حركة تأمين",
+    cautionBalance:"ما زال محتجزاً", allStaff:"كل الموظفين", noCautions:"لا توجد حركات تأمين",
+    cautionsNavHint:"من أين جاء كل تأمين، ومن تعامل معه، وما غير المبرَّر.",
     keepForLater:"احتفظ به لاحقاً", draftRestored:"تمت استعادة إيجار غير مكتمل — تابع من حيث توقفت.",
     startFresh:"البدء من جديد",
     attachments:"الملحقات", addAttachment:"+ ملحق",
@@ -1297,6 +1345,15 @@ function confirmDupCustomer(existing){
 }
 
 /* ---------------- Activity log + authorization ---------------- */
+/* Every caution movement carries who did it, which booking it was for and why,
+   so the Cautions ledger can answer "when, by whom, for what" without guessing
+   from timestamps. Older entries predate this and simply show what they have. */
+function cautionEntry(r,refType,amount,method,reason){
+  return {id:uid(), customerId:r.customerId||null, customerName:r.customerName||'',
+    refType, amount, method:method||r.method||'cash',
+    refId:r.id||null, itemName:r.name||'', reason:reason||'',
+    createdAt:now(), userId:State.user&&State.user.id, userName:State.user?State.user.name:''};
+}
 async function logAct(action,detail,productId){
   try{ await idbPut('activity',{id:uid(),ts:now(),userId:State.user&&State.user.id,userName:State.user?State.user.name:'',role:State.user?State.user.role:'',action,detail:detail||'',productId:productId||''}); }catch(e){}
 }
@@ -1489,7 +1546,7 @@ function navItems(){
     {g:'records'},
     {k:'sales',ic:IC.print,label:'salesHistory'},
   ];
-  if(isOwner()){ items.push({k:'reports',ic:IC.chart,label:'reports'},{k:'activity',ic:IC.activity,label:'activity'},{k:'staff',ic:IC.users,label:'staff'}); }
+  if(isOwner()){ items.push({k:'cautions',ic:IC.money,label:'cautionsNav'},{k:'reports',ic:IC.chart,label:'reports'},{k:'activity',ic:IC.activity,label:'activity'},{k:'staff',ic:IC.users,label:'staff'}); }
   items.push({k:'settings',ic:IC.gear,label:'settings'});
   return items;
 }
@@ -1552,10 +1609,199 @@ function routeView(){
   else if(r==='ledger') viewLedger();
   else if(r==='customers') viewCustomers();
   else if(r==='sales') viewSales();
+  else if(r==='cautions') viewCautions();
   else if(r==='reports') viewReports();
   else if(r==='activity') viewActivity();
   else if(r==='staff') viewStaff();
   else if(r==='settings') viewSettings();
+}
+/* ============================================================
+   CAUTIONS — the audit trail for customers' money
+   Owner-only. Answers: what came in, from whom, handled by which member
+   of staff, against which booking — and what doesn't add up.
+============================================================ */
+let cautionTab='moves', cautionPeriod='month', cautionStaff='', cautionSearch='';
+function cautionReasonLabel(x){
+  if(x.reason && I18N.en[x.reason]) return t(x.reason);
+  return x.editedAt? t('manualAdj') : '—';
+}
+async function viewCautions(){
+  const view=document.getElementById('view');
+  if(!isOwner()){ view.innerHTML=pageHead(t('cautionsNav'))+emptyState(IC.money,t('ownerOnly'),t('ownerOnlyMsg')); return; }
+  const [payments,rentals,users,T]=await Promise.all([idbAll('payments'),idbAll('rentals'),idbAll('users'),tillTotals()]);
+  const moves=payments.filter(p=>p.refType==='deposit'||p.refType==='depositRefund').sort((a,b)=>b.createdAt-a.createdAt);
+  const rentalById=Object.fromEntries(rentals.map(r=>[r.id,r]));
+  const nameOfUser=id=>{ const u=users.find(x=>x.id===id); return u?u.name:''; };
+  const staffOf=x=> x.userName || nameOfUser(x.userId) || '—';
+  const staffList=[...new Set(moves.map(staffOf).filter(n=>n!=='—'))].sort();
+
+  /* ---- what doesn't add up ---- */
+  const flags=[];
+  const cashR=r=>(r.method||'cash')==='cash';
+  rentals.filter(r=>(r.status==='returned'||r.status==='cancelled') && cashR(r)).forEach(r=>{
+    const loose=(r.deposit||0)-(r.depositRefundedAmount||0)-(r.depositKept||0);
+    if(loose>0) flags.push({kind:'flagUnsettled',amt:loose,who:r.customerName,item:r.name,ts:r.returnedAt||r.cancelledAt||r.createdAt,rid:r.id});
+  });
+  const byBooking={};
+  moves.forEach(m=>{ if(!m.refId) return; const b=byBooking[m.refId]=byBooking[m.refId]||{in:0,out:0,moves:[]};
+    if(m.refType==='deposit') b.in+=m.amount||0; else b.out+=Math.abs(m.amount||0); b.moves.push(m); });
+  Object.entries(byBooking).forEach(([rid,b])=>{
+    if(b.out>b.in+0.5){ const r=rentalById[rid]||{};
+      flags.push({kind:'flagOverRefund',amt:b.out-b.in,who:r.customerName,item:r.name,ts:b.moves[0].createdAt,rid}); }
+  });
+  moves.filter(m=>!m.refId && !m.customerId).forEach(m=>
+    flags.push({kind:'flagOrphan',amt:Math.abs(m.amount||0),who:m.customerName||'',item:'',ts:m.createdAt,staff:staffOf(m),pid:m.id}));
+  rentals.filter(r=>(r.depositKept||0)>0 && cashR(r)).forEach(r=>
+    flags.push({kind:'flagKept',amt:r.depositKept,who:r.customerName,item:r.name,ts:r.returnedAt||r.cancelledAt||r.createdAt,rid:r.id}));
+  Object.entries(byBooking).forEach(([rid,b])=>{
+    const ins=b.moves.filter(m=>m.refType==='deposit'), outs=b.moves.filter(m=>m.refType==='depositRefund');
+    ins.forEach(i=>outs.forEach(o=>{
+      if(Math.abs(o.createdAt-i.createdAt)<864e5 && Math.abs(o.amount)>0){ const r=rentalById[rid]||{};
+        if(!flags.some(f=>f.kind==='flagSameDay'&&f.rid===rid))
+          flags.push({kind:'flagSameDay',amt:Math.abs(o.amount),who:r.customerName,item:r.name,ts:o.createdAt,rid,staff:staffOf(o)});
+      }
+    }));
+  });
+  flags.sort((a,b)=>b.ts-a.ts);
+
+  /* ---- filters over the movement list ---- */
+  const from=startOf(cautionPeriod);
+  const q=cautionSearch.trim().toLowerCase();
+  const shown=moves.filter(m=>(cautionPeriod==='all'||m.createdAt>=from)
+    && (!cautionStaff||staffOf(m)===cautionStaff)
+    && (!q || [m.customerName,m.itemName,String(m.amount)].some(v=>String(v||'').toLowerCase().includes(q))));
+  const sumIn=shown.filter(m=>m.refType==='deposit').reduce((a,m)=>a+(m.amount||0),0);
+  const sumOut=shown.filter(m=>m.refType==='depositRefund').reduce((a,m)=>a+Math.abs(m.amount||0),0);
+
+  const periodSeg=['today','week','month','all'].map(k=>
+    `<button data-cp="${k}" class="${cautionPeriod===k?'on':''}">${esc(t(k==='all'?'allTime':k))}</button>`).join('');
+
+  /* ---- per-booking reconciliation ---- */
+  const bookingRows=rentals.filter(r=>(r.deposit||0)>0)
+    .sort((a,b)=>b.createdAt-a.createdAt)
+    .filter(r=>!q || [r.customerName,r.name].some(v=>String(v||'').toLowerCase().includes(q)))
+    .map(r=>{
+      const b=byBooking[r.id]||{in:0,out:0};
+      const kept=r.depositKept||0, held=Math.max(0,(r.deposit||0)-(r.depositRefundedAmount||0)-kept);
+      const openB=r.status==='active'||r.status==='reserved';
+      return `<tr>
+        <td><b>${esc(r.customerName||'—')}</b><div class="subtle" style="font-size:11.5px">${esc(r.name||'')}</div></td>
+        <td class="mono">${fmtDate(r.createdAt)}</td>
+        <td class="t-right mono">${money(r.deposit||0)}</td>
+        <td class="t-right mono">${money(r.depositRefundedAmount||0)}</td>
+        <td class="t-right mono">${kept?`<span class="badge warnb">${money(kept)}</span>`:'—'}</td>
+        <td class="t-right mono">${held>0?`<span class="badge ${openB?'gold':'red'}">${money(held)}</span>`:`<span class="badge green">${esc(t('settled'))}</span>`}</td>
+        <td>${esc(r.status==='active'?t('rented'):r.status==='reserved'?t('reserved'):r.status==='returned'?t('returned'):t('cancelled'))}</td>
+      </tr>`;
+    }).join('');
+
+  view.innerHTML=pageHead(t('cautionsNav'),t('cautionsNavHint'))+
+    `<div class="cards" style="margin-bottom:14px">
+      <div class="stat gold"><div class="k">${esc(t('cautionTillTotal'))}</div><div class="v mono">${money(T.cautionTillCash)}</div></div>
+      <div class="stat"><div class="k">${esc(t('owedOnBookings'))}</div><div class="v mono">${money(T.cautionOnOpenBookings)}</div></div>
+      <div class="stat"><div class="k">${esc(t('cautionLooseOnClosed'))}</div><div class="v mono"${T.cautionLooseOnClosed?' style="color:var(--danger)"':''}>${money(T.cautionLooseOnClosed)}</div></div>
+      <div class="stat"><div class="k">${esc(t('cautionGap'))}</div><div class="v mono"${T.cautionGap?' style="color:var(--danger)"':''}>${money(T.cautionGap)}</div></div>
+    </div>
+    <div class="card pad" style="margin-bottom:14px">
+      <p class="section-eyebrow" style="margin:0 0 6px">${esc(t('redFlags'))}${flags.length?` · ${flags.length}`:''}</p>
+      ${flags.length? `<div style="max-height:260px;overflow:auto">${flags.slice(0,40).map(f=>`
+        <div style="display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)">
+          <span style="min-width:0;flex:1"><b style="font-size:12.5px">${esc(t(f.kind))}</b>
+            <div class="subtle" style="font-size:11.5px">${esc([f.who,f.item,f.staff].filter(Boolean).join(' · '))} · ${fmtDate(f.ts)}</div></span>
+          <span class="mono" style="font-weight:700;color:var(--danger);flex-shrink:0">${money(f.amt)}</span>
+        </div>`).join('')}</div>`
+       : `<p class="subtle" style="font-size:12.5px;margin:0">${esc(t('noRedFlags'))}</p>`}
+    </div>
+    <div class="pill-tabs">
+      <button data-ct="moves" class="${cautionTab==='moves'?'on':''}">${esc(t('cautionMovements'))}</button>
+      <button data-ct="booking" class="${cautionTab==='booking'?'on':''}">${esc(t('cautionByBooking'))}</button>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div class="searchbar" style="flex:1;min-width:200px">${svg(IC.search,'ic')}<input id="cauSearch" type="search" placeholder="${esc(t('searchClients'))}" value="${esc(cautionSearch)}"></div>
+      ${cautionTab==='moves'?`<div class="seg" id="cauPeriod">${periodSeg}</div>
+      <select id="cauStaff"><option value="">${esc(t('allStaff'))}</option>${staffList.map(n=>`<option value="${esc(n)}" ${cautionStaff===n?'selected':''}>${esc(n)}</option>`).join('')}</select>`:''}
+    </div>`+
+    (cautionTab==='moves'
+      ? (shown.length? `<div class="card pad" style="margin-bottom:12px;display:flex;gap:18px;flex-wrap:wrap">
+           <div><div class="subtle" style="font-size:12px">${esc(t('takenIn'))}</div><div class="mono" style="font-size:19px;font-weight:800;color:var(--ok)">${money(sumIn)}</div></div>
+           <div><div class="subtle" style="font-size:12px">${esc(t('givenBack'))}</div><div class="mono" style="font-size:19px;font-weight:800;color:var(--danger)">${money(sumOut)}</div></div>
+           <div style="margin-inline-start:auto"><div class="subtle" style="font-size:12px">${esc(t('cautionBalance'))}</div><div class="mono" style="font-size:19px;font-weight:800">${money(sumIn-sumOut)}</div></div>
+         </div>
+         <div class="tablewrap"><table><thead><tr>
+           <th>${esc(t('date'))}</th><th>${esc(t('customer'))}</th><th>${esc(t('whatFor'))}</th>
+           <th>${esc(t('reasonCol'))}</th><th>${esc(t('whoDidIt'))}</th>
+           <th class="t-right">${esc(t('amount'))}</th><th class="t-right">${esc(t('actions'))}</th>
+         </tr></thead><tbody>${shown.slice(0,300).map(m=>{
+            const inbound=m.refType==='deposit';
+            const r=m.refId?rentalById[m.refId]:null;
+            return `<tr>
+              <td class="mono" style="white-space:nowrap">${fmtDate(m.createdAt)}<div class="subtle" style="font-size:10.5px">${new Date(m.createdAt).toLocaleTimeString(State.lang,{hour:'2-digit',minute:'2-digit'})}</div></td>
+              <td>${esc(m.customerName|| (m.customerId?'—':t('walkIn')))}</td>
+              <td>${esc(m.itemName||(r?r.name:'')||'—')}${!m.refId?` <span class="badge grey">${esc(t('flagOrphan'))}</span>`:''}</td>
+              <td class="subtle" style="font-size:12px">${esc(cautionReasonLabel(m))}</td>
+              <td>${esc(staffOf(m))}</td>
+              <td class="t-right mono" style="font-weight:700;color:${inbound?'var(--ok)':'var(--danger)'}">${inbound?'+':'−'}${money(Math.abs(m.amount||0))}</td>
+              <td class="t-right" style="white-space:nowrap">
+                <button class="btn ghost sm" data-caued="${m.id}" title="${esc(t('editCaution'))}">${svg(IC.edit,'ic')}</button>
+                <button class="btn ghost sm" data-caudel="${m.id}" title="${esc(t('deleteCaution'))}" style="color:var(--danger)">${svg(IC.trash,'ic')}</button>
+              </td></tr>`;
+          }).join('')}</tbody></table></div>`
+        : emptyState(IC.money,t('noCautions'),''))
+      : (bookingRows? `<div class="tablewrap"><table><thead><tr>
+           <th>${esc(t('customer'))}</th><th>${esc(t('date'))}</th>
+           <th class="t-right">${esc(t('takenIn'))}</th><th class="t-right">${esc(t('givenBack'))}</th>
+           <th class="t-right">${esc(t('keptByStore'))}</th><th class="t-right">${esc(t('cautionBalance'))}</th><th>${esc(t('status'))}</th>
+         </tr></thead><tbody>${bookingRows}</tbody></table></div>`
+        : emptyState(IC.money,t('noCautions'),'')));
+
+  const cs=document.getElementById('cauSearch');
+  if(cs) cs.oninput=()=>{ cautionSearch=cs.value; const pos=cs.selectionStart; viewCautions().then(()=>{ const n=document.getElementById('cauSearch'); if(n){n.focus(); n.setSelectionRange(pos,pos);} }); };
+  view.querySelectorAll('[data-ct]').forEach(b=>b.onclick=()=>{ cautionTab=b.dataset.ct; viewCautions(); });
+  view.querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>{ cautionPeriod=b.dataset.cp; viewCautions(); });
+  const st=document.getElementById('cauStaff'); if(st) st.onchange=()=>{ cautionStaff=st.value; viewCautions(); };
+  view.querySelectorAll('[data-caued]').forEach(b=>b.onclick=()=>openCautionEditModal(b.dataset.caued));
+  view.querySelectorAll('[data-caudel]').forEach(b=>b.onclick=()=>openCautionDeleteModal(b.dataset.caudel));
+}
+/* Correcting a caution movement never rewrites history silently: the old value,
+   the new one and the stated reason all land in the activity log under the name
+   of whoever made the change. */
+async function openCautionEditModal(id){
+  const m=await idbGet('payments',id); if(!m) return;
+  const inbound=m.refType==='deposit';
+  modal(t('editCaution'),
+   `<p class="subtle" style="margin-bottom:12px">${esc(m.customerName||'—')}${m.itemName?' · '+esc(m.itemName):''} · ${fmtDate(m.createdAt)}</p>
+    <div class="field"><label>${esc(t('amount'))}</label>
+      <input id="ce_amt" type="number" min="0" step="0.01" value="${Math.abs(m.amount||0)}">
+      <span class="hint">${esc(inbound?t('takenIn'):t('givenBack'))}</span></div>
+    <div class="field"><label>${esc(t('editReason'))} *</label><input id="ce_why" type="text" placeholder="${esc(t('editReasonHint'))}"></div>`,
+   `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
+    <button class="btn" id="ce_go">${esc(t('save'))}</button>`);
+  document.getElementById('ce_go').onclick=async()=>{
+    const why=document.getElementById('ce_why').value.trim();
+    const amt=Number(document.getElementById('ce_amt').value||0);
+    if(!why || amt<0){ toast(t('required'),'err'); return; }
+    const before=Math.abs(m.amount||0);
+    m.amount = inbound? amt : -amt;
+    m.editedAt=now(); m.editedBy=State.user.name; m.editNote=why;
+    await idbPut('payments',m);
+    await logAct('logCautionEdit', `${m.customerName||'—'}${m.itemName?' · '+m.itemName:''} · ${money(before)} → ${money(amt)} · ${why}`);
+    closeModal(); toast(t('saved'),'ok'); viewCautions();
+  };
+}
+async function openCautionDeleteModal(id){
+  const m=await idbGet('payments',id); if(!m) return;
+  modal(t('deleteCaution'),
+   `<p style="margin:4px 0 10px;font-size:15px">${esc(m.customerName||'—')}${m.itemName?' · '+esc(m.itemName):''} · <b class="mono">${money(Math.abs(m.amount||0))}</b></p>
+    <div class="field"><label>${esc(t('editReason'))} *</label><input id="cd_why" type="text" placeholder="${esc(t('editReasonHint'))}"></div>`,
+   `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
+    <button class="btn danger" id="cd_go">${esc(t('del'))}</button>`);
+  document.getElementById('cd_go').onclick=async()=>{
+    const why=document.getElementById('cd_why').value.trim();
+    if(!why){ toast(t('required'),'err'); return; }
+    await idbDel('payments',id);
+    await logAct('logCautionDel', `${m.customerName||'—'}${m.itemName?' · '+m.itemName:''} · ${money(Math.abs(m.amount||0))} · ${why}`);
+    closeModal(); toast(t('deleted')||t('saved'),'ok'); viewCautions();
+  };
 }
 function pageHead(title,sub,actions){
   return `<div class="page-head"><div class="titles"><h2>${esc(title)}</h2>${sub?`<p>${esc(sub)}</p>`:''}</div>${actions?`<div class="actions">${actions}</div>`:''}</div>`;
@@ -3455,8 +3701,8 @@ async function activateReservation(r){
       await idbPut('rentals',it);
       await logAct('logRental', it.name+' · '+(it.customerName||''));
     }
-    if(depositDelta>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'deposit',amount:depositDelta,method:group[0].method||'cash',createdAt:now(),userId:State.user.id});
-    else if(depositDelta<0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'depositRefund',amount:depositDelta,method:group[0].method||'cash',createdAt:now(),userId:State.user.id});
+    if(depositDelta>0) await idbPut('payments',cautionEntry(r,'deposit',depositDelta,group[0].method,'atPickup'));
+    else if(depositDelta<0) await idbPut('payments',cautionEntry(r,'depositRefund',depositDelta,group[0].method,'atPickup'));
     closeModal(); toast(t('rentalDone'),'ok'); viewRentals();
   };
 }
@@ -3475,7 +3721,7 @@ async function revertToReserved(r){
       const txn=it.activateTxn||{payAdded:0,depositAdded:0};
       const method=it.method||'cash';
       if(txn.payAdded>0){ it.paid=Math.max(0,(it.paid||0)-txn.payAdded); await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-txn.payAdded,method,createdAt:now(),userId:State.user.id}); }
-      if(txn.depositAdded){ it.deposit=Math.max(0,(it.deposit||0)-txn.depositAdded); await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:-txn.depositAdded,method,createdAt:now(),userId:State.user.id}); }
+      if(txn.depositAdded){ it.deposit=Math.max(0,(it.deposit||0)-txn.depositAdded); await idbPut('payments',cautionEntry(it,'depositRefund',-txn.depositAdded,method,'atUndo')); }
       delete it.activateTxn;
       it.status='reserved';
       await idbPut('rentals',it);
@@ -3545,7 +3791,7 @@ async function cancelRental(r,onDone,whole){
       const dShare = totalDeposit<=0?0 : isLast?(refundDepositAmt-depAssigned):Math.round(refundDepositAmt*itDep/totalDeposit);
       depAssigned+=dShare;
       if(pShare>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-pShare,method,createdAt:now(),userId:State.user.id});
-      if(dShare>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:-dShare,method,createdAt:now(),userId:State.user.id});
+      if(dShare>0) await idbPut('payments',cautionEntry(it,'depositRefund',-dShare,method,'atCancel'));
       // an active rental had a unit removed from stock; a reservation did not
       if(it.status==='active' && it.productId){ const p=await idbGet('products',it.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); } }
       const paidKept=(it.paid||0)-pShare, depKept=itDep-dShare;
@@ -3752,7 +3998,7 @@ async function openEditDatesModal(r){
         if(hadMoney){
           const method=it.method||'cash';
           if((it.paid||0)>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-(it.paid||0),method,createdAt:now(),userId:State.user.id});
-          if((it.deposit||0)>0 && !it.depositRefunded) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:-(it.deposit||0),method,createdAt:now(),userId:State.user.id});
+          if((it.deposit||0)>0 && !it.depositRefunded) await idbPut('payments',cautionEntry(it,'depositRefund',-(it.deposit||0),method,'atCancel'));
           it.status='cancelled'; it.cancelledAt=now(); if((it.deposit||0)>0) it.depositRefunded=true; await idbPut('rentals',it);
         } else { await idbDel('rentals',it.id); }
         await logAct('logCancelRental', it.name+(it.customerName?' · '+it.customerName:''));
@@ -4109,7 +4355,7 @@ async function openRentalModal(presetPid){
         paid:share,lateFee:0,damageFee:0,status:isReserve?'reserved':'active',method:rMethod,createdAt:now(),userId:State.user.id,userName:State.user.name};
       await idbPut('rentals',rental);
       if(rental.paid>0) await idbPut('payments',{id:uid(),customerId:cid,refType:'rental',amount:rental.paid,method:rMethod,createdAt:now(),userId:State.user.id});
-      if(rental.deposit>0) await idbPut('payments',{id:uid(),customerId:cid,refType:'deposit',amount:rental.deposit,method:rMethod,createdAt:now(),userId:State.user.id});
+      if(rental.deposit>0) await idbPut('payments',cautionEntry(rental,'deposit',rental.deposit,rMethod,'atBooking'));
       createdRentals.push(rental);
     }
     _onModalClose=null; rentalDraft=null; // done for real — nothing to keep
@@ -4332,7 +4578,7 @@ async function openReturnModal(r){
         if((it.deposit||0)>0){ it.depositRefunded=refShare>0; it.depositRefundedAmount=refShare; it.depositKept=kept; if(refShare>0) it.depositRefundedAt=now(); }
         await idbPut('rentals',it);
         if(payShare>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'rental',amount:payShare,method:it.method||'cash',createdAt:now(),userId:State.user.id});
-        if(refShare>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:-refShare,method:it.method||'cash',createdAt:now(),userId:State.user.id});
+        if(refShare>0) await idbPut('payments',cautionEntry(it,'depositRefund',-refShare,it.method,'atReturn'));
         const p=await idbGet('products',it.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); }
         if(refShare>0){ await logAct('logRefund', it.name+' · '+money(refShare)); }
         if(kept>0){ await logAct('logDepositKept', it.name+(it.customerName?' · '+it.customerName:'')+' · '+money(kept)); }
@@ -4359,7 +4605,7 @@ async function undoReturn(r){
       // reverse any extra rent collected at return (money back out of the till)
       if(txn.payAmtAdded>0){ it.paid=Math.max(0,(it.paid||0)-txn.payAmtAdded); await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'refund',amount:-txn.payAmtAdded,method,createdAt:now(),userId:State.user.id}); }
       // re-hold a refunded deposit (offset the negative depositRefund entry)
-      if(txn.refundAmt>0){ await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'depositRefund',amount:txn.refundAmt,method,createdAt:now(),userId:State.user.id}); }
+      if(txn.refundAmt>0){ await idbPut('payments',cautionEntry(it,'depositRefund',txn.refundAmt,method,'atUndo')); }
       // undo the late fee and damage fee this return added
       it.lateFee=Math.max(0,(it.lateFee||0)-(txn.lateFeeAdded||0));
       it.damageFee=Math.max(0,(it.damageFee||0)-(txn.damageFeeAdded||0));
