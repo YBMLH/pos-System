@@ -568,6 +568,7 @@ const I18N = {
     cautionToday:"Caution today", cautionTillTotal:"Should be in caution till",
     freeOnDate:"Free on a date", freeThatDay:"free on this date", bookedThatDay:"Booked on this date",
     noneFreeThatDay:"Nothing free on this date",
+    toCollect:"To collect", cautionsOnThese:"Cautions on these",
     cautionsNav:"Cautions", cautionLedger:"Every caution movement", cautionByBooking:"By booking",
     cautionMovements:"Movements", takenIn:"Taken in", givenBack:"Given back", keptByStore:"Kept by store",
     whoDidIt:"Staff", whatFor:"For", reasonCol:"When",
@@ -792,6 +793,7 @@ const I18N = {
     cautionToday:"Caution aujourd'hui", cautionTillTotal:"Devrait être dans la caisse des cautions",
     freeOnDate:"Libres à une date", freeThatDay:"libres à cette date", bookedThatDay:"Réservés à cette date",
     noneFreeThatDay:"Rien de libre à cette date",
+    toCollect:"À encaisser", cautionsOnThese:"Cautions sur ces locations",
     cautionsNav:"Cautions", cautionLedger:"Tous les mouvements de caution", cautionByBooking:"Par location",
     cautionMovements:"Mouvements", takenIn:"Encaissée", givenBack:"Rendue", keptByStore:"Retenue par le magasin",
     whoDidIt:"Employé", whatFor:"Pour", reasonCol:"Quand",
@@ -1015,6 +1017,7 @@ const I18N = {
     cautionToday:"التأمين اليوم", cautionTillTotal:"يجب أن يكون في صندوق التأمينات",
     freeOnDate:"المتاح في تاريخ", freeThatDay:"متاح في هذا التاريخ", bookedThatDay:"محجوز في هذا التاريخ",
     noneFreeThatDay:"لا شيء متاح في هذا التاريخ",
+    toCollect:"للتحصيل", cautionsOnThese:"تأمينات هذه الحجوزات",
     cautionsNav:"التأمينات", cautionLedger:"كل حركات التأمين", cautionByBooking:"حسب الحجز",
     cautionMovements:"الحركات", takenIn:"مستلمة", givenBack:"معادة", keptByStore:"محتجزة للمتجر",
     whoDidIt:"الموظف", whatFor:"لأجل", reasonCol:"متى",
@@ -3377,12 +3380,13 @@ async function viewRentals(){
     // Day navigator for the Pickups / Drop-offs tabs: step through days to see
     // who collects (pickup = start date) or returns (drop-off = due date) what.
     let pickupNav='';
+    const dayDue=filt.reduce((a,r)=>a+Math.max(0,(r.price||0)+(r.lateFee||0)+(r.damageFee||0)-(r.paid||0)),0);
     if(rentalTab==='pickups'){
       const toPick=filt.filter(r=>r.status==='reserved').length;
       const label=fmtDate(Date.parse(pickupDay))+(pickupDay===todayISO()?' · '+t('today'):'');
       pickupNav=`<div class="card pad" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <button class="btn ghost sm" id="pkPrev" title="${esc(t('back'))}">${svg(IC.back,'ic')}</button>
-        <div style="text-align:center;min-width:150px"><b>${esc(label)}</b><div class="subtle" style="font-size:12px">${toPick} ${esc(t('toPickUp'))}</div></div>
+        <div style="text-align:center;min-width:150px"><b>${esc(label)}</b><div class="subtle" style="font-size:12px">${toPick} ${esc(t('toPickUp'))}${dayDue>0?` · <b style="color:var(--brand)">${money(dayDue)}</b> ${esc(t('toCollect'))}`:''}</div></div>
         <button class="btn ghost sm" id="pkNext" style="transform:scaleX(-1)">${svg(IC.back,'ic')}</button>
         <button class="btn secondary sm" id="pkToday" style="margin-inline-start:auto">${esc(t('today'))}</button>
       </div>`;
@@ -3392,7 +3396,7 @@ async function viewRentals(){
       const label=fmtDate(Date.parse(dropoffDay))+(dropoffDay===todayISO()?' · '+t('today'):'');
       pickupNav=`<div class="card pad" style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <button class="btn ghost sm" id="doPrev" title="${esc(t('back'))}">${svg(IC.back,'ic')}</button>
-        <div style="text-align:center;min-width:150px"><b>${esc(label)}</b><div class="subtle" style="font-size:12px">${toReturn} ${esc(t('toDropOff'))}</div></div>
+        <div style="text-align:center;min-width:150px"><b>${esc(label)}</b><div class="subtle" style="font-size:12px">${toReturn} ${esc(t('toDropOff'))}${dayDue>0?` · <b style="color:var(--brand)">${money(dayDue)}</b> ${esc(t('toCollect'))}`:''}</div></div>
         <button class="btn ghost sm" id="doNext" style="transform:scaleX(-1)">${svg(IC.back,'ic')}</button>
         <button class="btn secondary sm" id="doToday" style="margin-inline-start:auto">${esc(t('today'))}</button>
       </div>`;
@@ -3409,11 +3413,29 @@ async function viewRentals(){
       filt.forEach(r=>{ const k=keyOf(r); if(seen.has(k)) return; seen.add(k); displayGroups.push(filt.filter(x=>keyOf(x)===k)); });
       const custColorById=Object.fromEntries((await idbAll('customers')).filter(c=>c.badgeColor).map(c=>[c.id,c.badgeColor]));
       const searchHtml=`<div class="searchbar" style="margin-bottom:12px">${svg(IC.search,'ic')}<input id="rentSearch" type="search" placeholder="${esc(t('searchRentals'))}" value="${esc(rentalSearch)}"></div>`;
+      // What this day's list is worth: the balances add up per displayed row
+      // (a bundle settles as one), so the figure matches the badges above it —
+      // on Pickups that's the money to take in over the counter today.
+      const sum=(g,f)=>g.reduce((a,x)=>a+(f(x)||0),0);
+      let tPrice=0, tPaid=0, tDue=0, tDep=0;
+      displayGroups.forEach(g=>{
+        const price=sum(g,x=>x.price), late=sum(g,x=>x.lateFee), dmg=sum(g,x=>x.damageFee), paid=sum(g,x=>x.paid);
+        tPrice+=price+late+dmg; tPaid+=paid; tDue+=Math.max(0,price+late+dmg-paid); tDep+=sum(g,x=>x.deposit);
+      });
+      const totalsBar=`<div class="card pad" style="margin-top:12px;display:flex;gap:20px;flex-wrap:wrap;align-items:center">
+        <div><div class="subtle" style="font-size:12px">${esc(t('total'))}</div><div class="mono" style="font-size:16px;font-weight:700">${money(tPrice)}</div></div>
+        <div><div class="subtle" style="font-size:12px">${esc(t('paid'))}</div><div class="mono" style="font-size:16px;font-weight:700">${money(tPaid)}</div></div>
+        ${tDep?`<div><div class="subtle" style="font-size:12px">${esc(t('cautionsOnThese'))}</div><div class="mono" style="font-size:16px;font-weight:700">${money(tDep)}</div></div>`:''}
+        <div style="margin-inline-start:auto;text-align:end">
+          <div class="subtle" style="font-size:12px">${esc(t('toCollect'))} · ${displayGroups.length}</div>
+          <div class="mono" style="font-size:24px;font-weight:800;color:${tDue>0?'var(--brand)':'var(--ok)'}">${money(tDue)}</div>
+        </div>
+      </div>`;
       body=tabs+searchHtml+pickupNav+(filt.length? `<div class="tablewrap"><table><thead><tr>
        <th>${esc(t('item'))}</th><th>${esc(t('customer'))}</th><th>${esc(t('dueDate'))}</th>
        <th class="t-right">${esc(t('rentalPrice'))}</th><th class="t-right">${esc(t('balance'))}</th>
        <th>${esc(t('status'))}</th><th class="t-right">${esc(t('actions'))}</th>
-     </tr></thead><tbody>${displayGroups.map(g=>rowRental(g,custColorById)).join('')}</tbody></table></div>`
+     </tr></thead><tbody>${displayGroups.map(g=>rowRental(g,custColorById)).join('')}</tbody></table></div>`+totalsBar
      : (q? `<div class="empty"><h4>${esc(t('none'))}</h4></div>`
         : rentalTab==='pickups'? emptyState(IC.cal,t('noPickupsDay'),'')
         : rentalTab==='dropoffs'? emptyState(IC.cal,t('noDropoffsDay'),'')
