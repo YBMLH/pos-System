@@ -570,7 +570,7 @@ const I18N = {
     noneFreeThatDay:"Nothing free on this date",
     toCollect:"To collect", cautionsOnThese:"Cautions on these", bookedOn:"Booked", bookedPickedUp:"Booked / picked up",
     doubleBookingWarn:"Already booked for these dates", alreadyBooked:"all units taken",
-    doubleBookingHint:"Press again to book it anyway, or change the dates.", bookAnyway:"Book anyway",
+    doubleBookingHint:"Change the dates, or pick another item.",
     overlapWarnHint:"These bookings share days but there aren't enough of this item to cover them — move one of the dates.",
     overlaps:"Overlaps", pickedUpAt:"Picked up", returnedAt:"Returned", planned:"planned",
     cautionsNav:"Cautions", cautionLedger:"Every caution movement", cautionByBooking:"By booking",
@@ -799,7 +799,7 @@ const I18N = {
     noneFreeThatDay:"Rien de libre à cette date",
     toCollect:"À encaisser", cautionsOnThese:"Cautions sur ces locations", bookedOn:"Réservé le", bookedPickedUp:"Réservé / retiré",
     doubleBookingWarn:"Déjà réservé sur ces dates", alreadyBooked:"toutes les pièces prises",
-    doubleBookingHint:"Appuyez à nouveau pour réserver quand même, ou changez les dates.", bookAnyway:"Réserver quand même",
+    doubleBookingHint:"Changez les dates, ou choisissez un autre article.",
     overlapWarnHint:"Ces locations partagent des jours alors qu'il n'y a pas assez d'exemplaires — déplacez l'une des dates.",
     overlaps:"Chevauchement", pickedUpAt:"Retiré", returnedAt:"Rendu", planned:"prévu",
     cautionsNav:"Cautions", cautionLedger:"Tous les mouvements de caution", cautionByBooking:"Par location",
@@ -1027,7 +1027,7 @@ const I18N = {
     noneFreeThatDay:"لا شيء متاح في هذا التاريخ",
     toCollect:"للتحصيل", cautionsOnThese:"تأمينات هذه الحجوزات", bookedOn:"تاريخ الحجز", bookedPickedUp:"الحجز / الاستلام",
     doubleBookingWarn:"محجوز مسبقاً في هذه التواريخ", alreadyBooked:"كل القطع محجوزة",
-    doubleBookingHint:"اضغط مرة أخرى للحجز رغم ذلك، أو غيّر التواريخ.", bookAnyway:"احجز رغم ذلك",
+    doubleBookingHint:"غيّر التواريخ، أو اختر قطعة أخرى.",
     overlapWarnHint:"هذه الحجوزات تتشارك أياماً والقطع غير كافية لتغطيتها — غيّر أحد التواريخ.",
     overlaps:"تداخل", pickedUpAt:"استُلم", returnedAt:"أُرجع", planned:"مقرر",
     cautionsNav:"التأمينات", cautionLedger:"كل حركات التأمين", cautionByBooking:"حسب الحجز",
@@ -3968,6 +3968,12 @@ async function openExtendModal(r){
   document.getElementById('ex_go').onclick=async()=>{
     const go=document.getElementById('ex_go'); if(go.disabled) return; go.disabled=true; // double-tap charges twice
     const d=Math.max(1,parseInt(daysI.value||1));
+    // Keeping it longer only works if nobody else is expecting it in that window.
+    const mineIds=group.map(x=>x.id);
+    for(const it of group){
+      const c=await bookingClashes(it.productId,it.dueDate||todayISO(),newDueI.value,mineIds);
+      if(c.free<=0){ toast(it.name+' — '+t('doubleBookingWarn'),'err'); go.disabled=false; return; }
+    }
     const charge=Number(chargeI.value||0);
     const baseTotal=perDayTotal*d; // charge distributed across items by their rate
     let assigned=0;
@@ -4060,6 +4066,14 @@ async function openEditDatesModal(r){
     const s=Date.parse(start), d=Date.parse(due);
     if(s&&d&&d<s){ toast(t('dueBeforeStart'),'err'); go.disabled=false; return; }
     if(!lines.length){ toast(t('required'),'err'); go.disabled=false; return; }
+    // Moving dates must not land on days another booking already holds.
+    if(start&&due){
+      const mine=lines.map(l=>l.rentalId).filter(Boolean);
+      for(const l of lines){
+        const c=await bookingClashes(l.productId,start,due,mine);
+        if(c.free<=0){ toast(l.name+' — '+t('doubleBookingWarn'),'err'); go.disabled=false; return; }
+      }
+    }
     const days=(s&&d)?Math.max(1,Math.round((d-s)/86400000)):null;
     const gid = lines.length>1 ? (existingGroupId||uid()) : null;
     const keptIds=new Set(lines.filter(l=>l.rentalId).map(l=>l.rentalId));
@@ -4273,16 +4287,10 @@ async function openRentalModal(presetPid){
   const linesBox=document.getElementById('r_lines'), linesFoot=document.getElementById('r_linesFoot');
   wireFridayFlag('r_start','r_startFri'); wireFridayFlag('r_due','r_dueFri');
   let lines=[]; // {productId,name,rate,unit,price,deposit,touched}
-  // A clash is shown once and must be accepted deliberately; changing the dates
-  // or the items makes it a different question, so the warning resets.
-  let clashAcknowledged=false;
+  // Overlapping dates are refused outright — one dress cannot be in two places.
+  // The explanation clears as soon as the dates or items change.
   const clashBox=document.getElementById('r_clash');
-  function resetClash(){
-    if(!clashAcknowledged && !clashBox.innerHTML) return;
-    clashAcknowledged=false; clashBox.innerHTML='';
-    const g=document.getElementById('r_go');
-    if(g){ g.textContent=t('rentOut'); g.classList.remove('danger'); }
-  }
+  function resetClash(){ if(clashBox.innerHTML) clashBox.innerHTML=''; }
 
   // Rent items are priced per period (flat): the rate is the whole-window price,
   // regardless of how many days the rental spans.
@@ -4455,14 +4463,13 @@ async function openRentalModal(presetPid){
       const c=await bookingClashes(l.productId,start,due);
       if(c.free<=0) clashes.push({name:l.name,c});
     }
-    if(clashes.length && !clashAcknowledged){
-      clashAcknowledged=true;
+    if(clashes.length){
       clashBox.innerHTML=`<div class="card pad" style="border:1px solid var(--danger);background:#fff4f4;margin-bottom:10px">
         <b style="color:var(--danger);font-size:13px">${esc(t('doubleBookingWarn'))}</b>
         <div style="margin-top:6px;font-size:12.5px">${clashes.map(x=>clashLineHtml(x.name,x.c)).join('')}</div>
         <div class="subtle" style="font-size:11.5px;margin-top:4px">${esc(t('doubleBookingHint'))}</div></div>`;
-      goBtn.textContent=t('bookAnyway'); goBtn.classList.add('danger');
       clashBox.scrollIntoView({block:'nearest'});
+      toast(t('doubleBookingWarn'),'err');
       goBtn.disabled=false; return;
     }
     const totalPrice=lines.reduce((a,l)=>a+(l.price||0),0);
