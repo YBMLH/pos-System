@@ -568,7 +568,11 @@ const I18N = {
     cautionToday:"Caution today", cautionTillTotal:"Should be in caution till",
     freeOnDate:"Free on a date", freeThatDay:"free on this date", bookedThatDay:"Booked on this date",
     noneFreeThatDay:"Nothing free on this date",
-    toCollect:"To collect", cautionsOnThese:"Cautions on these", bookedOn:"Booked", bookedPickedUp:"Booked / picked up", pickedUpAt:"Picked up", returnedAt:"Returned", planned:"planned",
+    toCollect:"To collect", cautionsOnThese:"Cautions on these", bookedOn:"Booked", bookedPickedUp:"Booked / picked up",
+    doubleBookingWarn:"Already booked for these dates", alreadyBooked:"all units taken",
+    doubleBookingHint:"Press again to book it anyway, or change the dates.", bookAnyway:"Book anyway",
+    overlapWarnHint:"These bookings share days but there aren't enough of this item to cover them — move one of the dates.",
+    overlaps:"Overlaps", pickedUpAt:"Picked up", returnedAt:"Returned", planned:"planned",
     cautionsNav:"Cautions", cautionLedger:"Every caution movement", cautionByBooking:"By booking",
     cautionMovements:"Movements", takenIn:"Taken in", givenBack:"Given back", keptByStore:"Kept by store",
     whoDidIt:"Staff", whatFor:"For", reasonCol:"When",
@@ -793,7 +797,11 @@ const I18N = {
     cautionToday:"Caution aujourd'hui", cautionTillTotal:"Devrait être dans la caisse des cautions",
     freeOnDate:"Libres à une date", freeThatDay:"libres à cette date", bookedThatDay:"Réservés à cette date",
     noneFreeThatDay:"Rien de libre à cette date",
-    toCollect:"À encaisser", cautionsOnThese:"Cautions sur ces locations", bookedOn:"Réservé le", bookedPickedUp:"Réservé / retiré", pickedUpAt:"Retiré", returnedAt:"Rendu", planned:"prévu",
+    toCollect:"À encaisser", cautionsOnThese:"Cautions sur ces locations", bookedOn:"Réservé le", bookedPickedUp:"Réservé / retiré",
+    doubleBookingWarn:"Déjà réservé sur ces dates", alreadyBooked:"toutes les pièces prises",
+    doubleBookingHint:"Appuyez à nouveau pour réserver quand même, ou changez les dates.", bookAnyway:"Réserver quand même",
+    overlapWarnHint:"Ces locations partagent des jours alors qu'il n'y a pas assez d'exemplaires — déplacez l'une des dates.",
+    overlaps:"Chevauchement", pickedUpAt:"Retiré", returnedAt:"Rendu", planned:"prévu",
     cautionsNav:"Cautions", cautionLedger:"Tous les mouvements de caution", cautionByBooking:"Par location",
     cautionMovements:"Mouvements", takenIn:"Encaissée", givenBack:"Rendue", keptByStore:"Retenue par le magasin",
     whoDidIt:"Employé", whatFor:"Pour", reasonCol:"Quand",
@@ -1017,7 +1025,11 @@ const I18N = {
     cautionToday:"التأمين اليوم", cautionTillTotal:"يجب أن يكون في صندوق التأمينات",
     freeOnDate:"المتاح في تاريخ", freeThatDay:"متاح في هذا التاريخ", bookedThatDay:"محجوز في هذا التاريخ",
     noneFreeThatDay:"لا شيء متاح في هذا التاريخ",
-    toCollect:"للتحصيل", cautionsOnThese:"تأمينات هذه الحجوزات", bookedOn:"تاريخ الحجز", bookedPickedUp:"الحجز / الاستلام", pickedUpAt:"استُلم", returnedAt:"أُرجع", planned:"مقرر",
+    toCollect:"للتحصيل", cautionsOnThese:"تأمينات هذه الحجوزات", bookedOn:"تاريخ الحجز", bookedPickedUp:"الحجز / الاستلام",
+    doubleBookingWarn:"محجوز مسبقاً في هذه التواريخ", alreadyBooked:"كل القطع محجوزة",
+    doubleBookingHint:"اضغط مرة أخرى للحجز رغم ذلك، أو غيّر التواريخ.", bookAnyway:"احجز رغم ذلك",
+    overlapWarnHint:"هذه الحجوزات تتشارك أياماً والقطع غير كافية لتغطيتها — غيّر أحد التواريخ.",
+    overlaps:"تداخل", pickedUpAt:"استُلم", returnedAt:"أُرجع", planned:"مقرر",
     cautionsNav:"التأمينات", cautionLedger:"كل حركات التأمين", cautionByBooking:"حسب الحجز",
     cautionMovements:"الحركات", takenIn:"مستلمة", givenBack:"معادة", keptByStore:"محتجزة للمتجر",
     whoDidIt:"الموظف", whatFor:"لأجل", reasonCol:"متى",
@@ -2433,6 +2445,30 @@ async function openStockHistoryModal(p){
    and instantly see when it's out. Upcoming/current bookings (reserved + rented)
    are listed by start date; past (returned) rentals follow as history. Cancelled
    bookings are left out since the item was never actually taken. */
+/* Bookings of the same item whose window overlaps [start, due). A booking holds
+   its start day and frees on its due day (same-day turnaround), matching the
+   availability badge and the Free-on-a-date tab. Total units owned is the shelf
+   count plus everything currently out, since an active rental already came off
+   the shelf. excludeIds skips the booking being edited. */
+async function bookingClashes(productId,startVal,dueVal,excludeIds){
+  const DAY=86400000, today=Date.parse(todayISO());
+  const s=Date.parse(startVal)||today, d=Date.parse(dueVal)||s+DAY;
+  const ex=new Set(excludeIds||[]);
+  const prod=await idbGet('products',productId);
+  const open=(await idbAll('rentals')).filter(x=>x.productId===productId && (x.status==='active'||x.status==='reserved'));
+  const units=(prod?prod.qty||0:0)+open.filter(x=>x.status==='active').length;
+  const overlapping=open.filter(x=>!ex.has(x.id)).map(x=>{
+    let xs=Date.parse(x.startDate)||x.createdAt, xd=Date.parse(x.dueDate)||xs+DAY;
+    if(x.status==='active' && xd<today) xd=today+DAY; // overdue: still out
+    return {...x,xs,xd};
+  }).filter(x=>s<x.xd && d>x.xs).sort((a,b)=>a.xs-b.xs);
+  return {overlapping, units, free:units-overlapping.length};
+}
+function clashLineHtml(name,c){
+  return `<div style="margin-bottom:4px"><b>${esc(name)}</b> — ${esc(t('alreadyBooked'))} (${c.overlapping.length}/${c.units})
+    ${c.overlapping.slice(0,3).map(x=>`<div class="subtle" style="font-size:11.5px">${esc(x.customerName||'—')} · ${fmtDate(x.xs)} → ${fmtDate(x.xd)} · ${esc(x.status==='active'?t('rented'):t('reserved'))}</div>`).join('')}
+    ${c.overlapping.length>3?`<div class="subtle" style="font-size:11.5px">…</div>`:''}</div>`;
+}
 async function openProductBookingsModal(p){
   if(!p) return;
   const all=(await idbAll('rentals')).filter(r=>r.productId===p.id);
@@ -2443,9 +2479,22 @@ async function openProductBookingsModal(p){
   const badgeOf=r=> r.status==='active'? `<span class="badge gold">${esc(t('rented'))}</span>`
     : r.status==='reserved'? `<span class="badge brand">${esc(t('reserved'))}</span>`
     : `<span class="badge grey">${esc(t('returned'))}</span>`;
+  // Two bookings of the same dress on overlapping days is only fine while there
+  // are units to go round, so flag the rows that share days beyond the count.
+  const DAY=86400000, todayMs=Date.parse(todayISO());
+  const span=r=>{ let xs=Date.parse(r.startDate)||r.createdAt, xd=Date.parse(r.dueDate)||xs+DAY;
+    if(r.status==='active' && xd<todayMs) xd=todayMs+DAY; return {xs,xd}; };
+  const units=(p.qty||0)+outNow;
+  const clashIds=new Set();
+  upcoming.forEach(a=>{
+    const A=span(a);
+    const sharing=upcoming.filter(b=>b.id!==a.id && (x=>A.xs<x.xd && A.xd>x.xs)(span(b)));
+    if(sharing.length+1>units){ clashIds.add(a.id); sharing.forEach(b=>clashIds.add(b.id)); }
+  });
   const rowOf=r=>{
     const s=r.startDate?fmtDate(Date.parse(r.startDate)):'—', d=r.dueDate?fmtDate(Date.parse(r.dueDate)):'—';
-    return `<tr><td class="mono" style="white-space:nowrap">${s} → ${d}</td>
+    const bad=clashIds.has(r.id);
+    return `<tr${bad?' style="background:#fff4f4"':''}><td class="mono" style="white-space:nowrap">${s} → ${d}${bad?` <span class="badge red">${esc(t('overlaps'))}</span>`:''}</td>
       <td>${esc(r.customerName||'—')}</td><td>${badgeOf(r)}</td></tr>`;
   };
   const table=rows=>`<div class="tablewrap"><table><thead><tr>
@@ -2456,7 +2505,9 @@ async function openProductBookingsModal(p){
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
       <span class="badge grey">${esc(t('inStock'))}: ${p.qty||0}</span>
       ${outNow>0?`<span class="badge gold">${esc(t('rented'))}: ${outNow}</span>`:''}
+      ${clashIds.size?`<span class="badge red">${esc(t('overlaps'))}: ${clashIds.size}</span>`:''}
     </div>
+    ${clashIds.size?`<p class="subtle" style="margin:0 0 6px;font-size:11.5px;color:var(--danger)">${esc(t('overlapWarnHint'))}</p>`:''}
     ${(upcoming.length||past.length)? section(t('upcomingBookings'),upcoming)+section(t('pastBookings'),past)
       : `<p class="subtle" style="text-align:center;padding:20px">${esc(t('noRentals'))}</p>`}`;
   modal(t('rentalSchedule'),bodyHtml,`<button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>`,{lg:true});
@@ -4203,6 +4254,7 @@ async function openRentalModal(presetPid){
       <span class="hint">${esc(t('rentableOnly'))}</span></div>
     <div id="r_lines"></div>
     <div id="r_linesFoot" style="margin-bottom:10px"></div>
+    <div id="r_clash"></div>
     <div class="field"><label>${esc(t('amountPaid'))}</label><input id="r_paid" type="number" min="0" step="0.01" value="0">
       <div style="display:flex;gap:8px;margin-top:6px"><button class="btn secondary sm" type="button" id="r_payFull">${esc(t('payFull'))}</button></div>
     </div>
@@ -4221,6 +4273,16 @@ async function openRentalModal(presetPid){
   const linesBox=document.getElementById('r_lines'), linesFoot=document.getElementById('r_linesFoot');
   wireFridayFlag('r_start','r_startFri'); wireFridayFlag('r_due','r_dueFri');
   let lines=[]; // {productId,name,rate,unit,price,deposit,touched}
+  // A clash is shown once and must be accepted deliberately; changing the dates
+  // or the items makes it a different question, so the warning resets.
+  let clashAcknowledged=false;
+  const clashBox=document.getElementById('r_clash');
+  function resetClash(){
+    if(!clashAcknowledged && !clashBox.innerHTML) return;
+    clashAcknowledged=false; clashBox.innerHTML='';
+    const g=document.getElementById('r_go');
+    if(g){ g.textContent=t('rentOut'); g.classList.remove('danger'); }
+  }
 
   // Rent items are priced per period (flat): the rate is the whole-window price,
   // regardless of how many days the rental spans.
@@ -4231,6 +4293,7 @@ async function openRentalModal(presetPid){
     return totalPrice;
   }
   async function renderLines(){
+    resetClash();
     if(!lines.length){ linesBox.innerHTML=`<p class="subtle" style="padding:10px 0;text-align:center;font-size:12.5px">${esc(t('noItemsAdded'))}</p>`; totalsLine(); return; }
     linesBox.innerHTML = lines.map((l,i)=>`<div class="citem" style="align-items:flex-start;flex-wrap:wrap;padding:8px 4px">
         <div class="nm" style="flex:1 1 150px">${esc(l.name)}<div class="subtle" id="r_avail_${i}" style="margin-top:2px"></div></div>
@@ -4310,6 +4373,7 @@ async function openRentalModal(presetPid){
     else{ reserveEl.disabled=false; reserveHint.classList.add('hidden'); }
   }
   async function onDatesChanged(){
+    resetClash();
     syncReserveForDate();
     lines.forEach(l=>{ if(!l.touched) l.price=defaultPrice(l.rate); });
     await renderLines();
@@ -4382,6 +4446,24 @@ async function openRentalModal(presetPid){
         const p=await idbGet('products',l.productId);
         if((p.qty||0)<=0){ toast(l.name+' — '+t('outOfStock'),'err'); goBtn.disabled=false; return; }
       }
+    }
+    // And that the dates themselves are free. The stock check above only looks
+    // at today's shelf, so without this a reservation could be written straight
+    // over one that already has the dress for those days.
+    const clashes=[];
+    for(const l of lines){
+      const c=await bookingClashes(l.productId,start,due);
+      if(c.free<=0) clashes.push({name:l.name,c});
+    }
+    if(clashes.length && !clashAcknowledged){
+      clashAcknowledged=true;
+      clashBox.innerHTML=`<div class="card pad" style="border:1px solid var(--danger);background:#fff4f4;margin-bottom:10px">
+        <b style="color:var(--danger);font-size:13px">${esc(t('doubleBookingWarn'))}</b>
+        <div style="margin-top:6px;font-size:12.5px">${clashes.map(x=>clashLineHtml(x.name,x.c)).join('')}</div>
+        <div class="subtle" style="font-size:11.5px;margin-top:4px">${esc(t('doubleBookingHint'))}</div></div>`;
+      goBtn.textContent=t('bookAnyway'); goBtn.classList.add('danger');
+      clashBox.scrollIntoView({block:'nearest'});
+      goBtn.disabled=false; return;
     }
     const totalPrice=lines.reduce((a,l)=>a+(l.price||0),0);
     const paidEntered=Math.max(0,Math.min(Number(paidI.value||0),totalPrice));
