@@ -624,7 +624,9 @@ const I18N = {
     globalSearch:"Search everything...", undo:"Undo", undone:"Action undone", darkMode:"Dark mode",
     reserveItem:"Reserve for future date", reserved:"Reserved",
     postpone:"Postpone", postponed:"Postponed", postponeConfirm:"Postpone this reservation? The date is cleared until a new one is set — the booking, customer and deposit are kept.", logPostpone:"Reservation postponed", setNewDate:"Set new date",
-    highlight:"Highlight", highlightRental:"Highlight this rental", clearHighlight:"No highlight", colorRed:"Red", colorAmber:"Amber", colorGreen:"Green", colorBlue:"Blue", colorPurple:"Purple", logHighlight:"Rental highlight changed",
+    highlight:"Highlight", highlighted:"Highlighted", allColors:"All colours",
+    noHighlighted:"Nothing highlighted", noHighlightedHint:"Flag a booking with the flag button and it will collect here.",
+    highlightRental:"Highlight this rental", clearHighlight:"No highlight", colorRed:"Red", colorAmber:"Amber", colorGreen:"Green", colorBlue:"Blue", colorPurple:"Purple", logHighlight:"Rental highlight changed",
     badgeColor:"Badge color", badgeColorHint:"Spot this client at a glance in lists", logBadgeColor:"Client badge color changed",
     futureReserveHint:"Pickup is a future date — saved as a reservation until then.",
     activateConfirm:"Mark this reservation as picked up now? This takes the item out of stock.", backToReserved:"Back to reserved", backToReservedConfirm:"Move this rental back to reserved? The item returns to stock — use this if the customer hasn't picked it up yet.", revertedToReserved:"Moved back to reserved", logRevertReserve:"Reverted to reserved", availability:"Availability", available:"Available",
@@ -853,7 +855,9 @@ const I18N = {
     globalSearch:"Tout rechercher...", undo:"Annuler", undone:"Action annulée", darkMode:"Mode sombre",
     reserveItem:"Réserver pour plus tard", reserved:"Réservé",
     postpone:"Reporter", postponed:"Reportée", postponeConfirm:"Reporter cette réservation ? La date est effacée jusqu'à ce qu'une nouvelle soit fixée — la réservation, le client et la caution sont conservés.", logPostpone:"Réservation reportée", setNewDate:"Fixer une nouvelle date",
-    highlight:"Surligner", highlightRental:"Surligner cette location", clearHighlight:"Aucun surlignage", colorRed:"Rouge", colorAmber:"Ambre", colorGreen:"Vert", colorBlue:"Bleu", colorPurple:"Violet", logHighlight:"Surlignage de la location modifié",
+    highlight:"Surligner", highlighted:"Surlignées", allColors:"Toutes les couleurs",
+    noHighlighted:"Rien de surligné", noHighlightedHint:"Marquez une location avec le drapeau et elle apparaîtra ici.",
+    highlightRental:"Surligner cette location", clearHighlight:"Aucun surlignage", colorRed:"Rouge", colorAmber:"Ambre", colorGreen:"Vert", colorBlue:"Bleu", colorPurple:"Violet", logHighlight:"Surlignage de la location modifié",
     badgeColor:"Couleur du badge", badgeColorHint:"Repérez ce client en un coup d'œil dans les listes", logBadgeColor:"Couleur du badge client modifiée",
     futureReserveHint:"Le retrait est à une date future — enregistré comme réservation jusque-là.",
     activateConfirm:"Marquer cette réservation comme retirée maintenant ? L'article sort du stock.", backToReserved:"Remettre en réservé", backToReservedConfirm:"Remettre cette location en réservé ? L'article revient en stock — utilisez ceci si le client n'a pas encore retiré l'article.", revertedToReserved:"Remis en réservé", logRevertReserve:"Remis en réservé", availability:"Disponibilité", available:"Disponible",
@@ -1081,7 +1085,9 @@ const I18N = {
     globalSearch:"ابحث في كل شيء...", undo:"تراجع", undone:"تم التراجع", darkMode:"الوضع الداكن",
     reserveItem:"حجز لتاريخ لاحق", reserved:"محجوز",
     postpone:"تأجيل", postponed:"مؤجَّل", postponeConfirm:"تأجيل هذا الحجز؟ يُمسح التاريخ حتى يُحدَّد تاريخ جديد — يبقى الحجز والعميل والتأمين كما هم.", logPostpone:"تم تأجيل الحجز", setNewDate:"تحديد تاريخ جديد",
-    highlight:"تمييز", highlightRental:"تمييز هذا الإيجار", clearHighlight:"بلا تمييز", colorRed:"أحمر", colorAmber:"كهرماني", colorGreen:"أخضر", colorBlue:"أزرق", colorPurple:"بنفسجي", logHighlight:"تغيير تمييز الإيجار",
+    highlight:"تمييز", highlighted:"المميّزة", allColors:"كل الألوان",
+    noHighlighted:"لا شيء مميَّز", noHighlightedHint:"ميّز حجزاً بزر العَلَم وسيظهر هنا.",
+    highlightRental:"تمييز هذا الإيجار", clearHighlight:"بلا تمييز", colorRed:"أحمر", colorAmber:"كهرماني", colorGreen:"أخضر", colorBlue:"أزرق", colorPurple:"بنفسجي", logHighlight:"تغيير تمييز الإيجار",
     badgeColor:"لون الشارة", badgeColorHint:"اكتشف هذا العميل بسرعة في القوائم", logBadgeColor:"تغيير لون شارة العميل",
     futureReserveHint:"تاريخ الاستلام مستقبلي — يُحفَظ كحجز حتى ذلك الحين.",
     activateConfirm:"تحديد هذا الحجز كمُستلَم الآن؟ سيخرج العنصر من المخزون.", backToReserved:"إرجاع إلى محجوز", backToReservedConfirm:"إرجاع هذا الإيجار إلى محجوز؟ يعود العنصر إلى المخزون — استخدم هذا إذا لم يستلم العميل العنصر بعد.", revertedToReserved:"أُعيد إلى محجوز", logRevertReserve:"أُعيد إلى محجوز", availability:"التوفر", available:"متاح",
@@ -3411,7 +3417,7 @@ function buildInvoiceHtml(sale,meta){
 /* ============================================================
    RENTALS
 ============================================================ */
-let rentalTab='active', rentalView='list', calMonth=new Date().getMonth(), calYear=new Date().getFullYear(), depositSearch='', pickupDay='', dropoffDay='', rentalSearch='', availDay='', availSearch='';
+let rentalTab='active', rentalView='list', calMonth=new Date().getMonth(), calYear=new Date().getFullYear(), depositSearch='', pickupDay='', dropoffDay='', rentalSearch='', availDay='', availSearch='', highlightColor='';
 /* A half-finished rental kept aside — customer, dates, items, pieces, payment.
    Written whenever the rental form closes with work in it; restored the next
    time the form opens; cleared when a rental is actually created. */
@@ -3422,7 +3428,8 @@ async function viewRentals(){
   if(!dropoffDay) dropoffDay=todayISO();
   if(!availDay) availDay=todayISO();
   let rentals=(await idbAll('rentals')).sort((a,b)=>b.createdAt-a.createdAt);
-  const filtTab = rentalTab==='all'? rentals
+  const filtTab = rentalTab==='flagged'? rentals.filter(r=>r.highlight && (!highlightColor || r.highlight===highlightColor))
+    : rentalTab==='all'? rentals
     : rentalTab==='pickups'? rentals.filter(r=>r.startDate===pickupDay && r.status!=='cancelled')
     : rentalTab==='dropoffs'? rentals.filter(r=>r.dueDate===dropoffDay && (r.status==='active'||r.status==='returned'))
     : rentalTab==='reserved'? rentals.filter(r=>r.status==='reserved')
@@ -3432,6 +3439,10 @@ async function viewRentals(){
   // item name or customer name. The Deposits tab keeps its own separate search.
   const q=rentalSearch.trim().toLowerCase();
   const filt = q? filtTab.filter(r=>(r.name||'').toLowerCase().includes(q) || (r.customerName||'').toLowerCase().includes(q)) : filtTab;
+  const flaggedCount=rentals.filter(r=>r.highlight).length;
+  // Clearing the last flag of the colour being filtered would otherwise leave
+  // an empty list with a filter that no longer exists on screen.
+  if(highlightColor && !rentals.some(r=>r.highlight===highlightColor)) highlightColor='';
   let body;
   if(rentalView==='cal'){ body=await buildRentalCalendar(rentals); }
   else{
@@ -3440,6 +3451,7 @@ async function viewRentals(){
       <button data-tab="dropoffs" class="${rentalTab==='dropoffs'?'on':''}">${esc(t('dropoffsTab'))}</button>
       <button data-tab="active" class="${rentalTab==='active'?'on':''}">${esc(t('activeTab'))}</button>
       <button data-tab="reserved" class="${rentalTab==='reserved'?'on':''}">${esc(t('reserved'))}</button>
+      <button data-tab="flagged" class="${rentalTab==='flagged'?'on':''}">${esc(t('highlighted'))}${flaggedCount?` · ${flaggedCount}`:''}</button>
       <button data-tab="avail" class="${rentalTab==='avail'?'on':''}">${esc(t('freeOnDate'))}</button>
       <button data-tab="returned" class="${rentalTab==='returned'?'on':''}">${esc(t('returnedTab'))}</button>
       <button data-tab="deposits" class="${rentalTab==='deposits'?'on':''}">${esc(t('depositsHeld'))}</button>
@@ -3467,6 +3479,18 @@ async function viewRentals(){
         <div style="text-align:center;min-width:150px"><b>${esc(label)}</b><div class="subtle" style="font-size:12px">${toReturn} ${esc(t('toDropOff'))}${dayDue>0?` · <b style="color:var(--brand)">${money(dayDue)}</b> ${esc(t('toCollect'))}`:''}</div></div>
         <button class="btn ghost sm" id="doNext" style="transform:scaleX(-1)">${svg(IC.back,'ic')}</button>
         <button class="btn secondary sm" id="doToday" style="margin-inline-start:auto">${esc(t('today'))}</button>
+      </div>`;
+    }
+    let flagBar='';
+    if(rentalTab==='flagged'){
+      const counts={}; rentals.forEach(r=>{ if(r.highlight) counts[r.highlight]=(counts[r.highlight]||0)+1; });
+      const dot=(c,n,on)=>`<button type="button" data-hlfilter="${esc(c)}" title="${esc(c?tagColorLabel(c):t('allColors'))}"
+        style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;font-size:12.5px;cursor:pointer;
+        border:${on?'2px solid var(--ink)':'1px solid var(--line)'};background:${on?'var(--brand-100)':'#fff'}">
+        ${c?`<span style="width:10px;height:10px;border-radius:50%;background:${TAG_COLORS[c]}"></span>`:''}${esc(c?tagColorLabel(c):t('allColors'))} · ${n}</button>`;
+      flagBar=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        ${dot('',flaggedCount,!highlightColor)}
+        ${Object.keys(TAG_COLORS).filter(c=>counts[c]).map(c=>dot(c,counts[c],highlightColor===c)).join('')}
       </div>`;
     }
     if(rentalTab==='avail'){ body=tabs+await buildAvailabilityFinder(rentals); }
@@ -3499,7 +3523,7 @@ async function viewRentals(){
           <div class="mono" style="font-size:24px;font-weight:800;color:${tDue>0?'var(--brand)':'var(--ok)'}">${money(tDue)}</div>
         </div>
       </div>`;
-      body=tabs+searchHtml+pickupNav+(filt.length? `<div class="tablewrap"><table><thead><tr>
+      body=tabs+searchHtml+flagBar+pickupNav+(filt.length? `<div class="tablewrap"><table><thead><tr>
        <th>${esc(t('item'))}</th><th>${esc(t('customer'))}</th><th>${esc(t('bookedPickedUp'))}</th><th>${esc(t('dueDate'))}</th>
        <th class="t-right">${esc(t('rentalPrice'))}</th><th class="t-right">${esc(t('balance'))}</th>
        <th>${esc(t('status'))}</th><th class="t-right">${esc(t('actions'))}</th>
@@ -3507,6 +3531,7 @@ async function viewRentals(){
      : (q? `<div class="empty"><h4>${esc(t('none'))}</h4></div>`
         : rentalTab==='pickups'? emptyState(IC.cal,t('noPickupsDay'),'')
         : rentalTab==='dropoffs'? emptyState(IC.cal,t('noDropoffsDay'),'')
+        : rentalTab==='flagged'? emptyState(IC.flag,t('noHighlighted'),t('noHighlightedHint'))
         : emptyState(IC.rent,t('noRentals'),'',`<button class="btn" id="newRent2">${svg(IC.plus,'ic')}${esc(t('rentOut'))}</button>`)));
     }
   }
@@ -3519,7 +3544,8 @@ async function viewRentals(){
   const ds=document.getElementById('depSearch'); if(ds){ ds.oninput=()=>{ depositSearch=ds.value; const pos=ds.selectionStart; viewRentals().then(()=>{ const n=document.getElementById('depSearch'); if(n){n.focus(); n.setSelectionRange(pos,pos);} }); }; }
   const rs=document.getElementById('rentSearch'); if(rs){ rs.oninput=()=>{ rentalSearch=rs.value; const pos=rs.selectionStart; viewRentals().then(()=>{ const n=document.getElementById('rentSearch'); if(n){n.focus(); n.setSelectionRange(pos,pos);} }); }; }
   view.querySelectorAll('#rentViewSeg button').forEach(b=>b.onclick=()=>{ rentalView=b.dataset.v; viewRentals(); });
-  view.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{ rentalTab=b.dataset.tab; viewRentals(); });
+  view.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{ rentalTab=b.dataset.tab; if(b.dataset.tab!=='flagged') highlightColor=''; viewRentals(); });
+  view.querySelectorAll('[data-hlfilter]').forEach(b=>b.onclick=()=>{ highlightColor=b.dataset.hlfilter; viewRentals(); });
   document.getElementById('newRent')&&(document.getElementById('newRent').onclick=()=>openRentalModal());
   document.getElementById('newRent2')&&(document.getElementById('newRent2').onclick=()=>openRentalModal());
   view.querySelectorAll('[data-return]').forEach(b=>b.onclick=async()=>openReturnModal(await idbGet('rentals',b.dataset.return)));
