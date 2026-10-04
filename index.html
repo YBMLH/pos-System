@@ -573,6 +573,14 @@ const I18N = {
     doubleBookingHint:"Change the dates, or pick another item.",
     overlapWarnHint:"These bookings share days but there aren't enough of this item to cover them — move one of the dates.",
     overlaps:"Overlaps", pickedUpAt:"Picked up", returnedAt:"Returned", planned:"planned",
+    discountGiven:"Below the standard rate", discountsByStaff:"Discounts given, by staff",
+    bookingsDiscounted:"bookings below rate", noDiscounts:"Everything went out at the standard rate.",
+    discountsHint:"Compared with each item's rate at the time it was booked.",
+    saveCount:"Save count", countSaved:"Count saved", recentCounts:"Recent counts",
+    countNote:"What explains the difference?", countNoteHint:"optional — e.g. gave change from own pocket",
+    logCashCount:"Cash counted", cashCounts:"Cash counts", countsBy:"Shortfalls by staff",
+    overCount:"Over", shortCount:"Short", exactCount:"Exact", noCounts:"No cash counts saved yet",
+    netDiff:"Net difference", timesCounted:"counts",
     cautionsNav:"Cautions", cautionLedger:"Every caution movement", cautionByBooking:"By booking",
     cautionMovements:"Movements", takenIn:"Taken in", givenBack:"Given back", keptByStore:"Kept by store",
     whoDidIt:"Staff", whatFor:"For", reasonCol:"When",
@@ -582,7 +590,7 @@ const I18N = {
     flagUnsettled:"Finished without the caution being given back or kept",
     flagOverRefund:"More was given back than was ever taken",
     flagOrphan:"Caution movement with no booking attached",
-    flagKept:"Caution kept by the store",
+    flagKept:"Caution kept by the store", flagShort:"Till came up short at the count", worst:"Worst",
     flagSameDay:"Taken and given back the same day",
     editCaution:"Edit caution movement", deleteCaution:"Delete this movement",
     editReason:"Why are you changing this?", editReasonHint:"Recorded against your name in the activity log",
@@ -804,6 +812,14 @@ const I18N = {
     doubleBookingHint:"Changez les dates, ou choisissez un autre article.",
     overlapWarnHint:"Ces locations partagent des jours alors qu'il n'y a pas assez d'exemplaires — déplacez l'une des dates.",
     overlaps:"Chevauchement", pickedUpAt:"Retiré", returnedAt:"Rendu", planned:"prévu",
+    discountGiven:"Sous le tarif standard", discountsByStaff:"Remises accordées, par employé",
+    bookingsDiscounted:"locations sous le tarif", noDiscounts:"Tout est parti au tarif standard.",
+    discountsHint:"Comparé au tarif de chaque article au moment de la réservation.",
+    saveCount:"Enregistrer le comptage", countSaved:"Comptage enregistré", recentCounts:"Comptages récents",
+    countNote:"Qu'est-ce qui explique l'écart ?", countNoteHint:"optionnel — ex. monnaie avancée de ma poche",
+    logCashCount:"Caisse comptée", cashCounts:"Comptages de caisse", countsBy:"Écarts par employé",
+    overCount:"Excédent", shortCount:"Manque", exactCount:"Exact", noCounts:"Aucun comptage enregistré",
+    netDiff:"Écart net", timesCounted:"comptages",
     cautionsNav:"Cautions", cautionLedger:"Tous les mouvements de caution", cautionByBooking:"Par location",
     cautionMovements:"Mouvements", takenIn:"Encaissée", givenBack:"Rendue", keptByStore:"Retenue par le magasin",
     whoDidIt:"Employé", whatFor:"Pour", reasonCol:"Quand",
@@ -813,7 +829,7 @@ const I18N = {
     flagUnsettled:"Terminée sans que la caution soit rendue ni retenue",
     flagOverRefund:"Plus rendu qu'il n'a jamais été encaissé",
     flagOrphan:"Mouvement de caution sans location rattachée",
-    flagKept:"Caution retenue par le magasin",
+    flagKept:"Caution retenue par le magasin", flagShort:"Caisse en manque au comptage", worst:"Pire",
     flagSameDay:"Encaissée et rendue le même jour",
     editCaution:"Modifier le mouvement", deleteCaution:"Supprimer ce mouvement",
     editReason:"Pourquoi cette modification ?", editReasonHint:"Enregistré à votre nom dans le journal",
@@ -1034,6 +1050,14 @@ const I18N = {
     doubleBookingHint:"غيّر التواريخ، أو اختر قطعة أخرى.",
     overlapWarnHint:"هذه الحجوزات تتشارك أياماً والقطع غير كافية لتغطيتها — غيّر أحد التواريخ.",
     overlaps:"تداخل", pickedUpAt:"استُلم", returnedAt:"أُرجع", planned:"مقرر",
+    discountGiven:"أقل من السعر المعتاد", discountsByStaff:"التخفيضات حسب الموظف",
+    bookingsDiscounted:"حجوزات دون السعر", noDiscounts:"كل شيء خرج بالسعر المعتاد.",
+    discountsHint:"بالمقارنة مع سعر القطعة وقت الحجز.",
+    saveCount:"حفظ الجرد", countSaved:"تم حفظ الجرد", recentCounts:"عمليات الجرد الأخيرة",
+    countNote:"ما سبب الفرق؟", countNoteHint:"اختياري — مثال: أعطيت الصرف من جيبي",
+    logCashCount:"تم جرد الصندوق", cashCounts:"جرد الصندوق", countsBy:"الفروقات حسب الموظف",
+    overCount:"زيادة", shortCount:"نقص", exactCount:"مطابق", noCounts:"لا توجد عمليات جرد محفوظة",
+    netDiff:"صافي الفرق", timesCounted:"عمليات جرد",
     cautionsNav:"التأمينات", cautionLedger:"كل حركات التأمين", cautionByBooking:"حسب الحجز",
     cautionMovements:"الحركات", takenIn:"مستلمة", givenBack:"معادة", keptByStore:"محتجزة للمتجر",
     whoDidIt:"الموظف", whatFor:"لأجل", reasonCol:"متى",
@@ -1043,7 +1067,7 @@ const I18N = {
     flagUnsettled:"انتهى دون إعادة التأمين أو احتجازه",
     flagOverRefund:"أُعيد أكثر مما استُلم أصلاً",
     flagOrphan:"حركة تأمين بلا حجز مرتبط",
-    flagKept:"تأمين احتجزه المتجر",
+    flagKept:"تأمين احتجزه المتجر", flagShort:"نقص في الصندوق عند الجرد", worst:"الأسوأ",
     flagSameDay:"استُلم وأُعيد في نفس اليوم",
     editCaution:"تعديل حركة التأمين", deleteCaution:"حذف هذه الحركة",
     editReason:"لماذا هذا التعديل؟", editReasonHint:"يُسجَّل باسمك في سجل النشاط",
@@ -1161,8 +1185,8 @@ function isRTL(){ return State.lang==='ar'; }
 function isOwner(){ return State.user && State.user.role==='owner'; }
 
 /* ---------------- IndexedDB ---------------- */
-const DB_NAME='kaftanStoreDB', DB_VER=5;
-const STORES=['meta','users','products','sales','rentals','customers','payments','expenses','activity','parked'];
+const DB_NAME='kaftanStoreDB', DB_VER=6; // 6: + counts (saved cash counts)
+const STORES=['meta','users','products','sales','rentals','customers','payments','expenses','activity','parked','counts'];
 function openDB(){
   return new Promise((res,rej)=>{
     const r=indexedDB.open(DB_NAME,DB_VER);
@@ -1666,7 +1690,7 @@ function cautionReasonLabel(x){
 async function viewCautions(){
   const view=document.getElementById('view');
   if(!isOwner()){ view.innerHTML=pageHead(t('cautionsNav'))+emptyState(IC.money,t('ownerOnly'),t('ownerOnlyMsg')); return; }
-  const [payments,rentals,users,T]=await Promise.all([idbAll('payments'),idbAll('rentals'),idbAll('users'),tillTotals()]);
+  const [payments,rentals,users,counts,T]=await Promise.all([idbAll('payments'),idbAll('rentals'),idbAll('users'),idbAll('counts'),tillTotals()]);
   const moves=payments.filter(p=>p.refType==='deposit'||p.refType==='depositRefund').sort((a,b)=>b.createdAt-a.createdAt);
   const rentalById=Object.fromEntries(rentals.map(r=>[r.id,r]));
   const nameOfUser=id=>{ const u=users.find(x=>x.id===id); return u?u.name:''; };
@@ -1700,6 +1724,9 @@ async function viewCautions(){
       }
     }));
   });
+  // A till that came up short is the plainest sign of all, so it sits with the rest.
+  counts.filter(c=>c.diff<0).forEach(c=>
+    flags.push({kind:'flagShort',amt:Math.abs(c.diff),who:'',item:c.note||'',ts:c.createdAt,staff:c.userName||'—'}));
   flags.sort((a,b)=>b.ts-a.ts);
 
   /* ---- filters over the movement list ---- */
@@ -1753,6 +1780,7 @@ async function viewCautions(){
     <div class="pill-tabs">
       <button data-ct="moves" class="${cautionTab==='moves'?'on':''}">${esc(t('cautionMovements'))}</button>
       <button data-ct="booking" class="${cautionTab==='booking'?'on':''}">${esc(t('cautionByBooking'))}</button>
+      <button data-ct="counts" class="${cautionTab==='counts'?'on':''}">${esc(t('cashCounts'))}${counts.length?` · ${counts.length}`:''}</button>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
       <div class="searchbar" style="flex:1;min-width:200px">${svg(IC.search,'ic')}<input id="cauSearch" type="search" placeholder="${esc(t('searchClients'))}" value="${esc(cautionSearch)}"></div>
@@ -1785,6 +1813,36 @@ async function viewCautions(){
               </td></tr>`;
           }).join('')}</tbody></table></div>`
         : emptyState(IC.money,t('noCautions'),''))
+      : cautionTab==='counts'
+      ? (counts.length? (()=>{
+          const byStaff={};
+          counts.forEach(c=>{ const k=c.userName||'—'; const m=byStaff[k]=byStaff[k]||{n:0,net:0,short:0,over:0,worst:0};
+            m.n++; m.net+=c.diff; if(c.diff<0){ m.short++; m.worst=Math.min(m.worst,c.diff); } else if(c.diff>0) m.over++; });
+          const staffRows=Object.entries(byStaff).sort((a,b)=>a[1].net-b[1].net).map(([name,m])=>`<tr>
+            <td><b>${esc(name)}</b><div class="subtle" style="font-size:11.5px">${m.n} ${esc(t('timesCounted'))}</div></td>
+            <td class="t-right mono">${m.short?`<span class="badge red">${m.short}</span>`:'—'}</td>
+            <td class="t-right mono">${m.over?`<span class="badge green">${m.over}</span>`:'—'}</td>
+            <td class="t-right mono">${m.worst?money(m.worst):'—'}</td>
+            <td class="t-right mono" style="font-weight:800;color:${m.net<0?'var(--danger)':m.net>0?'var(--ok)':'inherit'}">${m.net>0?'+':''}${money(m.net)}</td>
+          </tr>`).join('');
+          const list=counts.slice().sort((a,b)=>b.createdAt-a.createdAt).filter(c=>!q || [c.userName,c.note].some(v=>String(v||'').toLowerCase().includes(q)));
+          return `<div class="tablewrap" style="margin-bottom:16px"><table><thead><tr>
+              <th>${esc(t('whoDidIt'))}</th><th class="t-right">${esc(t('shortCount'))}</th><th class="t-right">${esc(t('overCount'))}</th>
+              <th class="t-right">${esc(t('worst'))}</th><th class="t-right">${esc(t('netDiff'))}</th>
+            </tr></thead><tbody>${staffRows}</tbody></table></div>
+            <div class="tablewrap"><table><thead><tr>
+              <th>${esc(t('date'))}</th><th>${esc(t('whoDidIt'))}</th>
+              <th class="t-right">${esc(t('expectedCash'))}</th><th class="t-right">${esc(t('actualCash'))}</th>
+              <th class="t-right">${esc(t('difference'))}</th><th>${esc(t('countNote'))}</th>
+            </tr></thead><tbody>${list.map(c=>`<tr>
+              <td class="mono" style="white-space:nowrap">${fmtDate(c.createdAt)}<div class="subtle" style="font-size:10.5px">${new Date(c.createdAt).toLocaleTimeString(State.lang,{hour:'2-digit',minute:'2-digit'})}</div></td>
+              <td>${esc(c.userName||'—')}</td>
+              <td class="t-right mono subtle">${money(c.expected)}</td>
+              <td class="t-right mono">${money(c.actual)}</td>
+              <td class="t-right mono">${c.diff===0?`<span class="badge green">${esc(t('exactCount'))}</span>`:`<span class="badge ${c.diff>0?'green':'red'}">${c.diff>0?'+':''}${money(c.diff)}</span>`}</td>
+              <td class="subtle" style="font-size:12px">${esc(c.note||'')}</td>
+            </tr>`).join('')}</tbody></table></div>`;
+        })() : emptyState(IC.money,t('noCounts'),''))
       : (bookingRows? `<div class="tablewrap"><table><thead><tr>
            <th>${esc(t('customer'))}</th><th>${esc(t('date'))}</th>
            <th class="t-right">${esc(t('takenIn'))}</th><th class="t-right">${esc(t('givenBack'))}</th>
@@ -4148,6 +4206,19 @@ async function openEditDatesModal(r){
 // Pickups/Drop-offs/Active/Reserved answers "should I be holding an ID card
 // for this one" without opening it. For a returned booking, shows how the
 // held deposit was actually settled (refunded / kept / a bit of both).
+/* A booking that went out below the item's standard rate. The rate in force at
+   the time is stored on the booking, so later price changes don't rewrite
+   history. Bookings made before this is recorded simply show nothing. */
+function groupDiscount(group){
+  return group.reduce((a,x)=>a+Math.max(0,(x.listPrice||0)-(x.price||0)),0);
+}
+function discountBadgeHtml(group){
+  const d=groupDiscount(group);
+  if(d<=0) return '';
+  const list=group.reduce((a,x)=>a+(x.listPrice||0),0);
+  const pct=list>0? Math.round(d*100/list) : 0;
+  return `<span class="badge warnb" style="margin-inline-start:4px" title="${esc(t('discountGiven'))}">−${money(d)}${pct?` · ${pct}%`:''}</span>`;
+}
 function depositBadgeHtml(group){
   const totalDep=group.reduce((a,x)=>a+(x.deposit||0),0);
   if(totalDep<=0) return `<span class="badge grey" style="margin-inline-start:4px">${esc(t('noDeposit'))}</span>`;
@@ -4193,7 +4264,7 @@ function rowRental(group,custColorById){
     <td class="mono">${dateCell}</td>
     <td class="t-right mono">${money(price)}</td>
     <td class="t-right mono">${bal>0?`<span class="badge red">${money(bal)}</span>`:`<span class="badge green">${esc(t('settled'))}</span>`}</td>
-    <td>${statusBadge}${depositBadgeHtml(group)}${damage>0?`<span class="badge warnb" style="margin-inline-start:4px" title="${esc(group.map(x=>x.damageNote).filter(Boolean).join(', '))}">${esc(t('damageFee'))}: ${money(damage)}</span>`:''}</td>
+    <td>${statusBadge}${depositBadgeHtml(group)}${discountBadgeHtml(group)}${damage>0?`<span class="badge warnb" style="margin-inline-start:4px" title="${esc(group.map(x=>x.damageNote).filter(Boolean).join(', '))}">${esc(t('damageFee'))}: ${money(damage)}</span>`:''}</td>
     <td class="t-right" style="white-space:nowrap">
       <button class="btn ghost sm" data-hl="${r.id}" title="${esc(t('highlight'))}"${hlColor?` style="color:${hlColor}"`:''}>${svg(IC.flag,'ic')}</button>
       <button class="btn ghost sm" data-agr="${r.id}" title="${esc(t('rentAgreement'))}">${svg(IC.print,'ic')}</button>
@@ -4509,7 +4580,7 @@ async function openRentalModal(presetPid){
       const share = i===lines.length-1 ? Math.max(0,paidEntered-allocated) : Math.round(paidEntered*(l.price/(totalPrice||1)));
       allocated+=share;
       const rental={id:uid(),groupId,productId:l.productId,name:l.name,customerId:cid,customerName:cname,
-        startDate:start,dueDate:due,days,price:l.price,deposit:Number(l.deposit||0),addons:(l.addons||[]).slice(),
+        startDate:start,dueDate:due,days,price:l.price,listPrice:Number(l.rate||0),deposit:Number(l.deposit||0),addons:(l.addons||[]).slice(),
         paid:share,lateFee:0,damageFee:0,status:isReserve?'reserved':'active',method:rMethod,createdAt:now(),userId:State.user.id,userName:State.user.name,
         ...(isReserve?{}:{pickedUpAt:now(),pickedUpBy:State.user.name})};
       await idbPut('rentals',rental);
@@ -5344,6 +5415,14 @@ async function viewReports(){
   for(const r of R){ if(!r.customerId) continue; const key=r.customerId; if(!custAgg[key]) custAgg[key]={name:r.customerName,count:0,total:0}; custAgg[key].count++; custAgg[key].total+=(r.paid||0); }
   const topRepeat=Object.values(custAgg).sort((a,b)=>b.count-a.count || b.total-a.total).slice(0,10);
   const topSpenders=Object.values(custAgg).sort((a,b)=>b.total-a.total || b.count-a.count).slice(0,10);
+  // Who is letting dresses go under the standard rate, and by how much. The
+  // rate in force at booking is stored on each one, so this is what was
+  // actually given away, not a comparison against today's price list.
+  const discAgg={};
+  for(const r of R){ const off=Math.max(0,(r.listPrice||0)-(r.price||0)); if(off<=0) continue;
+    const key=r.userName||'—'; if(!discAgg[key]) discAgg[key]={name:key,n:0,total:0};
+    discAgg[key].n++; discAgg[key].total+=off; }
+  const discountRows=Object.values(discAgg).sort((a,b)=>b.total-a.total);
   // last-7-days trend (always last 7 calendar days regardless of selected period, for consistent chart context)
   const dayLabels=[], salesDaily=[], rentDaily=[], expDaily=[];
   for(let i=6;i>=0;i--){
@@ -5434,6 +5513,15 @@ async function viewReports(){
        <h4 style="margin-bottom:8px;font-size:14px">${esc(t('topSpenders'))}</h4>
        ${rankedListHtml(topSpenders,c=>`<b>${money(c.total)}</b>`)}
      </div>
+     <div class="card pad">
+       <h4 style="margin-bottom:8px;font-size:14px">${esc(t('discountsByStaff'))}</h4>
+       ${discountRows.length? `<table style="width:100%;font-size:13px"><tbody>${discountRows.map(d=>`<tr>
+           <td><b>${esc(d.name)}</b><div class="subtle" style="font-size:11.5px">${d.n} ${esc(t('bookingsDiscounted'))}</div></td>
+           <td class="t-right mono" style="font-weight:700;color:var(--warn)">−${money(d.total)}</td>
+         </tr>`).join('')}</tbody></table>`
+        : `<p class="subtle" style="font-size:12.5px;margin:0">${esc(t('noDiscounts'))}</p>`}
+       <p class="subtle" style="margin:8px 0 0;font-size:11px">${esc(t('discountsHint'))}</p>
+     </div>
    </div>`;
   view.querySelectorAll('#repSeg button').forEach(b=>b.onclick=()=>{ repPeriod=b.dataset.p; viewReports(); });
   view.querySelectorAll('#bestSeg button').forEach(b=>b.onclick=()=>{ bestMode=b.dataset.m; viewReports(); });
@@ -5449,16 +5537,38 @@ async function openCashDrawerModal(){
   // they are listed apart so each can be checked against its own float.
   const T=await tillTotals();
   const expected=T.till+T.cautionTillCash;
+  const recent=(await idbAll('counts')).sort((a,b)=>b.createdAt-a.createdAt).slice(0,5);
   modal(t('cashCount'),
    `<p class="subtle" style="margin-bottom:4px">${esc(t('expectedCash'))}: <b class="mono">${money(expected)}</b></p>
     <p class="subtle" style="margin-bottom:14px;font-size:11.5px">${esc(t('tillAmount'))}: ${money(T.till)} + ${esc(t('cautionTillTotal'))}: ${money(T.cautionTillCash)}</p>
     <div class="field"><label>${esc(t('actualCash'))}</label><input id="cd_actual" type="number" min="0" step="0.01" value="${expected}"></div>
-    <p id="cd_diff" class="subtle" style="margin-top:8px"></p>`,
-   `<button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>`);
-  const inp=document.getElementById('cd_actual'), diff=document.getElementById('cd_diff');
+    <p id="cd_diff" class="subtle" style="margin-top:8px"></p>
+    <div class="field" id="cd_noteBox" style="display:none"><label>${esc(t('countNote'))}</label><input id="cd_note" type="text" placeholder="${esc(t('countNoteHint'))}"></div>
+    ${recent.length?`<div class="subtle" style="font-size:11px;font-weight:700;margin:14px 0 4px;text-transform:uppercase;letter-spacing:.05em">${esc(t('recentCounts'))}</div>
+      <table style="width:100%;font-size:12.5px">${recent.map(c=>`<tr>
+        <td>${fmtDate(c.createdAt)}<div class="subtle" style="font-size:10.5px">${new Date(c.createdAt).toLocaleTimeString(State.lang,{hour:'2-digit',minute:'2-digit'})} · ${esc(c.userName||'—')}</div></td>
+        <td class="t-right mono">${c.diff===0?`<span class="badge green">0</span>`:`<span class="badge ${c.diff>0?'green':'red'}">${c.diff>0?'+':''}${money(c.diff)}</span>`}</td>
+      </tr>`).join('')}</table>`:''}`,
+   `<button class="btn secondary" onclick="closeModal()">${esc(t('close'))}</button>
+    <button class="btn" id="cd_save">${esc(t('saveCount'))}</button>`);
+  const inp=document.getElementById('cd_actual'), diff=document.getElementById('cd_diff'), noteBox=document.getElementById('cd_noteBox');
   function sync(){ const actual=Number(inp.value||0); const d=actual-expected;
-    diff.innerHTML = d===0? `<span class="badge green">${esc(t('difference'))}: 0</span>` : `<span class="badge ${d>0?'green':'red'}">${esc(t('difference'))}: ${d>0?'+':''}${money(d)}</span>`; }
+    diff.innerHTML = d===0? `<span class="badge green">${esc(t('difference'))}: 0</span>` : `<span class="badge ${d>0?'green':'red'}">${esc(t('difference'))}: ${d>0?'+':''}${money(d)}</span>`;
+    noteBox.style.display = d===0? 'none' : ''; } // a gap is worth a word of explanation
   inp.oninput=sync; sync();
+  // Counting is the one moment the cash is actually measured — keep the result,
+  // with who counted it, so a run of small shortfalls becomes visible.
+  document.getElementById('cd_save').onclick=async()=>{
+    const btn=document.getElementById('cd_save'); if(btn.disabled) return; btn.disabled=true;
+    const actual=Number(inp.value||0), d=actual-expected;
+    const note=(document.getElementById('cd_note')||{}).value||'';
+    await idbPut('counts',{id:uid(),createdAt:now(),expected,actual,diff:d,
+      till:T.till,caution:T.cautionTillCash,note:note.trim(),
+      userId:State.user&&State.user.id,userName:State.user?State.user.name:''});
+    await logAct('logCashCount', `${t('expectedCash')} ${money(expected)} · ${t('actualCash')} ${money(actual)} · ${t('difference')} ${d>0?'+':''}${money(d)}${note.trim()?' · '+note.trim():''}`);
+    closeModal(); toast(t('countSaved'),'ok');
+    if(State.route==='cautions') viewCautions();
+  };
 }
 function drawExpenses(E){
   const el=document.getElementById('expList'); if(!el) return;
