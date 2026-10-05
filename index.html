@@ -296,6 +296,8 @@ body.tablet table td,body.tablet table th{padding:12px 10px;font-size:15px}
 
 .subtle{color:var(--muted);font-size:13px}
 .divider{height:1px;background:var(--line);margin:18px 0}
+.flagrow{cursor:pointer;border-radius:8px;transition:background .12s}
+.flagrow:hover{background:var(--gold-soft)}
 .pill-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
 .cal-grid.cal-head{margin-bottom:6px;font-size:12px;font-weight:700;color:var(--muted);text-align:center}
@@ -597,6 +599,8 @@ const I18N = {
     atBooking:"At booking", atPickup:"At pickup", atReturn:"At return", atCancel:"At cancellation",
     atUndo:"Undone", manualAdj:"Adjusted by hand",
     redFlags:"Worth checking", noRedFlags:"Nothing looks out of place.",
+    openIt:"Open it", flagClickHint:"Click any line to go straight to it.",
+    showingOne:"Showing just this one entry", showAllAgain:"Show everything again",
     flagUnsettled:"Finished without the caution being given back or kept",
     flagOverRefund:"More was given back than was ever taken",
     flagOrphan:"Caution movement with no booking attached",
@@ -853,6 +857,8 @@ const I18N = {
     atBooking:"À la réservation", atPickup:"Au retrait", atReturn:"Au retour", atCancel:"À l'annulation",
     atUndo:"Annulé", manualAdj:"Modifié à la main",
     redFlags:"À vérifier", noRedFlags:"Rien d'anormal.",
+    openIt:"Ouvrir", flagClickHint:"Cliquez sur une ligne pour y aller directement.",
+    showingOne:"Affichage d'une seule entrée", showAllAgain:"Tout réafficher",
     flagUnsettled:"Terminée sans que la caution soit rendue ni retenue",
     flagOverRefund:"Plus rendu qu'il n'a jamais été encaissé",
     flagOrphan:"Mouvement de caution sans location rattachée",
@@ -1108,6 +1114,8 @@ const I18N = {
     atBooking:"عند الحجز", atPickup:"عند الاستلام", atReturn:"عند الإرجاع", atCancel:"عند الإلغاء",
     atUndo:"تم التراجع", manualAdj:"عُدّل يدوياً",
     redFlags:"يستحق المراجعة", noRedFlags:"لا شيء غير طبيعي.",
+    openIt:"فتحه", flagClickHint:"انقر على أي سطر للانتقال إليه مباشرة.",
+    showingOne:"عرض هذا السجل فقط", showAllAgain:"عرض الكل من جديد",
     flagUnsettled:"انتهى دون إعادة التأمين أو احتجازه",
     flagOverRefund:"أُعيد أكثر مما استُلم أصلاً",
     flagOrphan:"حركة تأمين بلا حجز مرتبط",
@@ -1696,7 +1704,7 @@ function renderApp(){
      <button id="moreTab" class="${items.filter(i=>i.k).slice(0,4).some(it=>it.k===State.route)?'':'active'}">
        <span class="ic">${svg(IC.menu)}</span>${esc(t('moreNav'))}</button>
    </nav>`;
-  app.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{ State.route=b.dataset.r; renderApp(); });
+  app.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{ State.route=b.dataset.r; cautionFocus=null; renderApp(); });
   document.getElementById('moreTab')&&(document.getElementById('moreTab').onclick=()=>openMoreMenu());
   document.getElementById('btnLogout').onclick=()=>{ State.user=null; State.cart=[]; render(); };
   document.getElementById('btnSearch').onclick=()=>openGlobalSearch();
@@ -1734,6 +1742,8 @@ function routeView(){
    of staff, against which booking — and what doesn't add up.
 ============================================================ */
 let cautionTab='moves', cautionPeriod='month', cautionStaff='', cautionSearch='';
+// Set when a red flag is clicked: the list below narrows to that one entry.
+let cautionFocus=null;
 function cautionReasonLabel(x){
   if(x.reason && I18N.en[x.reason]) return t(x.reason);
   return x.editedAt? t('manualAdj') : '—';
@@ -1782,15 +1792,28 @@ async function viewCautions(){
   });
   // A till that came up short is the plainest sign of all, so it sits with the rest.
   counts.filter(c=>c.diff<0).forEach(c=>
-    flags.push({kind:'flagShort',amt:Math.abs(c.diff),who:'',item:c.note||'',ts:c.createdAt,staff:c.userName||'—'}));
+    flags.push({kind:'flagShort',amt:Math.abs(c.diff),who:'',item:c.note||'',ts:c.createdAt,staff:c.userName||'—',cid:c.id}));
   flags.sort((a,b)=>b.ts-a.ts);
+  // Every flag points at the place where it can actually be looked at and put
+  // right: the pair of movements for a refund that went wrong, the booking row
+  // for money still unaccounted for, the count itself for a till that was short.
+  const flagTarget=f=>
+     f.kind==='flagOrphan' ? (f.pid?{tab:'moves',by:'pid',id:f.pid}:null)
+   : f.kind==='flagShort' ? (f.cid?{tab:'counts',by:'cid',id:f.cid}:null)
+   : (f.kind==='flagOverRefund'||f.kind==='flagSameDay') ? (f.rid?{tab:'moves',by:'refId',id:f.rid}:null)
+   : (f.rid?{tab:'booking',by:'rid',id:f.rid}:null);
 
   /* ---- filters over the movement list ---- */
   const from=startOf(cautionPeriod);
   const q=cautionSearch.trim().toLowerCase();
-  const shown=moves.filter(m=>(cautionPeriod==='all'||m.createdAt>=from)
-    && (!cautionStaff||staffOf(m)===cautionStaff)
-    && (!q || [m.customerName,m.itemName,String(m.amount)].some(v=>String(v||'').toLowerCase().includes(q))));
+  // Coming in from a red flag overrides the period, staff and search filters —
+  // the entry being chased is often older than whatever window was last set.
+  const focused=cautionFocus&&cautionFocus.tab===cautionTab?cautionFocus:null;
+  const shown=focused
+    ? moves.filter(m=> focused.by==='pid' ? m.id===focused.id : m.refId===focused.id)
+    : moves.filter(m=>(cautionPeriod==='all'||m.createdAt>=from)
+      && (!cautionStaff||staffOf(m)===cautionStaff)
+      && (!q || [m.customerName,m.itemName,String(m.amount)].some(v=>String(v||'').toLowerCase().includes(q))));
   const sumIn=shown.filter(m=>m.refType==='deposit').reduce((a,m)=>a+(m.amount||0),0);
   const sumOut=shown.filter(m=>m.refType==='depositRefund').reduce((a,m)=>a+Math.abs(m.amount||0),0);
 
@@ -1800,7 +1823,7 @@ async function viewCautions(){
   /* ---- per-booking reconciliation ---- */
   const bookingRows=rentals.filter(r=>(r.deposit||0)>0)
     .sort((a,b)=>b.createdAt-a.createdAt)
-    .filter(r=>!q || [r.customerName,r.name].some(v=>String(v||'').toLowerCase().includes(q)))
+    .filter(r=> focused ? r.id===focused.id : (!q || [r.customerName,r.name].some(v=>String(v||'').toLowerCase().includes(q))))
     .map(r=>{
       const b=byBooking[r.id]||{in:0,out:0};
       const kept=r.depositKept||0, held=Math.max(0,(r.deposit||0)-(r.depositRefundedAmount||0)-kept);
@@ -1826,12 +1849,14 @@ async function viewCautions(){
     </div>
     <div class="card pad" style="margin-bottom:14px">
       <p class="section-eyebrow" style="margin:0 0 6px">${esc(t('redFlags'))}${flags.length?` · ${flags.length}`:''}</p>
-      ${flags.length? `<div style="max-height:260px;overflow:auto">${flags.slice(0,40).map(f=>`
-        <div style="display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)">
+      ${flags.length? `<div style="max-height:260px;overflow:auto">${flags.slice(0,40).map(f=>{ const g=flagTarget(f);
+        return `<div class="${g?'flagrow':''}" ${g?`data-flagto="${esc(g.tab)}" data-flagby="${esc(g.by)}" data-flagid="${esc(g.id)}" title="${esc(t('openIt'))}"`:''} style="display:flex;gap:10px;align-items:center;padding:7px 6px;border-bottom:1px solid var(--line)">
           <span style="min-width:0;flex:1"><b style="font-size:12.5px">${esc(t(f.kind))}</b>
             <div class="subtle" style="font-size:11.5px">${esc([f.who,f.item,f.staff].filter(Boolean).join(' · '))} · ${fmtDate(f.ts)}</div></span>
           <span class="mono" style="font-weight:700;color:var(--danger);flex-shrink:0">${money(f.amt)}</span>
-        </div>`).join('')}</div>`
+          ${g?`<span class="subtle" style="flex-shrink:0;font-size:15px">${State.lang==='ar'?'‹':'›'}</span>`:''}
+        </div>`; }).join('')}</div>
+        <p class="subtle" style="margin:8px 0 0;font-size:11px">${esc(t('flagClickHint'))}</p>`
        : `<p class="subtle" style="font-size:12.5px;margin:0">${esc(t('noRedFlags'))}</p>`}
     </div>
     <div class="pill-tabs">
@@ -1839,11 +1864,15 @@ async function viewCautions(){
       <button data-ct="booking" class="${cautionTab==='booking'?'on':''}">${esc(t('cautionByBooking'))}</button>
       <button data-ct="counts" class="${cautionTab==='counts'?'on':''}">${esc(t('cashCounts'))}${counts.length?` · ${counts.length}`:''}</button>
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+    ${focused?`<div class="card pad" id="cauFocus" style="margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-color:var(--danger)">
+      <span style="flex:1;min-width:0;font-weight:700">${esc(t('showingOne'))}</span>
+      <button class="btn secondary sm" id="cauClearFocus">${esc(t('showAllAgain'))}</button>
+    </div>`
+    :`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
       <div class="searchbar" style="flex:1;min-width:200px">${svg(IC.search,'ic')}<input id="cauSearch" type="search" placeholder="${esc(t('searchClients'))}" value="${esc(cautionSearch)}"></div>
       ${cautionTab==='moves'?`<div class="seg" id="cauPeriod">${periodSeg}</div>
       <select id="cauStaff"><option value="">${esc(t('allStaff'))}</option>${staffList.map(n=>`<option value="${esc(n)}" ${cautionStaff===n?'selected':''}>${esc(n)}</option>`).join('')}</select>`:''}
-    </div>`+
+    </div>`}`+
     (cautionTab==='moves'
       ? (shown.length? `<div class="card pad" style="margin-bottom:12px;display:flex;gap:18px;flex-wrap:wrap">
            <div><div class="subtle" style="font-size:12px">${esc(t('takenIn'))}</div><div class="mono" style="font-size:19px;font-weight:800;color:var(--ok)">${money(sumIn)}</div></div>
@@ -1882,11 +1911,12 @@ async function viewCautions(){
             <td class="t-right mono">${m.worst?money(m.worst):'—'}</td>
             <td class="t-right mono" style="font-weight:800;color:${m.net<0?'var(--danger)':m.net>0?'var(--ok)':'inherit'}">${m.net>0?'+':''}${money(m.net)}</td>
           </tr>`).join('');
-          const list=counts.slice().sort((a,b)=>b.createdAt-a.createdAt).filter(c=>!q || [c.userName,c.note].some(v=>String(v||'').toLowerCase().includes(q)));
-          return `<div class="tablewrap" style="margin-bottom:16px"><table><thead><tr>
+          const list=counts.slice().sort((a,b)=>b.createdAt-a.createdAt)
+            .filter(c=> focused ? c.id===focused.id : (!q || [c.userName,c.note].some(v=>String(v||'').toLowerCase().includes(q))));
+          return `${focused?'':`<div class="tablewrap" style="margin-bottom:16px"><table><thead><tr>
               <th>${esc(t('whoDidIt'))}</th><th class="t-right">${esc(t('shortCount'))}</th><th class="t-right">${esc(t('overCount'))}</th>
               <th class="t-right">${esc(t('worst'))}</th><th class="t-right">${esc(t('netDiff'))}</th>
-            </tr></thead><tbody>${staffRows}</tbody></table></div>
+            </tr></thead><tbody>${staffRows}</tbody></table></div>`}
             <div class="tablewrap"><table><thead><tr>
               <th>${esc(t('date'))}</th><th>${esc(t('whoDidIt'))}</th>
               <th class="t-right">${esc(t('expectedCash'))}</th><th class="t-right">${esc(t('actualCash'))}</th>
@@ -1909,9 +1939,16 @@ async function viewCautions(){
 
   const cs=document.getElementById('cauSearch');
   if(cs) cs.oninput=()=>{ cautionSearch=cs.value; const pos=cs.selectionStart; viewCautions().then(()=>{ const n=document.getElementById('cauSearch'); if(n){n.focus(); n.setSelectionRange(pos,pos);} }); };
-  view.querySelectorAll('[data-ct]').forEach(b=>b.onclick=()=>{ cautionTab=b.dataset.ct; viewCautions(); });
+  view.querySelectorAll('[data-ct]').forEach(b=>b.onclick=()=>{ cautionTab=b.dataset.ct; cautionFocus=null; viewCautions(); });
   view.querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>{ cautionPeriod=b.dataset.cp; viewCautions(); });
   const st=document.getElementById('cauStaff'); if(st) st.onchange=()=>{ cautionStaff=st.value; viewCautions(); };
+  // Clicking a red flag takes you straight to the entry behind it.
+  view.querySelectorAll('[data-flagto]').forEach(b=>b.onclick=()=>{
+    cautionTab=b.dataset.flagto;
+    cautionFocus={tab:b.dataset.flagto,by:b.dataset.flagby,id:b.dataset.flagid};
+    viewCautions().then(()=>{ const n=document.getElementById('cauFocus'); if(n) n.scrollIntoView({behavior:'smooth',block:'center'}); });
+  });
+  const cf=document.getElementById('cauClearFocus'); if(cf) cf.onclick=()=>{ cautionFocus=null; viewCautions(); };
   view.querySelectorAll('[data-caued]').forEach(b=>b.onclick=()=>openCautionEditModal(b.dataset.caued));
   view.querySelectorAll('[data-caudel]').forEach(b=>b.onclick=()=>openCautionDeleteModal(b.dataset.caudel));
 }
