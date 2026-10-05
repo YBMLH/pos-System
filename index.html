@@ -504,7 +504,12 @@ const I18N = {
     chooseItem:"Choose item", rentableOnly:"Only rentable items appear here",
     swapItem:"Change", addAnotherItem:"Add / change item", logEditItems:"Reservation items changed",
     depositOpt:"Deposit (optional)", lateFee:"Late fee", applyLateFee:"Add late fee (optional)",
-    damageFee:"Damage fee", applyDamageFee:"Add damage fee (optional)", damageNote:"Reason", damageNoteHint:"e.g. stain, tear, missing button", logDamageFee:"Damage fee added",
+    damageFee:"Repair fee", applyDamageFee:"The item came back damaged — charge a repair fee", damageNote:"What is damaged", damageNoteHint:"e.g. torn at the seam, stain, missing button", logDamageFee:"Repair fee added",
+    repairPaidBy:"Where the repair money comes from", repairFromCaution:"Take it out of her caution", repairCustomerPays:"She pays it on top",
+    repairNoCaution:"No caution was taken on this booking, so the repair goes on her bill.",
+    cautionHeld:"Caution held", keptForRepair:"Kept for the repair", backToCustomer:"Back to the customer",
+    repairOverCaution:"More than the caution covers — the rest goes on her bill.",
+    onHerBill:"Added to her bill",
     confirmReturn:"Confirm return", returnItem:"Return item", refundDeposit:"Refund deposit",
     rentalDone:"Rental created", itemReturned:"Item returned",
     noRentals:"No rentals yet", rentAgreement:"Rental agreement",
@@ -609,14 +614,21 @@ const I18N = {
     registerTill:"Cash drawer — today",
     cautionTill:"Caution till — customers' money", rentalsReservations:"Rentals & reservations",
     cautionsTaken:"Cautions taken in", cautionsReturned:"Cautions given back", allTime:"All time",
-    cautionsKept:"Cautions kept (damage / fees)", storeOwnCash:"Store's own money",
+    cautionsKept:"Cautions kept (repairs / fees)", storeOwnCash:"Store's own money",
     owedOnBookings:"Owed back on current bookings", cautionLooseOnClosed:"Left over on finished bookings",
     cautionGap:"Unexplained difference",
     cautionGapHint:"The caution till holds more than the current bookings account for. Usually a booking was finished without its caution being given back or marked as kept — check recent returns and cancellations.",
     cautionMatchesHint:"Matches the cautions owed back on current bookings.",
+    cautionShouldHold:"Caution you should be holding", cautionShouldHoldHint:"Customers' money on bookings that are still out. This is what the caution box must contain.",
+    cautionInBox:"Actually in the caution box", cautionOverShort:"Difference", cautionOverHint:"The box holds more than the live bookings need — see what it is tied to below.",
+    cautionShortHint:"The box holds less than the live bookings need — caution money has been spent or handed back by mistake.",
+    cautionWhereFrom:"How the box got there", cautionWhatFor:"What the box is tied to",
+    liveBookings:"bookings still out", noLiveCautions:"No caution is being held right now.",
     cashInTodayExCaution:"Money in today (excl. caution)",
     dressRepair:"Dress repair & cleaning", repairFund:"Repair & cleaning fund",
     repairFundLeft:"Left in the fund", setAsideFromCautions:"Set aside from kept cautions",
+    repairFeesCollected:"Repair fees paid by customers",
+    repairFundHintPaid:"Repair fees a customer pays are set aside here too, so they are not counted as shop profit until the work is done.",
     spentOnRepairs:"Spent on repair & cleaning",
     repairFundHint:"Cautions you kept are set aside here to fix or wash the dress they came from. Record that work as an expense under \"Dress repair & cleaning\" and it comes out of this fund, not the shop's money.",
     repairFundOverHint:"More has gone on repairs than the kept cautions set aside — the difference came out of the shop's own money.",
@@ -749,7 +761,12 @@ const I18N = {
     chooseItem:"Choisir article", rentableOnly:"Articles louables seulement",
     swapItem:"Changer", addAnotherItem:"Ajouter / changer un article", logEditItems:"Articles de la réservation modifiés",
     depositOpt:"Caution (optionnel)", lateFee:"Frais de retard", applyLateFee:"Ajouter frais de retard (optionnel)",
-    damageFee:"Frais de dommage", applyDamageFee:"Ajouter frais de dommage (optionnel)", damageNote:"Raison", damageNoteHint:"ex. tache, déchirure, bouton manquant", logDamageFee:"Frais de dommage ajouté",
+    damageFee:"Frais de réparation", applyDamageFee:"L'article est revenu abîmé — facturer une réparation", damageNote:"Ce qui est abîmé", damageNoteHint:"ex. déchirure à la couture, tache, bouton manquant", logDamageFee:"Frais de réparation ajoutés",
+    repairPaidBy:"D'où vient l'argent de la réparation", repairFromCaution:"Le prendre sur sa caution", repairCustomerPays:"Elle le paie en plus",
+    repairNoCaution:"Aucune caution n'a été prise sur cette location : la réparation passe sur sa note.",
+    cautionHeld:"Caution détenue", keptForRepair:"Retenu pour la réparation", backToCustomer:"Rendu à la cliente",
+    repairOverCaution:"Dépasse la caution — le reste passe sur sa note.",
+    onHerBill:"Ajouté à sa note",
     confirmReturn:"Confirmer retour", returnItem:"Retourner l'article", refundDeposit:"Rembourser caution",
     rentalDone:"Location créée", itemReturned:"Article retourné",
     noRentals:"Aucune location", rentAgreement:"Contrat de location",
@@ -848,14 +865,21 @@ const I18N = {
     registerTill:"Caisse — aujourd'hui",
     cautionTill:"Caisse des cautions — argent des clients", rentalsReservations:"Locations & réservations",
     cautionsTaken:"Cautions encaissées", cautionsReturned:"Cautions rendues", allTime:"Depuis le début",
-    cautionsKept:"Cautions retenues (dégâts / frais)", storeOwnCash:"Argent du magasin",
+    cautionsKept:"Cautions retenues (réparations / frais)", storeOwnCash:"Argent du magasin",
     owedOnBookings:"Dû sur les locations en cours", cautionLooseOnClosed:"Restant sur locations terminées",
     cautionGap:"Écart inexpliqué",
     cautionGapHint:"La caisse des cautions contient plus que ce que justifient les locations en cours. En général une location a été terminée sans que sa caution soit rendue ni retenue — vérifiez les retours et annulations récents.",
     cautionMatchesHint:"Correspond aux cautions dues sur les locations en cours.",
+    cautionShouldHold:"Caution que vous devez détenir", cautionShouldHoldHint:"L'argent des clientes sur les locations encore sorties. C'est ce que la caisse des cautions doit contenir.",
+    cautionInBox:"Réellement dans la caisse des cautions", cautionOverShort:"Écart", cautionOverHint:"La caisse contient plus que ce qu'exigent les locations en cours — voyez ci-dessous à quoi c'est rattaché.",
+    cautionShortHint:"La caisse contient moins que ce qu'exigent les locations en cours — de l'argent de caution a été dépensé ou rendu par erreur.",
+    cautionWhereFrom:"Comment la caisse en est arrivée là", cautionWhatFor:"À quoi la caisse est rattachée",
+    liveBookings:"locations encore sorties", noLiveCautions:"Aucune caution détenue actuellement.",
     cashInTodayExCaution:"Entré aujourd'hui (hors caution)",
     dressRepair:"Réparation & nettoyage des robes", repairFund:"Fonds réparation & nettoyage",
     repairFundLeft:"Reste dans le fonds", setAsideFromCautions:"Mis de côté sur cautions retenues",
+    repairFeesCollected:"Frais de réparation payés par les clientes",
+    repairFundHintPaid:"Les frais de réparation payés par une cliente sont aussi mis de côté ici : ils ne comptent pas comme bénéfice tant que le travail n'est pas fait.",
     spentOnRepairs:"Dépensé en réparation & nettoyage",
     repairFundHint:"Les cautions retenues sont mises de côté ici pour réparer ou laver la robe concernée. Enregistrez ces frais comme dépense « Réparation & nettoyage des robes » : ils sortent de ce fonds, pas de l'argent du magasin.",
     repairFundOverHint:"Plus a été dépensé en réparations que ce que les cautions retenues ont mis de côté — la différence est sortie de l'argent du magasin.",
@@ -987,7 +1011,12 @@ const I18N = {
     chooseItem:"اختر الصنف", rentableOnly:"الأصناف القابلة للإيجار فقط",
     swapItem:"تغيير", addAnotherItem:"إضافة / تغيير صنف", logEditItems:"تم تعديل أصناف الحجز",
     depositOpt:"التأمين (اختياري)", lateFee:"رسوم التأخير", applyLateFee:"إضافة رسوم تأخير (اختياري)",
-    damageFee:"رسوم الضرر", applyDamageFee:"إضافة رسوم ضرر (اختياري)", damageNote:"السبب", damageNoteHint:"مثال: بقعة، تمزق، زر مفقود", logDamageFee:"تمت إضافة رسوم ضرر",
+    damageFee:"رسوم الإصلاح", applyDamageFee:"الصنف رجع متضرراً — احتساب رسوم إصلاح", damageNote:"ما هو المتضرر", damageNoteHint:"مثال: تمزق في الحياكة، بقعة، زر مفقود", logDamageFee:"تمت إضافة رسوم إصلاح",
+    repairPaidBy:"من أين يأتي مبلغ الإصلاح", repairFromCaution:"خصمه من تأمينها", repairCustomerPays:"تدفعه إضافةً",
+    repairNoCaution:"لم يُؤخذ تأمين على هذا الحجز، فتُضاف رسوم الإصلاح إلى حسابها.",
+    cautionHeld:"التأمين المحتجز", keptForRepair:"محتجز للإصلاح", backToCustomer:"المعاد للزبونة",
+    repairOverCaution:"أكثر مما يغطيه التأمين — الباقي يُضاف إلى حسابها.",
+    onHerBill:"أُضيف إلى حسابها",
     confirmReturn:"تأكيد الإرجاع", returnItem:"إرجاع الصنف", refundDeposit:"إعادة التأمين",
     rentalDone:"تم إنشاء الإيجار", itemReturned:"تم إرجاع الصنف",
     noRentals:"لا توجد إيجارات", rentAgreement:"عقد الإيجار",
@@ -1086,14 +1115,21 @@ const I18N = {
     registerTill:"الصندوق — اليوم",
     cautionTill:"صندوق التأمينات — أموال العملاء", rentalsReservations:"الإيجارات والحجوزات",
     cautionsTaken:"التأمينات المستلمة", cautionsReturned:"التأمينات المعادة", allTime:"منذ البداية",
-    cautionsKept:"تأمينات محتجزة (أضرار / رسوم)", storeOwnCash:"أموال المتجر",
+    cautionsKept:"تأمينات محتجزة (إصلاحات / رسوم)", storeOwnCash:"أموال المتجر",
     owedOnBookings:"مستحق على الحجوزات الحالية", cautionLooseOnClosed:"متبقٍ على حجوزات منتهية",
     cautionGap:"فرق غير مفسَّر",
     cautionGapHint:"صندوق التأمينات يحتوي أكثر مما تبرره الحجوزات الحالية. غالباً أُنهي حجز دون إعادة تأمينه أو تسجيله كمحتجز — راجع الإرجاعات والإلغاءات الأخيرة.",
     cautionMatchesHint:"يطابق التأمينات المستحقة على الحجوزات الحالية.",
+    cautionShouldHold:"التأمين الواجب وجوده لديك", cautionShouldHoldHint:"أموال الزبونات على الحجوزات التي ما زالت خارج المحل. هذا ما يجب أن يحتويه صندوق التأمينات.",
+    cautionInBox:"الموجود فعلاً في صندوق التأمينات", cautionOverShort:"الفرق", cautionOverHint:"الصندوق يحتوي أكثر مما تتطلبه الحجوزات الحالية — انظر أدناه إلى ما هو مرتبط به.",
+    cautionShortHint:"الصندوق يحتوي أقل مما تتطلبه الحجوزات الحالية — صُرف من أموال التأمين أو أُعيد بالخطأ.",
+    cautionWhereFrom:"كيف وصل الصندوق إلى هذا المبلغ", cautionWhatFor:"بماذا يرتبط مبلغ الصندوق",
+    liveBookings:"حجوزات ما زالت خارج المحل", noLiveCautions:"لا يوجد تأمين محتجز حالياً.",
     cashInTodayExCaution:"الداخل اليوم (بدون تأمين)",
     dressRepair:"إصلاح وتنظيف الفساتين", repairFund:"صندوق الإصلاح والتنظيف",
     repairFundLeft:"المتبقي في الصندوق", setAsideFromCautions:"مخصص من التأمينات المحتجزة",
+    repairFeesCollected:"رسوم إصلاح دفعتها الزبونات",
+    repairFundHintPaid:"رسوم الإصلاح التي تدفعها الزبونة تُخصَّص هنا أيضاً، فلا تُحتسب ربحاً للمحل قبل إنجاز العمل.",
     spentOnRepairs:"أُنفق على الإصلاح والتنظيف",
     repairFundHint:"التأمينات المحتجزة تُخصَّص هنا لإصلاح أو غسل الفستان المعني. سجّل هذه التكاليف كمصروف ضمن «إصلاح وتنظيف الفساتين» فتُخصم من هذا الصندوق لا من أموال المتجر.",
     repairFundOverHint:"أُنفق على الإصلاح أكثر مما خصّصته التأمينات المحتجزة — الفارق خرج من أموال المتجر.",
@@ -1713,8 +1749,13 @@ async function viewCautions(){
   });
   moves.filter(m=>!m.refId && !m.customerId).forEach(m=>
     flags.push({kind:'flagOrphan',amt:Math.abs(m.amount||0),who:m.customerName||'',item:'',ts:m.createdAt,staff:staffOf(m),pid:m.id}));
-  rentals.filter(r=>(r.depositKept||0)>0 && cashR(r)).forEach(r=>
-    flags.push({kind:'flagKept',amt:r.depositKept,who:r.customerName,item:r.name,ts:r.returnedAt||r.cancelledAt||r.createdAt,rid:r.id}));
+  // A caution kept with a written repair reason is accounted for — it belongs
+  // in the repair fund, not in the list of things that don't add up. Only what
+  // was kept without an explanation is flagged.
+  rentals.filter(r=>(r.depositKept||0)>0 && cashR(r)).forEach(r=>{
+    const explained=(r.repairFromCaution||0)>=(r.depositKept||0) && (r.damageNote||'').trim();
+    if(!explained) flags.push({kind:'flagKept',amt:r.depositKept,who:r.customerName,item:r.name,ts:r.returnedAt||r.cancelledAt||r.createdAt,rid:r.id});
+  });
   Object.entries(byBooking).forEach(([rid,b])=>{
     const ins=b.moves.filter(m=>m.refType==='deposit'), outs=b.moves.filter(m=>m.refType==='depositRefund');
     ins.forEach(i=>outs.forEach(o=>{
@@ -1750,7 +1791,7 @@ async function viewCautions(){
       const kept=r.depositKept||0, held=Math.max(0,(r.deposit||0)-(r.depositRefundedAmount||0)-kept);
       const openB=r.status==='active'||r.status==='reserved';
       return `<tr>
-        <td><b>${esc(r.customerName||'—')}</b><div class="subtle" style="font-size:11.5px">${esc(r.name||'')}</div></td>
+        <td><b>${esc(r.customerName||'—')}</b><div class="subtle" style="font-size:11.5px">${esc(r.name||'')}</div>${(r.repairFromCaution||0)>0?`<div style="font-size:11px;color:var(--warn)">${esc(t('keptForRepair'))}${r.damageNote?' · '+esc(r.damageNote):''}</div>`:''}</td>
         <td class="mono">${fmtDate(r.createdAt)}</td>
         <td class="t-right mono">${money(r.deposit||0)}</td>
         <td class="t-right mono">${money(r.depositRefundedAmount||0)}</td>
@@ -1762,10 +1803,11 @@ async function viewCautions(){
 
   view.innerHTML=pageHead(t('cautionsNav'),t('cautionsNavHint'))+
     `<div class="cards" style="margin-bottom:14px">
-      <div class="stat gold"><div class="k">${esc(t('cautionTillTotal'))}</div><div class="v mono">${money(T.cautionTillCash)}</div></div>
-      <div class="stat"><div class="k">${esc(t('owedOnBookings'))}</div><div class="v mono">${money(T.cautionOnOpenBookings)}</div></div>
+      <div class="stat gold"><div class="k">${esc(t('cautionShouldHold'))}</div><div class="v mono">${money(T.cautionOnOpenBookings)}</div><div class="subtle" style="font-size:11px">${T.liveCautionCount?`${T.liveCautionCount} ${esc(t('liveBookings'))}`:esc(t('noLiveCautions'))}</div></div>
+      <div class="stat"><div class="k">${esc(t('cautionInBox'))}</div><div class="v mono">${money(T.cautionTillCash)}</div></div>
       <div class="stat"><div class="k">${esc(t('cautionLooseOnClosed'))}</div><div class="v mono"${T.cautionLooseOnClosed?' style="color:var(--danger)"':''}>${money(T.cautionLooseOnClosed)}</div></div>
       <div class="stat"><div class="k">${esc(t('cautionGap'))}</div><div class="v mono"${T.cautionGap?' style="color:var(--danger)"':''}>${money(T.cautionGap)}</div></div>
+      <div class="stat"><div class="k">${esc(t('repairFundLeft'))}</div><div class="v mono"${T.repairFund<0?' style="color:var(--danger)"':''}>${money(T.repairFund)}</div></div>
     </div>
     <div class="card pad" style="margin-bottom:14px">
       <p class="section-eyebrow" style="margin:0 0 6px">${esc(t('redFlags'))}${flags.length?` · ${flags.length}`:''}</p>
@@ -1951,7 +1993,17 @@ async function tillTotals(){
   // and cleaning costs are drawn from here rather than from the store's money.
   // All-time on both sides, to match cautionKept.
   const repairSpent=expenses.filter(x=>x.category==='dressRepair').reduce((a,x)=>a+(x.amount||0),0);
-  const repairFund=cautionKept-repairSpent;
+  // A repair fee the customer pays in cash is the same kind of money: it came
+  // in to fix a dress, so it is set aside with the kept cautions rather than
+  // counted as takings. The fee is treated as the last thing her payment
+  // covers, so only what she has actually handed over is set aside.
+  const repairFeesCollected=rentalsForDeposits.reduce((a,r)=>{
+    const fee=r.damageFee||0;
+    if(fee<=0 || (r.method||'cash')!=='cash') return a;
+    return a+Math.max(0,Math.min(fee,(r.paid||0)-(r.price||0)-(r.lateFee||0)));
+  },0);
+  const repairSetAside=cautionKept+repairFeesCollected;
+  const repairFund=repairSetAside-repairSpent;
   // What in the till is actually the shop's to spend. Customers' cautions live
   // in their own till and were never in this figure; what is still sitting here
   // and spoken for is the repair fund.
@@ -1963,12 +2015,14 @@ async function tillTotals(){
   // worth chasing. The ledger above says what cash should be in the box; the
   // bookings say what is actually owed back. Cash only, to match the ledger.
   const cashRental=r=>(r.method||'cash')==='cash';
-  const cautionOnOpenBookings=rentalsForDeposits.filter(r=>(r.status==='active'||r.status==='reserved') && !r.depositRefunded && cashRental(r)).reduce((a,r)=>a+(r.deposit||0),0);
+  const liveCautions=rentalsForDeposits.filter(r=>(r.status==='active'||r.status==='reserved') && !r.depositRefunded && cashRental(r) && (r.deposit||0)>0);
+  const cautionOnOpenBookings=liveCautions.reduce((a,r)=>a+(r.deposit||0),0);
+  const liveCautionCount=liveCautions.length;
   // A closed booking whose caution was neither handed back nor kept — the usual
   // cause of a gap, and the thing to go and look at.
   const cautionLooseOnClosed=rentalsForDeposits.filter(r=>(r.status==='returned'||r.status==='cancelled') && cashRental(r)).reduce((a,r)=>a+Math.max(0,(r.deposit||0)-(r.depositRefundedAmount||0)-(r.depositKept||0)),0);
   const cautionGap=cautionTillCash-cautionOnOpenBookings-cautionLooseOnClosed;
-  return {float,cashSales,cashRentals,cashPayments,cashInjections,cashSaleRefunds,cashDeposits,cashDepositRefunds,cashIn,cashExpenses,withdrawals,cashOut,till,since,depositsHeldNow,cautionTillCash,cautionIn,cautionOut,cautionKept,cautionKeptSince,cautionOnOpenBookings,cautionLooseOnClosed,cautionGap,repairSpent,repairFund,storeOwnCash};
+  return {float,cashSales,cashRentals,cashPayments,cashInjections,cashSaleRefunds,cashDeposits,cashDepositRefunds,cashIn,cashExpenses,withdrawals,cashOut,till,since,depositsHeldNow,cautionTillCash,cautionIn,cautionOut,cautionKept,cautionKeptSince,cautionOnOpenBookings,cautionLooseOnClosed,cautionGap,repairSpent,repairFeesCollected,repairSetAside,repairFund,storeOwnCash,liveCautionCount};
 }
 async function openTillModal(){
   const T=await tillTotals();
@@ -2003,6 +2057,9 @@ async function openTillModal(){
   // day's trading, so they stay out of the breakdown (the float is still
   // captioned underneath for reference).
   const startedTodayCash=T.till-todayCashNet;
+  // The caution box is read against what it OUGHT to hold: the cautions on
+  // bookings still out. Anything either side of that is the thing to chase.
+  const cautionDiff=T.cautionTillCash-T.cautionOnOpenBookings;
   const todayIncome=incomeSince(t0);
   const todayCautionNet=td.dep+td.depositRefunds;
   // Line-by-line of every cash movement today — who paid, what for, how much —
@@ -2039,25 +2096,31 @@ async function openTillModal(){
     </div>
     <div class="card pad" style="margin-bottom:14px;background:var(--gold-soft)">
       <p class="section-eyebrow" style="margin:0">${esc(t('cautionTill'))}</p>
-      <div style="text-align:center;padding:2px 0 12px">
-        <div class="subtle" style="font-size:12.5px">${esc(t('cautionTillTotal'))}</div>
-        <div class="mono" style="font-size:30px;font-weight:800">${money(T.cautionTillCash)}</div>
-        <div class="subtle" style="font-size:11px;margin-top:2px">${esc(t('allTime'))}</div>
+      <div style="text-align:center;padding:2px 0 10px">
+        <div class="subtle" style="font-size:12.5px">${esc(t('cautionShouldHold'))}</div>
+        <div class="mono" style="font-size:40px;font-weight:800;line-height:1.1">${money(T.cautionOnOpenBookings)}</div>
+        <div class="subtle" style="font-size:11px;margin-top:2px">${T.liveCautionCount?`${T.liveCautionCount} ${esc(t('liveBookings'))}`:esc(t('noLiveCautions'))}</div>
       </div>
+      <table style="width:100%;font-size:13px;border-top:1px dashed var(--line)">
+        <tr><td style="padding-top:8px">${esc(t('cautionInBox'))}</td><td class="t-right mono" style="padding-top:8px">${money(T.cautionTillCash)}</td></tr>
+        <tr style="font-weight:800${cautionDiff?';color:var(--danger)':''}"><td>${esc(t('cautionOverShort'))}</td><td class="t-right mono">${cautionDiff>0?'+':''}${money(cautionDiff)}</td></tr>
+      </table>
+      <p class="subtle" style="margin:6px 0 10px;font-size:11px">${cautionDiff>0?`<span style="color:var(--danger);font-weight:600">${esc(t('cautionOverHint'))}</span>`:cautionDiff<0?`<span style="color:var(--danger);font-weight:600">${esc(t('cautionShortHint'))}</span>`:esc(t('cautionMatchesHint'))}</p>
+      <div class="subtle" style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-top:1px dashed var(--line);padding-top:8px">${esc(t('cautionWhereFrom'))}</div>
       <table style="width:100%;font-size:13px">
         <tr><td>+ ${esc(t('cautionsTaken'))}</td><td class="t-right mono">${money(T.cautionIn)}</td></tr>
         <tr><td>− ${esc(t('cautionsReturned'))}</td><td class="t-right mono">${money(-T.cautionOut)}</td></tr>
         ${T.cautionKept?`<tr><td>− ${esc(t('cautionsKept'))}</td><td class="t-right mono">${money(T.cautionKept)}</td></tr>`:''}
-        <tr style="border-top:2px solid var(--line);font-weight:800"><td>${esc(t('cautionTillTotal'))}</td><td class="t-right mono">${money(T.cautionTillCash)}</td></tr>
+        <tr style="border-top:2px solid var(--line);font-weight:800"><td>${esc(t('cautionInBox'))}</td><td class="t-right mono">${money(T.cautionTillCash)}</td></tr>
         <tr><td class="subtle">${esc(t('cautionToday'))}</td><td class="t-right mono subtle">+${money(td.dep)} / −${money(-td.depositRefunds)}</td></tr>
       </table>
-      <p class="subtle" style="margin:6px 0 0;font-size:11px">${esc(t('cautionsHeldHint'))}</p>
-      <table style="width:100%;font-size:13px;margin-top:10px;border-top:1px dashed var(--line)">
-        <tr><td style="padding-top:8px">${esc(t('owedOnBookings'))}</td><td class="t-right mono" style="padding-top:8px">${money(T.cautionOnOpenBookings)}</td></tr>
-        ${T.cautionLooseOnClosed?`<tr><td>${esc(t('cautionLooseOnClosed'))}</td><td class="t-right mono">${money(T.cautionLooseOnClosed)}</td></tr>`:''}
-        ${T.cautionGap?`<tr style="font-weight:800;color:var(--danger)"><td>${esc(t('cautionGap'))}</td><td class="t-right mono">${money(T.cautionGap)}</td></tr>`:''}
+      <div class="subtle" style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-top:1px dashed var(--line);padding-top:8px;margin-top:10px">${esc(t('cautionWhatFor'))}</div>
+      <table style="width:100%;font-size:13px">
+        <tr><td>${esc(t('owedOnBookings'))}</td><td class="t-right mono">${money(T.cautionOnOpenBookings)}</td></tr>
+        <tr${T.cautionLooseOnClosed?' style="color:var(--danger)"':''}><td>${esc(t('cautionLooseOnClosed'))}</td><td class="t-right mono">${money(T.cautionLooseOnClosed)}</td></tr>
+        <tr${T.cautionGap?' style="font-weight:800;color:var(--danger)"':''}><td>${esc(t('cautionGap'))}</td><td class="t-right mono">${money(T.cautionGap)}</td></tr>
       </table>
-      <p class="subtle" style="margin:6px 0 0;font-size:11px">${(T.cautionGap||T.cautionLooseOnClosed)?`<span style="color:var(--danger);font-weight:600">${esc(t('cautionGapHint'))}</span>`:esc(t('cautionMatchesHint'))}</p>
+      <p class="subtle" style="margin:6px 0 0;font-size:11px">${(T.cautionGap||T.cautionLooseOnClosed)?`<span style="color:var(--danger);font-weight:600">${esc(t('cautionGapHint'))}</span>`:esc(t('cautionsHeldHint'))}</p>
     </div>
     <div class="card pad" style="margin-bottom:14px">
       <p class="section-eyebrow" style="margin:0">${esc(t('repairFund'))}</p>
@@ -2067,10 +2130,11 @@ async function openTillModal(){
       </div>
       <table style="width:100%;font-size:13px">
         <tr><td>+ ${esc(t('setAsideFromCautions'))}</td><td class="t-right mono">${money(T.cautionKept)}</td></tr>
+        ${T.repairFeesCollected?`<tr><td>+ ${esc(t('repairFeesCollected'))}</td><td class="t-right mono">${money(T.repairFeesCollected)}</td></tr>`:''}
         <tr><td>− ${esc(t('spentOnRepairs'))}</td><td class="t-right mono">${money(T.repairSpent)}</td></tr>
         <tr style="border-top:2px solid var(--line);font-weight:800"><td>${esc(t('repairFundLeft'))}</td><td class="t-right mono" style="color:${T.repairFund<0?'var(--danger)':'inherit'}">${money(T.repairFund)}</td></tr>
       </table>
-      <p class="subtle" style="margin:6px 0 0;font-size:11px">${T.repairFund<0?`<span style="color:var(--danger);font-weight:600">${esc(t('repairFundOverHint'))}</span>`:esc(t('repairFundHint'))}</p>
+      <p class="subtle" style="margin:6px 0 0;font-size:11px">${T.repairFund<0?`<span style="color:var(--danger);font-weight:600">${esc(t('repairFundOverHint'))}</span>`:esc(t('repairFundHint'))+(T.repairFeesCollected?' '+esc(t('repairFundHintPaid')):'')}</p>
     </div>
     <div class="card pad" style="margin-bottom:14px">
       <table style="width:100%;font-size:13px">
@@ -4242,7 +4306,7 @@ function rowRental(group,custColorById){
   const isBundle=group.length>1;
   const price=group.reduce((a,x)=>a+(x.price||0),0);
   const late=group.reduce((a,x)=>a+(x.lateFee||0),0);
-  const damage=group.reduce((a,x)=>a+(x.damageFee||0),0);
+  const damage=group.reduce((a,x)=>a+(x.damageFee||0)+(x.repairFromCaution||0),0); // badge shows the whole repair, however it was funded
   const paid=group.reduce((a,x)=>a+(x.paid||0),0);
   const bal=Math.max(0,price+late+damage-paid);
   const overdue=r.status==='active' && r.dueDate && daysLate(r.dueDate)>0;
@@ -4648,6 +4712,7 @@ function buildGroupRentalAgreementHtml(rentals){
   const totalDeposit=rentals.reduce((a,r)=>a+(r.deposit||0),0);
   const totalLate=rentals.reduce((a,r)=>a+(r.lateFee||0),0);
   const totalDamage=rentals.reduce((a,r)=>a+(r.damageFee||0),0);
+  const totalRepairKept=rentals.reduce((a,r)=>a+(r.repairFromCaution||0),0);
   const bal=Math.max(0,totalPrice+totalLate+totalDamage-totalPaid);
   const itemRows=rentals.map(r=>`<div style="display:flex;justify-content:space-between;gap:6px;font-size:11px;padding:1px 0">
       <span>${esc(r.name)}${r.dueDate!==first.dueDate?` <span style="color:#666">(${esc(t('dueDate'))} ${esc(r.dueDate||'—')})</span>`:''}${(r.addons&&r.addons.length)?`<div style="font-size:9.5px;color:#444">+ ${esc(r.addons.join(', '))}</div>`:''}</span>
@@ -4668,6 +4733,7 @@ function buildGroupRentalAgreementHtml(rentals){
       <div style="display:flex;justify-content:space-between;font-weight:700;margin-bottom:2px"><span>${esc(t('rentalPrice'))}</span><span>${money2(totalPrice)}</span></div>
       ${totalLate>0?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('lateFee'))}</span><span>${money2(totalLate)}</span></div>`:''}
       ${totalDamage>0?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('damageFee'))}</span><span>${money2(totalDamage)}</span></div>`:''}
+      ${totalRepairKept>0?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('keptForRepair'))}</span><span>${money2(totalRepairKept)}</span></div>`:''}
       <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('paid'))}</span><span>${money2(totalPaid)}</span></div>
       ${totalDeposit?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('deposit'))}</span><span>${money2(totalDeposit)}</span></div>`:''}
       ${totalDeposit?`<div style="display:flex;justify-content:space-between;font-weight:800"><span>${esc(t('totalCollected'))}</span><span>${money2(totalPaid+totalDeposit)}</span></div>`:''}
@@ -4694,6 +4760,7 @@ function buildRentalAgreementHtml(r){
       <div style="display:flex;justify-content:space-between;font-weight:600;margin-bottom:2px"><span>${esc(t('rentalPrice'))}</span><span>${money2(r.price)}</span></div>
       ${r.lateFee>0?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('lateFee'))}</span><span>${money2(r.lateFee)}</span></div>`:''}
       ${r.damageFee>0?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('damageFee'))}</span><span>${money2(r.damageFee)}</span></div>`:''}
+      ${(r.repairFromCaution||0)>0?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('keptForRepair'))}</span><span>${money2(r.repairFromCaution)}</span></div>`:''}
       <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('paid'))}</span><span>${money2(r.paid)}</span></div>
       ${r.deposit?`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${esc(t('deposit'))}</span><span>${money2(r.deposit)}</span></div>`:''}
       ${r.deposit?`<div style="display:flex;justify-content:space-between;font-weight:800"><span>${esc(t('totalCollected'))}</span><span>${money2((r.paid||0)+(r.deposit||0))}</span></div>`:''}
@@ -4733,9 +4800,14 @@ async function openReturnModal(r){
       ${anyOver?`<span class="hint">${esc(t('suggestedLateFee'))}: ${money(totalSuggested)}</span>`:''}
     </div>
     <div class="field"><label class="check"><input type="checkbox" id="rt_damage"> ${esc(t('applyDamageFee'))}</label></div>
-    <div class="field hidden" id="rt_damageBox">
+    <div class="field hidden" id="rt_damageBox" style="background:var(--gold-soft);padding:10px 12px;border-radius:9px">
       <label>${esc(t('damageFee'))}</label><input id="rt_damageAmt" type="number" min="0" step="0.01" value="0">
       <label style="margin-top:8px">${esc(t('damageNote'))}</label><input id="rt_damageNote" type="text" placeholder="${esc(t('damageNoteHint'))}">
+      ${totalDeposit? `<label style="margin-top:10px">${esc(t('repairPaidBy'))}</label>
+      <label class="check" style="margin:2px 0"><input type="radio" name="rt_src" id="rt_srcCaution" checked> ${esc(t('repairFromCaution'))} · ${esc(t('cautionHeld'))}: ${money(totalDeposit)}</label>
+      <label class="check" style="margin:2px 0"><input type="radio" name="rt_src" id="rt_srcPay"> ${esc(t('repairCustomerPays'))}</label>
+      <div id="rt_repairSplit" class="subtle" style="margin-top:6px;font-size:12px"></div>`
+      : `<span class="hint">${esc(t('repairNoCaution'))}</span>`}
     </div>
     <div class="field"><label class="check"><input type="checkbox" id="rt_pay"> ${esc(t('amountPaid'))} (${esc(t('balance'))}: <span id="rt_balShow">${money(totalBal)}</span>)</label></div>
     <div class="field hidden" id="rt_payBox"><label>${esc(t('amountPaid'))}</label><input id="rt_payAmt" type="number" min="0" step="0.01" value="${totalBal}"></div>
@@ -4743,7 +4815,7 @@ async function openReturnModal(r){
      <div class="field" id="rt_refBox" style="margin-inline-start:26px">
        <label>${esc(t('refundAmount'))}</label>
        <input id="rt_refAmt" type="number" min="0" max="${totalDeposit}" step="0.01" value="${totalDeposit}">
-       <span class="hint">${esc(t('depositKeepHint'))}</span>
+       <span class="hint" id="rt_keepHint">${esc(t('depositKeepHint'))}</span>
        <div id="rt_keepLine" class="subtle" style="margin-top:6px"></div>
      </div>`:''}`,
    `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
@@ -4756,30 +4828,60 @@ async function openReturnModal(r){
   const lateChk=document.getElementById('rt_late'), lateAmtI=document.getElementById('rt_lateAmt'),
         damageChk=document.getElementById('rt_damage'), damageAmtI=document.getElementById('rt_damageAmt'),
         payChk=document.getElementById('rt_pay'), payAmtI=document.getElementById('rt_payAmt'), balShow=document.getElementById('rt_balShow');
-  let payTouched=false;
-  const effBalance=()=> totalBal + (lateChk.checked? Math.max(0,Number(lateAmtI.value||0)) : 0) + (damageChk.checked? Math.max(0,Number(damageAmtI.value||0)) : 0);
-  function syncPay(){ const eb=effBalance(); if(balShow) balShow.textContent=money(eb); if(!payTouched && payAmtI) payAmtI.value=eb; }
-  lateChk.onchange=e=>{ document.getElementById('rt_lateBox').classList.toggle('hidden',!e.target.checked); syncPay(); };
-  lateAmtI&&(lateAmtI.oninput=syncPay);
-  damageChk.onchange=e=>{ document.getElementById('rt_damageBox').classList.toggle('hidden',!e.target.checked); syncPay(); };
-  damageAmtI&&(damageAmtI.oninput=syncPay);
-  payChk.onchange=e=>{ document.getElementById('rt_payBox').classList.toggle('hidden',!e.target.checked); if(e.target.checked) syncPay(); };
-  payAmtI&&(payAmtI.oninput=()=>{ payTouched=true; });
-  syncPay();
-  const refEl=document.getElementById('rt_refund'), refBox=document.getElementById('rt_refBox'), refAmtI=document.getElementById('rt_refAmt'), keepLine=document.getElementById('rt_keepLine');
-  function syncKeep(){
-    if(!refEl) return;
-    const on=refEl.checked;
-    if(refBox) refBox.classList.toggle('hidden',!on);
-    const amt=on?Math.min(totalDeposit,Math.max(0,Number(refAmtI.value||0))):0;
-    const kept=totalDeposit-amt;
-    if(keepLine) keepLine.innerHTML=`${esc(t('refundToCustomer'))}: <b>${money(amt)}</b>${kept>0?` · ${esc(t('storeKeeps'))}: <b style="color:var(--warn)">${money(kept)}</b>`:''}`;
+  const refEl=document.getElementById('rt_refund'), refBox=document.getElementById('rt_refBox'),
+        refAmtI=document.getElementById('rt_refAmt'), keepLine=document.getElementById('rt_keepLine'),
+        srcCaution=document.getElementById('rt_srcCaution'), srcPay=document.getElementById('rt_srcPay'),
+        splitLine=document.getElementById('rt_repairSplit');
+  let payTouched=false, refManual=totalDeposit; // what the cashier last chose to hand back, before a repair took over the field
+  // A repair is normally paid out of the caution already in the box: the
+  // amount stays behind and only the rest goes back to her. Anything over the
+  // caution falls through onto her bill, as does the whole fee when she
+  // chose to pay on top (or no caution was taken).
+  const repairTotal=()=> damageChk.checked? Math.max(0,Number(damageAmtI.value||0)) : 0;
+  const repairFromCaution=()=> (srcCaution && srcCaution.checked)? Math.min(repairTotal(),totalDeposit) : 0;
+  const repairOnBill=()=> repairTotal()-repairFromCaution();
+  const effBalance=()=> totalBal + (lateChk.checked? Math.max(0,Number(lateAmtI.value||0)) : 0) + repairOnBill();
+  function syncAll(){
+    const fromCaution=repairFromCaution(), onBill=repairOnBill();
+    // When the repair comes out of the caution, the refund is no longer a free
+    // choice — it is whatever is left — so the field shows it and locks.
+    if(refEl){
+      if(fromCaution>0){ refEl.checked=true; refEl.disabled=true; if(refAmtI){ refAmtI.value=totalDeposit-fromCaution; refAmtI.disabled=true; } }
+      // Back to a free choice: give the cashier their own figure back, not the
+      // one the repair had forced into the box.
+      else { refEl.disabled=false; if(refAmtI){ refAmtI.disabled=false; if(Number(refAmtI.value||0)!==refManual) refAmtI.value=refManual; } }
+    }
+    if(splitLine){
+      splitLine.innerHTML = repairTotal()>0
+        ? `${esc(t('cautionHeld'))}: <b class="mono">${money(totalDeposit)}</b> · ${esc(t('keptForRepair'))}: <b class="mono" style="color:var(--warn)">${money(fromCaution)}</b> · ${esc(t('backToCustomer'))}: <b class="mono">${money(totalDeposit-fromCaution)}</b>`
+          + (onBill>0 && srcCaution && srcCaution.checked ? `<div style="color:var(--danger);margin-top:3px">${esc(t('repairOverCaution'))} ${esc(t('onHerBill'))}: <b class="mono">${money(onBill)}</b></div>` : '')
+        : '';
+    }
+    const eb=effBalance();
+    if(balShow) balShow.textContent=money(eb);
+    if(!payTouched && payAmtI) payAmtI.value=eb;
+    if(refEl){
+      if(refBox) refBox.classList.toggle('hidden',!refEl.checked);
+      const kh=document.getElementById('rt_keepHint'); if(kh) kh.style.display=fromCaution>0?'none':''; // the figure isn't theirs to choose while a repair drives it
+      const amt=refEl.checked?Math.min(totalDeposit,Math.max(0,Number(refAmtI.value||0))):0;
+      const kept=totalDeposit-amt;
+      if(keepLine) keepLine.innerHTML=`${esc(t('refundToCustomer'))}: <b>${money(amt)}</b>${kept>0?` · ${esc(t(fromCaution>0?'keptForRepair':'storeKeeps'))}: <b style="color:var(--warn)">${money(kept)}</b>`:''}`;
+    }
   }
-  if(refEl){ refEl.onchange=syncKeep; refAmtI&&(refAmtI.oninput=syncKeep); syncKeep(); }
+  lateChk.onchange=e=>{ document.getElementById('rt_lateBox').classList.toggle('hidden',!e.target.checked); syncAll(); };
+  lateAmtI&&(lateAmtI.oninput=syncAll);
+  damageChk.onchange=e=>{ document.getElementById('rt_damageBox').classList.toggle('hidden',!e.target.checked); syncAll(); };
+  damageAmtI&&(damageAmtI.oninput=syncAll);
+  srcCaution&&(srcCaution.onchange=syncAll); srcPay&&(srcPay.onchange=syncAll);
+  payChk.onchange=e=>{ document.getElementById('rt_payBox').classList.toggle('hidden',!e.target.checked); if(e.target.checked) syncAll(); };
+  payAmtI&&(payAmtI.oninput=()=>{ payTouched=true; });
+  if(refEl){ refEl.onchange=syncAll; refAmtI&&(refAmtI.oninput=()=>{ if(!refAmtI.disabled) refManual=Math.min(totalDeposit,Math.max(0,Number(refAmtI.value||0))); syncAll(); }); }
+  syncAll();
   document.getElementById('rt_go').onclick=()=>{
     const go=document.getElementById('rt_go'); if(go.disabled) return; go.disabled=true; // double-tap returns twice (double stock + refund)
     const late=document.getElementById('rt_late').checked?Number(document.getElementById('rt_lateAmt').value||0):0;
-    const damage=document.getElementById('rt_damage').checked?Number(document.getElementById('rt_damageAmt').value||0):0;
+    const repairTot=repairTotal(), fromCaution=repairFromCaution();
+    const damage=repairOnBill(); // only the part she actually pays goes on the bill
     const damageNote=document.getElementById('rt_damage').checked?document.getElementById('rt_damageNote').value.trim():'';
     const payChecked=document.getElementById('rt_pay').checked;
     const payAmt=payChecked?Number(document.getElementById('rt_payAmt').value||0):0;
@@ -4807,8 +4909,12 @@ async function openReturnModal(r){
         let payShare=0;
         if(payLeft>0){ payShare=isLast?payLeft:Math.min(payLeft,itemBal); it.paid=(it.paid||0)+payShare; payLeft-=payShare; }
         const kept=(it.deposit||0)-refShare;
+        // What was held back to fix this dress, as opposed to held back for any
+        // other reason — so the repair fund can be read back per booking.
+        if(fromCaution>0 && kept>0){ it.repairFromCaution=kept; if(damageNote) it.damageNote=damageNote; }
+        else delete it.repairFromCaution;
         it.status='returned'; it.returnedAt=now();
-        it.returnTxn={ lateFeeAdded:lateShare-priorLate, damageFeeAdded:damageShare-priorDamage, payAmtAdded:payShare, refundAmt:refShare };
+        it.returnTxn={ lateFeeAdded:lateShare-priorLate, damageFeeAdded:damageShare-priorDamage, payAmtAdded:payShare, refundAmt:refShare, repairFromCaution:(fromCaution>0?kept:0) };
         if((it.deposit||0)>0){ it.depositRefunded=refShare>0; it.depositRefundedAmount=refShare; it.depositKept=kept; if(refShare>0) it.depositRefundedAt=now(); }
         await idbPut('rentals',it);
         if(payShare>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'rental',amount:payShare,method:it.method||'cash',createdAt:now(),userId:State.user.id});
@@ -4816,7 +4922,10 @@ async function openReturnModal(r){
         const p=await idbGet('products',it.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); }
         if(refShare>0){ await logAct('logRefund', it.name+' · '+money(refShare)); }
         if(kept>0){ await logAct('logDepositKept', it.name+(it.customerName?' · '+it.customerName:'')+' · '+money(kept)); }
-        if(damageShare>0){ await logAct('logDamageFee', it.name+(it.customerName?' · '+it.customerName:'')+' · '+money(damageShare)+(damageNote?' · '+damageNote:'')); }
+        const repairOnItem=damageShare+(fromCaution>0?kept:0);
+        if(repairOnItem>0){ await logAct('logDamageFee', it.name+(it.customerName?' · '+it.customerName:'')+' · '+money(repairOnItem)
+          +(fromCaution>0?' · '+t('keptForRepair')+' '+money(kept):'')+(damageShare>0?' · '+t('onHerBill')+' '+money(damageShare):'')
+          +(damageNote?' · '+damageNote:'')); }
       }
       await logAct('logReturn', names+(r.customerName?' · '+r.customerName:''));
       closeModal(); toast(t('itemReturned'),'ok'); viewRentals();
@@ -4844,7 +4953,7 @@ async function undoReturn(r){
       it.lateFee=Math.max(0,(it.lateFee||0)-(txn.lateFeeAdded||0));
       it.damageFee=Math.max(0,(it.damageFee||0)-(txn.damageFeeAdded||0));
       if(it.damageFee<=0) delete it.damageNote;
-      delete it.depositRefunded; delete it.depositRefundedAmount; delete it.depositKept; delete it.depositRefundedAt; delete it.returnTxn; delete it.returnedAt;
+      delete it.depositRefunded; delete it.depositRefundedAmount; delete it.depositKept; delete it.depositRefundedAt; delete it.returnTxn; delete it.returnedAt; delete it.repairFromCaution;
       // item is back out with the customer
       const p=await idbGet('products',it.productId); if(p){ p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
       it.status='active';
@@ -5286,7 +5395,7 @@ function rowRentalHist(group,custColorById){
   const r=group[0];
   const price=group.reduce((a,x)=>a+(x.price||0),0);
   const late=group.reduce((a,x)=>a+(x.lateFee||0),0);
-  const damage=group.reduce((a,x)=>a+(x.damageFee||0),0);
+  const damage=group.reduce((a,x)=>a+(x.damageFee||0)+(x.repairFromCaution||0),0); // badge shows the whole repair, however it was funded
   const paid=group.reduce((a,x)=>a+(x.paid||0),0);
   const bal=Math.max(0,price+late+damage-paid);
   const overdue=r.status==='active' && r.dueDate && daysLate(r.dueDate)>0;
