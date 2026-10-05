@@ -605,7 +605,7 @@ const I18N = {
     flagOverRefund:"More was given back than was ever taken",
     flagOrphan:"Caution movement with no booking attached",
     flagKept:"Caution kept by the store", flagShort:"Till came up short at the count", worst:"Worst",
-    flagSameDay:"Taken and given back the same day",
+    flagSameDay:"Taken and handed straight back",
     editCaution:"Edit caution movement", deleteCaution:"Delete this movement",
     editReason:"Why are you changing this?", editReasonHint:"Recorded against your name in the activity log",
     logCautionEdit:"Caution edited", logCautionDel:"Caution movement deleted",
@@ -863,7 +863,7 @@ const I18N = {
     flagOverRefund:"Plus rendu qu'il n'a jamais été encaissé",
     flagOrphan:"Mouvement de caution sans location rattachée",
     flagKept:"Caution retenue par le magasin", flagShort:"Caisse en manque au comptage", worst:"Pire",
-    flagSameDay:"Encaissée et rendue le même jour",
+    flagSameDay:"Encaissée et rendue aussitôt",
     editCaution:"Modifier le mouvement", deleteCaution:"Supprimer ce mouvement",
     editReason:"Pourquoi cette modification ?", editReasonHint:"Enregistré à votre nom dans le journal",
     logCautionEdit:"Caution modifiée", logCautionDel:"Mouvement de caution supprimé",
@@ -1120,7 +1120,7 @@ const I18N = {
     flagOverRefund:"أُعيد أكثر مما استُلم أصلاً",
     flagOrphan:"حركة تأمين بلا حجز مرتبط",
     flagKept:"تأمين احتجزه المتجر", flagShort:"نقص في الصندوق عند الجرد", worst:"الأسوأ",
-    flagSameDay:"استُلم وأُعيد في نفس اليوم",
+    flagSameDay:"استُلم وأُعيد فوراً",
     editCaution:"تعديل حركة التأمين", deleteCaution:"حذف هذه الحركة",
     editReason:"لماذا هذا التعديل؟", editReasonHint:"يُسجَّل باسمك في سجل النشاط",
     logCautionEdit:"تعديل تأمين", logCautionDel:"حذف حركة تأمين",
@@ -1765,11 +1765,18 @@ async function viewCautions(){
     const loose=(r.deposit||0)-(r.depositRefundedAmount||0)-(r.depositKept||0);
     if(loose>0) flags.push({kind:'flagUnsettled',amt:loose,who:r.customerName,item:r.name,ts:r.returnedAt||r.cancelledAt||r.createdAt,rid:r.id});
   });
+  // Items rented together are one caution: it is taken once for the bundle and
+  // can be given back split across the pieces, so the two sides only balance
+  // when the whole bundle is read as a single booking.
+  const bookingKey=rid=>{ const r=rentalById[rid]; return (r&&r.groupId)||rid; };
+  const keyRental={};
   const byBooking={};
-  moves.forEach(m=>{ if(!m.refId) return; const b=byBooking[m.refId]=byBooking[m.refId]||{in:0,out:0,moves:[]};
+  moves.forEach(m=>{ if(!m.refId) return; const k=bookingKey(m.refId);
+    if(!keyRental[k]) keyRental[k]=rentalById[m.refId]||{};
+    const b=byBooking[k]=byBooking[k]||{in:0,out:0,moves:[]};
     if(m.refType==='deposit') b.in+=m.amount||0; else b.out+=Math.abs(m.amount||0); b.moves.push(m); });
   Object.entries(byBooking).forEach(([rid,b])=>{
-    if(b.out>b.in+0.5){ const r=rentalById[rid]||{};
+    if(b.out>b.in+0.5){ const r=keyRental[rid]||{};
       flags.push({kind:'flagOverRefund',amt:b.out-b.in,who:r.customerName,item:r.name,ts:b.moves[0].createdAt,rid}); }
   });
   moves.filter(m=>!m.refId && !m.customerId).forEach(m=>
@@ -1781,10 +1788,13 @@ async function viewCautions(){
     const explained=(r.repairFromCaution||0)>=(r.depositKept||0) && (r.damageNote||'').trim();
     if(!explained) flags.push({kind:'flagKept',amt:r.depositKept,who:r.customerName,item:r.name,ts:r.returnedAt||r.cancelledAt||r.createdAt,rid:r.id});
   });
+  // A caution taken and handed straight back again. Same-day rentals are
+  // ordinary here, so a whole day is far too wide a net — a dress that really
+  // went out was gone for hours. Half an hour means it never left the shop.
   Object.entries(byBooking).forEach(([rid,b])=>{
     const ins=b.moves.filter(m=>m.refType==='deposit'), outs=b.moves.filter(m=>m.refType==='depositRefund');
     ins.forEach(i=>outs.forEach(o=>{
-      if(Math.abs(o.createdAt-i.createdAt)<864e5 && Math.abs(o.amount)>0){ const r=rentalById[rid]||{};
+      if(Math.abs(o.createdAt-i.createdAt)<18e5 && Math.abs(o.amount)>0){ const r=keyRental[rid]||{};
         if(!flags.some(f=>f.kind==='flagSameDay'&&f.rid===rid))
           flags.push({kind:'flagSameDay',amt:Math.abs(o.amount),who:r.customerName,item:r.name,ts:o.createdAt,rid,staff:staffOf(o)});
       }
@@ -1810,7 +1820,7 @@ async function viewCautions(){
   // the entry being chased is often older than whatever window was last set.
   const focused=cautionFocus&&cautionFocus.tab===cautionTab?cautionFocus:null;
   const shown=focused
-    ? moves.filter(m=> focused.by==='pid' ? m.id===focused.id : m.refId===focused.id)
+    ? moves.filter(m=> focused.by==='pid' ? m.id===focused.id : bookingKey(m.refId)===focused.id)
     : moves.filter(m=>(cautionPeriod==='all'||m.createdAt>=from)
       && (!cautionStaff||staffOf(m)===cautionStaff)
       && (!q || [m.customerName,m.itemName,String(m.amount)].some(v=>String(v||'').toLowerCase().includes(q))));
@@ -3983,6 +3993,11 @@ async function activateReservation(r){
       const itDepDelta = isLast? (depositDelta-depAssigned) : Math.round(depositDelta*depWeight/depWeightBasis);
       depAssigned+=itDepDelta;
       it.deposit=(it.deposit||0)+itDepDelta;
+      // Journalled per item, the same way the refund is written at return. One
+      // entry for the whole bundle would leave the other items refunding money
+      // the ledger never saw them take.
+      if(itDepDelta>0) await idbPut('payments',cautionEntry(it,'deposit',itDepDelta,it.method||group[0].method,'atPickup'));
+      else if(itDepDelta<0) await idbPut('payments',cautionEntry(it,'depositRefund',itDepDelta,it.method||group[0].method,'atPickup'));
       // Snapshot exactly what activation added (not the full paid/deposit,
       // which may include money already collected at booking) so reverting a
       // mistaken "Rent out" can reverse just this, not the whole history.
@@ -3994,8 +4009,6 @@ async function activateReservation(r){
       await idbPut('rentals',it);
       await logAct('logRental', it.name+' · '+(it.customerName||''));
     }
-    if(depositDelta>0) await idbPut('payments',cautionEntry(r,'deposit',depositDelta,group[0].method,'atPickup'));
-    else if(depositDelta<0) await idbPut('payments',cautionEntry(r,'depositRefund',depositDelta,group[0].method,'atPickup'));
     closeModal(); toast(t('rentalDone'),'ok'); viewRentals();
   };
 }
