@@ -509,7 +509,12 @@ const I18N = {
     repairNoCaution:"No caution was taken on this booking, so the repair goes on her bill.",
     cautionHeld:"Caution held", keptForRepair:"Kept for the repair", backToCustomer:"Back to the customer",
     repairOverCaution:"More than the caution covers — the rest goes on her bill.",
-    onHerBill:"Added to her bill",
+    onHerBill:"Added to her bill", collectNow:"To take from her on top",
+    itemRuined:"Ruined — it is not going back out", ruinedOne:"The dress is ruined — it is not going back out",
+    ruinedHint:"It stays off the shelf instead of going back into stock. Charge her what it costs to replace.",
+    ruinedBookingsAhead:"already booked ahead — those bookings need moving to something else.",
+    writtenOff:"Written off", logWriteOff:"Item written off",
+    ruinedNoCost:"No cost price is recorded for this item, so type the replacement charge yourself.",
     confirmReturn:"Confirm return", returnItem:"Return item", refundDeposit:"Refund deposit",
     rentalDone:"Rental created", itemReturned:"Item returned",
     noRentals:"No rentals yet", rentAgreement:"Rental agreement",
@@ -766,7 +771,12 @@ const I18N = {
     repairNoCaution:"Aucune caution n'a été prise sur cette location : la réparation passe sur sa note.",
     cautionHeld:"Caution détenue", keptForRepair:"Retenu pour la réparation", backToCustomer:"Rendu à la cliente",
     repairOverCaution:"Dépasse la caution — le reste passe sur sa note.",
-    onHerBill:"Ajouté à sa note",
+    onHerBill:"Ajouté à sa note", collectNow:"À lui prendre en plus",
+    itemRuined:"Irrécupérable — ne ressort plus", ruinedOne:"La robe est irrécupérable — elle ne ressort plus",
+    ruinedHint:"Elle reste hors rayon au lieu de retourner en stock. Facturez-lui le prix de remplacement.",
+    ruinedBookingsAhead:"déjà réservée(s) — ces réservations doivent être déplacées sur autre chose.",
+    writtenOff:"Passée en perte", logWriteOff:"Article passé en perte",
+    ruinedNoCost:"Aucun prix d'achat n'est enregistré pour cet article : saisissez vous-même le montant de remplacement.",
     confirmReturn:"Confirmer retour", returnItem:"Retourner l'article", refundDeposit:"Rembourser caution",
     rentalDone:"Location créée", itemReturned:"Article retourné",
     noRentals:"Aucune location", rentAgreement:"Contrat de location",
@@ -1016,7 +1026,12 @@ const I18N = {
     repairNoCaution:"لم يُؤخذ تأمين على هذا الحجز، فتُضاف رسوم الإصلاح إلى حسابها.",
     cautionHeld:"التأمين المحتجز", keptForRepair:"محتجز للإصلاح", backToCustomer:"المعاد للزبونة",
     repairOverCaution:"أكثر مما يغطيه التأمين — الباقي يُضاف إلى حسابها.",
-    onHerBill:"أُضيف إلى حسابها",
+    onHerBill:"أُضيف إلى حسابها", collectNow:"المطلوب أخذه منها إضافةً",
+    itemRuined:"تالف نهائياً — لن يخرج مجدداً", ruinedOne:"الفستان تالف نهائياً — لن يخرج مجدداً",
+    ruinedHint:"يبقى خارج الرفوف بدل العودة إلى المخزون. احتسب عليها ثمن الاستبدال.",
+    ruinedBookingsAhead:"محجوزة مسبقاً — يجب نقل تلك الحجوزات إلى صنف آخر.",
+    writtenOff:"مشطوب", logWriteOff:"تم شطب الصنف",
+    ruinedNoCost:"لا يوجد سعر تكلفة مسجَّل لهذا الصنف، فاكتب مبلغ الاستبدال بنفسك.",
     confirmReturn:"تأكيد الإرجاع", returnItem:"إرجاع الصنف", refundDeposit:"إعادة التأمين",
     rentalDone:"تم إنشاء الإيجار", itemReturned:"تم إرجاع الصنف",
     noRentals:"لا توجد إيجارات", rentAgreement:"عقد الإيجار",
@@ -4328,7 +4343,7 @@ function rowRental(group,custColorById){
     <td class="mono">${dateCell}</td>
     <td class="t-right mono">${money(price)}</td>
     <td class="t-right mono">${bal>0?`<span class="badge red">${money(bal)}</span>`:`<span class="badge green">${esc(t('settled'))}</span>`}</td>
-    <td>${statusBadge}${depositBadgeHtml(group)}${discountBadgeHtml(group)}${damage>0?`<span class="badge warnb" style="margin-inline-start:4px" title="${esc(group.map(x=>x.damageNote).filter(Boolean).join(', '))}">${esc(t('damageFee'))}: ${money(damage)}</span>`:''}</td>
+    <td>${statusBadge}${depositBadgeHtml(group)}${discountBadgeHtml(group)}${damage>0?`<span class="badge warnb" style="margin-inline-start:4px" title="${esc(group.map(x=>x.damageNote).filter(Boolean).join(', '))}">${esc(t('damageFee'))}: ${money(damage)}</span>`:''}${group.some(x=>x.writtenOff)?`<span class="badge red" style="margin-inline-start:4px">${esc(t('writtenOff'))}</span>`:''}</td>
     <td class="t-right" style="white-space:nowrap">
       <button class="btn ghost sm" data-hl="${r.id}" title="${esc(t('highlight'))}"${hlColor?` style="color:${hlColor}"`:''}>${svg(IC.flag,'ic')}</button>
       <button class="btn ghost sm" data-agr="${r.id}" title="${esc(t('rentAgreement'))}">${svg(IC.print,'ic')}</button>
@@ -4784,6 +4799,11 @@ async function openReturnModal(r){
     totalBal+=Math.max(0,(it.price||0)-(it.paid||0)); totalDeposit+=(it.deposit||0);
   }
   const anyOver=maxDaysOver>0;
+  // A dress that comes back ruined is not going back on the shelf, so the
+  // return needs to know what it cost to replace and what is booked on it.
+  const prodOf={}; for(const it of group){ if(it.productId && !(it.productId in prodOf)) prodOf[it.productId]=await idbGet('products',it.productId); }
+  const allRentals=await idbAll('rentals');
+  const aheadOf=pid=>allRentals.filter(x=>x.productId===pid && x.status==='reserved' && !group.some(g=>g.id===x.id)).length;
   // Everything that went out with this booking, so nothing is forgotten at the
   // counter — the caution usually rides on getting every piece back.
   const piecesOut=[...new Set(group.flatMap(x=>x.addons||[]))];
@@ -4803,6 +4823,11 @@ async function openReturnModal(r){
     <div class="field hidden" id="rt_damageBox" style="background:var(--gold-soft);padding:10px 12px;border-radius:9px">
       <label>${esc(t('damageFee'))}</label><input id="rt_damageAmt" type="number" min="0" step="0.01" value="0">
       <label style="margin-top:8px">${esc(t('damageNote'))}</label><input id="rt_damageNote" type="text" placeholder="${esc(t('damageNoteHint'))}">
+      <div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:8px">
+        ${group.map(it=>`<label class="check" style="margin:2px 0"><input type="checkbox" class="rt_ruin" data-rid="${esc(it.id)}" data-pid="${esc(it.productId||'')}"> ${esc(group.length>1?t('itemRuined')+' · '+it.name:t('ruinedOne'))}</label>`).join('')}
+        <span class="hint">${esc(t('ruinedHint'))}</span>
+        <div id="rt_ruinWarn" style="margin-top:4px"></div>
+      </div>
       ${totalDeposit? `<label style="margin-top:10px">${esc(t('repairPaidBy'))}</label>
       <label class="check" style="margin:2px 0"><input type="radio" name="rt_src" id="rt_srcCaution" checked> ${esc(t('repairFromCaution'))} · ${esc(t('cautionHeld'))}: ${money(totalDeposit)}</label>
       <label class="check" style="margin:2px 0"><input type="radio" name="rt_src" id="rt_srcPay"> ${esc(t('repairCustomerPays'))}</label>
@@ -4831,7 +4856,9 @@ async function openReturnModal(r){
   const refEl=document.getElementById('rt_refund'), refBox=document.getElementById('rt_refBox'),
         refAmtI=document.getElementById('rt_refAmt'), keepLine=document.getElementById('rt_keepLine'),
         srcCaution=document.getElementById('rt_srcCaution'), srcPay=document.getElementById('rt_srcPay'),
-        splitLine=document.getElementById('rt_repairSplit');
+        splitLine=document.getElementById('rt_repairSplit'),
+        ruinBoxes=[...document.querySelectorAll('.rt_ruin')], ruinWarn=document.getElementById('rt_ruinWarn');
+  const ruinedNow=()=>ruinBoxes.filter(c=>c.checked);
   let payTouched=false, refManual=totalDeposit; // what the cashier last chose to hand back, before a repair took over the field
   // A repair is normally paid out of the caution already in the box: the
   // amount stays behind and only the rest goes back to her. Anything over the
@@ -4854,8 +4881,17 @@ async function openReturnModal(r){
     if(splitLine){
       splitLine.innerHTML = repairTotal()>0
         ? `${esc(t('cautionHeld'))}: <b class="mono">${money(totalDeposit)}</b> · ${esc(t('keptForRepair'))}: <b class="mono" style="color:var(--warn)">${money(fromCaution)}</b> · ${esc(t('backToCustomer'))}: <b class="mono">${money(totalDeposit-fromCaution)}</b>`
-          + (onBill>0 && srcCaution && srcCaution.checked ? `<div style="color:var(--danger);margin-top:3px">${esc(t('repairOverCaution'))} ${esc(t('onHerBill'))}: <b class="mono">${money(onBill)}</b></div>` : '')
+          + (onBill>0 && srcCaution && srcCaution.checked ? `<div style="margin-top:4px;font-weight:700">${esc(t('collectNow'))}: <b class="mono" style="font-size:15px">${money(onBill)}</b><div class="subtle" style="font-weight:400;font-size:11px">${esc(t('repairOverCaution'))}</div></div>` : '')
         : '';
+    }
+    // Writing a dress off takes it off the shelf — say what that costs the
+    // boutique in bookings already made on it.
+    if(ruinWarn){
+      const warn=ruinedNow().map(c=>{ const n=aheadOf(c.dataset.pid); const p=prodOf[c.dataset.pid];
+        return n>0? `${esc((p&&p.name)||'')}: ${n} ${esc(t('ruinedBookingsAhead'))}` : ''; }).filter(Boolean);
+      const noCost=ruinedNow().some(c=>!(prodOf[c.dataset.pid]||{}).costPrice);
+      ruinWarn.innerHTML=[...warn.map(w=>`<div style="color:var(--danger);font-size:11.5px;font-weight:600">${w}</div>`),
+        (ruinedNow().length&&noCost)?`<div class="subtle" style="font-size:11.5px">${esc(t('ruinedNoCost'))}</div>`:''].join('');
     }
     const eb=effBalance();
     if(balShow) balShow.textContent=money(eb);
@@ -4873,6 +4909,13 @@ async function openReturnModal(r){
   damageChk.onchange=e=>{ document.getElementById('rt_damageBox').classList.toggle('hidden',!e.target.checked); syncAll(); };
   damageAmtI&&(damageAmtI.oninput=syncAll);
   srcCaution&&(srcCaution.onchange=syncAll); srcPay&&(srcPay.onchange=syncAll);
+  // Ticking "ruined" offers the replacement cost, but never overwrites a
+  // figure the cashier has already typed.
+  ruinBoxes.forEach(c=>c.onchange=()=>{
+    const cost=ruinedNow().reduce((a,x)=>a+((prodOf[x.dataset.pid]||{}).costPrice||0),0);
+    if(cost>0 && Number(damageAmtI.value||0)===0) damageAmtI.value=cost;
+    syncAll();
+  });
   payChk.onchange=e=>{ document.getElementById('rt_payBox').classList.toggle('hidden',!e.target.checked); if(e.target.checked) syncAll(); };
   payAmtI&&(payAmtI.oninput=()=>{ payTouched=true; });
   if(refEl){ refEl.onchange=syncAll; refAmtI&&(refAmtI.oninput=()=>{ if(!refAmtI.disabled) refManual=Math.min(totalDeposit,Math.max(0,Number(refAmtI.value||0))); syncAll(); }); }
@@ -4881,6 +4924,7 @@ async function openReturnModal(r){
     const go=document.getElementById('rt_go'); if(go.disabled) return; go.disabled=true; // double-tap returns twice (double stock + refund)
     const late=document.getElementById('rt_late').checked?Number(document.getElementById('rt_lateAmt').value||0):0;
     const repairTot=repairTotal(), fromCaution=repairFromCaution();
+    const ruinedIds=new Set(ruinedNow().map(c=>c.dataset.rid));
     const damage=repairOnBill(); // only the part she actually pays goes on the bill
     const damageNote=document.getElementById('rt_damage').checked?document.getElementById('rt_damageNote').value.trim():'';
     const payChecked=document.getElementById('rt_pay').checked;
@@ -4913,13 +4957,18 @@ async function openReturnModal(r){
         // other reason — so the repair fund can be read back per booking.
         if(fromCaution>0 && kept>0){ it.repairFromCaution=kept; if(damageNote) it.damageNote=damageNote; }
         else delete it.repairFromCaution;
+        if(ruinedIds.has(it.id)){ it.writtenOff=true; if(damageNote) it.damageNote=damageNote; } else delete it.writtenOff;
         it.status='returned'; it.returnedAt=now();
         it.returnTxn={ lateFeeAdded:lateShare-priorLate, damageFeeAdded:damageShare-priorDamage, payAmtAdded:payShare, refundAmt:refShare, repairFromCaution:(fromCaution>0?kept:0) };
         if((it.deposit||0)>0){ it.depositRefunded=refShare>0; it.depositRefundedAmount=refShare; it.depositKept=kept; if(refShare>0) it.depositRefundedAt=now(); }
         await idbPut('rentals',it);
         if(payShare>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'rental',amount:payShare,method:it.method||'cash',createdAt:now(),userId:State.user.id});
         if(refShare>0) await idbPut('payments',cautionEntry(it,'depositRefund',-refShare,it.method,'atReturn'));
-        const p=await idbGet('products',it.productId); if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); }
+        // A ruined item does not go back into stock — otherwise it would be on
+        // the shelf, and bookable, the moment the return was confirmed.
+        const p=await idbGet('products',it.productId);
+        if(p && !it.writtenOff){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); }
+        else if(p && it.writtenOff){ await logAct('logWriteOff', `${p.name}${it.customerName?' · '+it.customerName:''} (${t('qty')}: ${p.qty||0})`, p.id); }
         if(refShare>0){ await logAct('logRefund', it.name+' · '+money(refShare)); }
         if(kept>0){ await logAct('logDepositKept', it.name+(it.customerName?' · '+it.customerName:'')+' · '+money(kept)); }
         const repairOnItem=damageShare+(fromCaution>0?kept:0);
@@ -4955,7 +5004,11 @@ async function undoReturn(r){
       if(it.damageFee<=0) delete it.damageNote;
       delete it.depositRefunded; delete it.depositRefundedAmount; delete it.depositKept; delete it.depositRefundedAt; delete it.returnTxn; delete it.returnedAt; delete it.repairFromCaution;
       // item is back out with the customer
-      const p=await idbGet('products',it.productId); if(p){ p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
+      // A written-off item never went back into stock, so there is nothing to
+      // take out again — undoing only lifts the write-off.
+      const p=await idbGet('products',it.productId);
+      if(p && !it.writtenOff){ p.qty=Math.max(0,(p.qty||0)-1); await idbPut('products',p); await logAct('logStockRent', `${p.name} -1 (${p.qty})`, p.id); }
+      delete it.writtenOff;
       it.status='active';
       await idbPut('rentals',it);
       await logAct('logUndoReturn', it.name+(it.customerName?' · '+it.customerName:''));
@@ -5412,7 +5465,7 @@ function rowRentalHist(group,custColorById){
     <td class="t-right mono">${money(price)}</td>
     <td class="t-right mono">${money(paid)}</td>
     <td class="t-right">${r.status==='cancelled'?'—':bal>0?`<span class="badge red">${money(bal)}</span>`:`<span class="badge green">${esc(t('settled'))}</span>`}</td>
-    <td>${statusBadge}${damage>0?`<span class="badge warnb" style="margin-inline-start:4px">${esc(t('damageFee'))}: ${money(damage)}</span>`:''}</td>
+    <td>${statusBadge}${damage>0?`<span class="badge warnb" style="margin-inline-start:4px">${esc(t('damageFee'))}: ${money(damage)}</span>`:''}${group.some(x=>x.writtenOff)?`<span class="badge red" style="margin-inline-start:4px">${esc(t('writtenOff'))}</span>`:''}</td>
     <td class="t-right" style="white-space:nowrap">
       <button class="btn ghost sm" data-hist-agr="${r.id}" title="${esc(t('rentAgreement'))}">${svg(IC.print,'ic')}</button>
       <button class="btn ghost sm" data-hist-wa="${r.id}" title="${esc(t('waRemind'))}" style="color:var(--ok)">${svg(IC.chat,'ic')}</button>
