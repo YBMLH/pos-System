@@ -1774,7 +1774,9 @@ async function viewCautions(){
   moves.forEach(m=>{ if(!m.refId) return; const k=bookingKey(m.refId);
     if(!keyRental[k]) keyRental[k]=rentalById[m.refId]||{};
     const b=byBooking[k]=byBooking[k]||{in:0,out:0,moves:[]};
-    if(m.refType==='deposit') b.in+=m.amount||0; else b.out+=Math.abs(m.amount||0); b.moves.push(m); });
+    // Signs, not types: reversing a refund is written as a positive
+    // depositRefund, so taking its size would count it as a second refund.
+    if(m.refType==='deposit') b.in+=m.amount||0; else b.out-=(m.amount||0); b.moves.push(m); });
   Object.entries(byBooking).forEach(([rid,b])=>{
     if(b.out>b.in+0.5){ const r=keyRental[rid]||{};
       flags.push({kind:'flagOverRefund',amt:b.out-b.in,who:r.customerName,item:r.name,ts:b.moves[0].createdAt,rid}); }
@@ -1792,9 +1794,9 @@ async function viewCautions(){
   // ordinary here, so a whole day is far too wide a net — a dress that really
   // went out was gone for hours. Half an hour means it never left the shop.
   Object.entries(byBooking).forEach(([rid,b])=>{
-    const ins=b.moves.filter(m=>m.refType==='deposit'), outs=b.moves.filter(m=>m.refType==='depositRefund');
+    const ins=b.moves.filter(m=>m.refType==='deposit'), outs=b.moves.filter(m=>m.refType==='depositRefund'&&(m.amount||0)<0);
     ins.forEach(i=>outs.forEach(o=>{
-      if(Math.abs(o.createdAt-i.createdAt)<18e5 && Math.abs(o.amount)>0){ const r=keyRental[rid]||{};
+      if(Math.abs(o.createdAt-i.createdAt)<18e5){ const r=keyRental[rid]||{};
         if(!flags.some(f=>f.kind==='flagSameDay'&&f.rid===rid))
           flags.push({kind:'flagSameDay',amt:Math.abs(o.amount),who:r.customerName,item:r.name,ts:o.createdAt,rid,staff:staffOf(o)});
       }
@@ -1825,7 +1827,7 @@ async function viewCautions(){
       && (!cautionStaff||staffOf(m)===cautionStaff)
       && (!q || [m.customerName,m.itemName,String(m.amount)].some(v=>String(v||'').toLowerCase().includes(q))));
   const sumIn=shown.filter(m=>m.refType==='deposit').reduce((a,m)=>a+(m.amount||0),0);
-  const sumOut=shown.filter(m=>m.refType==='depositRefund').reduce((a,m)=>a+Math.abs(m.amount||0),0);
+  const sumOut=-shown.filter(m=>m.refType==='depositRefund').reduce((a,m)=>a+(m.amount||0),0);
 
   const periodSeg=['today','week','month','all'].map(k=>
     `<button data-cp="${k}" class="${cautionPeriod===k?'on':''}">${esc(t(k==='all'?'allTime':k))}</button>`).join('');
@@ -1894,7 +1896,7 @@ async function viewCautions(){
            <th>${esc(t('reasonCol'))}</th><th>${esc(t('whoDidIt'))}</th>
            <th class="t-right">${esc(t('amount'))}</th><th class="t-right">${esc(t('actions'))}</th>
          </tr></thead><tbody>${shown.slice(0,300).map(m=>{
-            const inbound=m.refType==='deposit';
+            const inbound=(m.amount||0)>=0; // which way the money moved, not which kind of entry it is
             const r=m.refId?rentalById[m.refId]:null;
             return `<tr>
               <td class="mono" style="white-space:nowrap">${fmtDate(m.createdAt)}<div class="subtle" style="font-size:10.5px">${new Date(m.createdAt).toLocaleTimeString(State.lang,{hour:'2-digit',minute:'2-digit'})}</div></td>
@@ -1967,7 +1969,7 @@ async function viewCautions(){
    of whoever made the change. */
 async function openCautionEditModal(id){
   const m=await idbGet('payments',id); if(!m) return;
-  const inbound=m.refType==='deposit';
+  const inbound=(m.amount||0)>=0; // keep the direction the entry already has
   modal(t('editCaution'),
    `<p class="subtle" style="margin-bottom:12px">${esc(m.customerName||'—')}${m.itemName?' · '+esc(m.itemName):''} · ${fmtDate(m.createdAt)}</p>
     <div class="field"><label>${esc(t('amount'))}</label>
