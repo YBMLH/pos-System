@@ -685,6 +685,13 @@ const I18N = {
     listView:"List", calendarView:"Calendar", more:"more",
     rentalSchedule:"Rental schedule", rentedDates:"Rented dates", upcomingBookings:"Upcoming & current", pastBookings:"Past rentals",
     mon:"Mon",tue:"Tue",wed:"Wed",thu:"Thu",fri:"Fri",sat:"Sat",sun:"Sun",
+    mistakeEntry:"Entered by mistake", undoMistake:"Undo — entered by mistake",
+    mistakeHint:"Use this only for a line that should never have existed — the wrong customer, the wrong item, entered twice. It comes out of the till and out of every total as if it was never typed. Stock goes back, and any caution comes back out of the caution till.",
+    notARefund:"This is not a refund. Nothing is handed back to anybody and it will not show as money going out. If she is actually getting money back, close this and use Refund instead.",
+    mistakeWhy:"What went wrong?", mistakeWhyHint:"e.g. wrong customer, entered twice, wrong dress",
+    mistakeDone:"Undone — it no longer counts anywhere", logMistake:"Entered by mistake — undone",
+    undoneBy:"Undone by", mistakeOwnerOnly:"Only the owner can undo a line more than an hour old.",
+    mistakeNothingBack:"Nothing to hand back", mistakeStruck:"Struck from every total",
     voided:"Voided", voidSale:"Void sale", voidConfirm:"Void this sale? Stock will be restored and it will be removed from revenue. This only works within 1 hour of the sale.",
     voidExpired:"This sale is more than 1 hour old — use Refund instead", logVoidSale:"Sale voided", logStockVoid:"Void restock",
     dailyCloseOut:"Daily Close-Out", netTotal:"Net Total", generatedOn:"Generated on",
@@ -943,6 +950,13 @@ const I18N = {
     listView:"Liste", calendarView:"Calendrier", more:"de plus",
     rentalSchedule:"Calendrier de location", rentedDates:"Dates louées", upcomingBookings:"À venir & en cours", pastBookings:"Locations passées",
     mon:"Lun",tue:"Mar",wed:"Mer",thu:"Jeu",fri:"Ven",sat:"Sam",sun:"Dim",
+    mistakeEntry:"Saisie par erreur", undoMistake:"Annuler — saisie par erreur",
+    mistakeHint:"À utiliser uniquement pour une ligne qui n'aurait jamais dû exister — mauvaise cliente, mauvais article, saisie deux fois. Elle sort de la caisse et de tous les totaux comme si elle n'avait jamais été saisie. Le stock revient, et toute caution ressort de la caisse des cautions.",
+    notARefund:"Ce n'est pas un remboursement. Rien n'est rendu à personne et cela n'apparaîtra pas comme une sortie d'argent. Si la cliente récupère réellement de l'argent, fermez ceci et utilisez Remboursement.",
+    mistakeWhy:"Que s'est-il passé ?", mistakeWhyHint:"ex. mauvaise cliente, saisie deux fois, mauvaise robe",
+    mistakeDone:"Annulée — elle ne compte plus nulle part", logMistake:"Saisie par erreur — annulée",
+    undoneBy:"Annulée par", mistakeOwnerOnly:"Seul le propriétaire peut annuler une ligne de plus d'une heure.",
+    mistakeNothingBack:"Rien à rendre", mistakeStruck:"Retirée de tous les totaux",
     voided:"Annulée", voidSale:"Annuler la vente", voidConfirm:"Annuler cette vente ? Le stock sera restauré et elle sera retirée des revenus. Possible seulement dans l'heure suivant la vente.",
     voidExpired:"Cette vente a plus d'une heure — utilisez Remboursement à la place", logVoidSale:"Vente annulée", logStockVoid:"Restock (annulation)",
     dailyCloseOut:"Clôture journalière", netTotal:"Total net", generatedOn:"Généré le",
@@ -1200,6 +1214,13 @@ const I18N = {
     listView:"قائمة", calendarView:"تقويم", more:"المزيد",
     rentalSchedule:"جدول الإيجار", rentedDates:"تواريخ الإيجار", upcomingBookings:"القادمة والحالية", pastBookings:"الإيجارات السابقة",
     mon:"إثنين",tue:"ثلاثاء",wed:"أربعاء",thu:"خميس",fri:"جمعة",sat:"سبت",sun:"أحد",
+    mistakeEntry:"أُدخل بالخطأ", undoMistake:"تراجع — أُدخل بالخطأ",
+    mistakeHint:"استعمله فقط لسطر ما كان ينبغي أن يوجد أصلاً — زبونة خاطئة، صنف خاطئ، أُدخل مرتين. يخرج من الصندوق ومن كل المجاميع كأنه لم يُكتب قط. يعود المخزون، ويخرج أي تأمين من صندوق التأمينات.",
+    notARefund:"هذا ليس استرجاعاً. لا يُعاد شيء لأحد ولن يظهر كخروج مال. إن كانت الزبونة تسترد مالاً فعلاً، أغلق هذا واستعمل الاسترجاع.",
+    mistakeWhy:"ما الذي حدث؟", mistakeWhyHint:"مثال: زبونة خاطئة، أُدخل مرتين، فستان خاطئ",
+    mistakeDone:"تم التراجع — لم يعد يُحتسب في أي مكان", logMistake:"أُدخل بالخطأ — تم التراجع",
+    undoneBy:"تراجع بواسطة", mistakeOwnerOnly:"المالك وحده يمكنه التراجع عن سطر مضى عليه أكثر من ساعة.",
+    mistakeNothingBack:"لا شيء يُعاد", mistakeStruck:"مُستبعد من كل المجاميع",
     voided:"ملغاة", voidSale:"إلغاء البيع", voidConfirm:"إلغاء هذا البيع؟ سيُعاد المخزون وسيُحذف من الإيرادات. يعمل فقط خلال ساعة واحدة من البيع.",
     voidExpired:"مضى أكثر من ساعة على هذا البيع — استخدم الاسترجاع بدلاً من ذلك", logVoidSale:"تم إلغاء البيع", logStockVoid:"إرجاع مخزون (إلغاء)",
     dailyCloseOut:"إغلاق اليوم", netTotal:"الصافي الإجمالي", generatedOn:"تم الإنشاء في",
@@ -1469,6 +1490,11 @@ function confirmDupCustomer(existing){
 /* Every caution movement carries who did it, which booking it was for and why,
    so the Cautions ledger can answer "when, by whom, for what" without guessing
    from timestamps. Older entries predate this and simply show what they have. */
+/* A line entered by mistake never happened. Its journal rows stay on disk for
+   the audit trail but are struck out of every figure, rather than being
+   cancelled by an opposite entry — which is what a refund is, and would make a
+   typing error look like money handed back across the counter. */
+function livePayments(ps){ return ps.filter(p=>!p.mistake); }
 function cautionEntry(r,refType,amount,method,reason){
   return {id:uid(), customerId:r.customerId||null, customerName:r.customerName||'',
     refType, amount, method:method||r.method||'cash',
@@ -1751,7 +1777,8 @@ function cautionReasonLabel(x){
 async function viewCautions(){
   const view=document.getElementById('view');
   if(!isOwner()){ view.innerHTML=pageHead(t('cautionsNav'))+emptyState(IC.money,t('ownerOnly'),t('ownerOnlyMsg')); return; }
-  const [payments,rentals,users,counts,T]=await Promise.all([idbAll('payments'),idbAll('rentals'),idbAll('users'),idbAll('counts'),tillTotals()]);
+  const [payments0,rentals,users,counts,T]=await Promise.all([idbAll('payments'),idbAll('rentals'),idbAll('users'),idbAll('counts'),tillTotals()]);
+  const payments=livePayments(payments0);
   const moves=payments.filter(p=>p.refType==='deposit'||p.refType==='depositRefund').sort((a,b)=>b.createdAt-a.createdAt);
   const rentalById=Object.fromEntries(rentals.map(r=>[r.id,r]));
   const nameOfUser=id=>{ const u=users.find(x=>x.id===id); return u?u.name:''; };
@@ -1761,7 +1788,7 @@ async function viewCautions(){
   /* ---- what doesn't add up ---- */
   const flags=[];
   const cashR=r=>(r.method||'cash')==='cash';
-  rentals.filter(r=>(r.status==='returned'||r.status==='cancelled') && cashR(r)).forEach(r=>{
+  rentals.filter(r=>(r.status==='returned'||r.status==='cancelled') && cashR(r) && !r.mistake).forEach(r=>{
     const loose=(r.deposit||0)-(r.depositRefundedAmount||0)-(r.depositKept||0);
     if(loose>0) flags.push({kind:'flagUnsettled',amt:loose,who:r.customerName,item:r.name,ts:r.returnedAt||r.cancelledAt||r.createdAt,rid:r.id});
   });
@@ -2016,7 +2043,8 @@ async function tillTotals(){
   const meta=await idbGet('meta','app');
   const since = meta.tillSetAt || 0;
   const float = meta.tillFloat || 0;
-  const [payments,expenses]=await Promise.all([idbAll('payments'),idbAll('expenses')]);
+  const [payments0,expenses]=await Promise.all([idbAll('payments'),idbAll('expenses')]);
+  const payments=livePayments(payments0);
   // Single source of truth: the payments journal. Every cash movement writes here:
   // sale, rental, deposit, repayment (positive) / refund, void, depositRefund (negative)
   const cashJ=payments.filter(p=>p.createdAt>=since && (p.method||'cash')==='cash');
@@ -2037,7 +2065,7 @@ async function tillTotals(){
   // stops being the customer's and becomes takings.
   const rentalsForDeposits=await idbAll('rentals');
   const settledAt=r=>r.returnedAt||r.cancelledAt||r.createdAt||0;
-  const keptCash=r=>(r.method||'cash')==='cash'? (r.depositKept||0) : 0;
+  const keptCash=r=>(!r.mistake && (r.method||'cash')==='cash')? (r.depositKept||0) : 0;
   const cautionKeptSince=rentalsForDeposits.filter(r=>settledAt(r)>=since).reduce((a,r)=>a+keptCash(r),0);
   const cashIn=cashSales+cashRentals+cashPayments+cashInjections+cautionKeptSince;
   const cashOut=cashExpenses+withdrawals-cashSaleRefunds; // cashSaleRefunds is negative, so subtracting adds its magnitude
@@ -2084,7 +2112,7 @@ async function tillTotals(){
   const liveCautionCount=liveCautions.length;
   // A closed booking whose caution was neither handed back nor kept — the usual
   // cause of a gap, and the thing to go and look at.
-  const cautionLooseOnClosed=rentalsForDeposits.filter(r=>(r.status==='returned'||r.status==='cancelled') && cashRental(r)).reduce((a,r)=>a+Math.max(0,(r.deposit||0)-(r.depositRefundedAmount||0)-(r.depositKept||0)),0);
+  const cautionLooseOnClosed=rentalsForDeposits.filter(r=>(r.status==='returned'||r.status==='cancelled') && cashRental(r) && !r.mistake).reduce((a,r)=>a+Math.max(0,(r.deposit||0)-(r.depositRefundedAmount||0)-(r.depositKept||0)),0);
   const cautionGap=cautionTillCash-cautionOnOpenBookings-cautionLooseOnClosed;
   return {float,cashSales,cashRentals,cashPayments,cashInjections,cashSaleRefunds,cashDeposits,cashDepositRefunds,cashIn,cashExpenses,withdrawals,cashOut,till,since,depositsHeldNow,cautionTillCash,cautionIn,cautionOut,cautionKept,cautionKeptSince,cautionOnOpenBookings,cautionLooseOnClosed,cautionGap,repairSpent,repairFeesCollected,repairSetAside,repairFund,storeOwnCash,liveCautionCount};
 }
@@ -2095,7 +2123,8 @@ async function openTillModal(){
   // and voids (deposits excluded, they're refundable). Using the journal (not the
   // sale/rental record's own date) means a balance paid today on an older rental
   // counts as today's income, so this matches the "Today" breakdown below exactly.
-  const [sales,rentals,payments,expenses]=await Promise.all([idbAll('sales'),idbAll('rentals'),idbAll('payments'),idbAll('expenses')]);
+  const [sales,rentals,payments0,expenses]=await Promise.all([idbAll('sales'),idbAll('rentals'),idbAll('payments'),idbAll('expenses')]);
+  const payments=livePayments(payments0);
   const t0=startOf('today');
   const incomeSince=(from)=>{ const j=payments.filter(p=>p.createdAt>=from); const s=types=>j.filter(p=>types.includes(p.refType)).reduce((a,p)=>a+(p.amount||0),0); return s(['sale','rental','repayment'])+s(['refund','void']); };
   const overallIncome=incomeSince(0); // all-time revenue collected (all methods)
@@ -3486,7 +3515,7 @@ async function openCheckout(subtotal){
       subtotal,discountPct:Number(discPctI.value||0),discountAmt:Number(discAmtI.value||0),total,paid:paidApplied,balance:Math.max(0,total-paidApplied),
       method,createdAt:now(),userId:State.user.id,userName:State.user.name};
     await idbPut('sales',sale);
-    if(paidApplied>0) await idbPut('payments',{id:uid(),customerId:custId,refType:'sale',amount:paidApplied,method,createdAt:now(),userId:State.user.id});
+    if(paidApplied>0) await idbPut('payments',{id:uid(),customerId:custId,refType:'sale',amount:paidApplied,refId:sale.id,method,createdAt:now(),userId:State.user.id});
     await logAct('logSale', money(total)+' · '+custName);
     const cartCopy=[...State.cart]; State.cart=[];
     closeModal();
@@ -3737,6 +3766,7 @@ async function viewRentals(){
   view.querySelectorAll('[data-return]').forEach(b=>b.onclick=async()=>openReturnModal(await idbGet('rentals',b.dataset.return)));
   view.querySelectorAll('[data-undoreturn]').forEach(b=>b.onclick=async()=>undoReturn(await idbGet('rentals',b.dataset.undoreturn)));
   view.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=async()=>cancelRental(await idbGet('rentals',b.dataset.cancel),null,true));
+  view.querySelectorAll('[data-rmistake]').forEach(b=>b.onclick=async()=>undoRentalAsMistake(await idbGet('rentals',b.dataset.rmistake),null,true));
   view.querySelectorAll('[data-agr]').forEach(b=>b.onclick=async()=>{ const r=await idbGet('rentals',b.dataset.agr); if(r) offerRentalPreview(await rentalGroupOf(r)); });
   view.querySelectorAll('[data-activate]').forEach(b=>b.onclick=async()=>activateReservation(await idbGet('rentals',b.dataset.activate)));
   view.querySelectorAll('[data-unactivate]').forEach(b=>b.onclick=async()=>revertToReserved(await idbGet('rentals',b.dataset.unactivate)));
@@ -3990,7 +4020,7 @@ async function activateReservation(r){
       // settle the balance now, FIFO across the bundle's items
       let payShare=0;
       if(payLeft>0){ const itemBal=Math.max(0,(it.price||0)+(it.lateFee||0)+(it.damageFee||0)-(it.paid||0)); payShare=isLast?payLeft:Math.min(payLeft,itemBal);
-        if(payShare>0){ it.paid=(it.paid||0)+payShare; payLeft-=payShare; await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'rental',amount:payShare,method:it.method||'cash',createdAt:now(),userId:State.user.id}); } }
+        if(payShare>0){ it.paid=(it.paid||0)+payShare; payLeft-=payShare; await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'rental',amount:payShare,refId:it.id,method:it.method||'cash',createdAt:now(),userId:State.user.id}); } }
       const depWeight = totalDeposit>0? (it.deposit||0) : (it.price||0);
       const itDepDelta = isLast? (depositDelta-depAssigned) : Math.round(depositDelta*depWeight/depWeightBasis);
       depAssigned+=itDepDelta;
@@ -4310,7 +4340,7 @@ async function openEditDatesModal(r){
           await idbPut('rentals',{id:uid(),groupId:gid,productId:l.productId,name:l.name,customerId:r.customerId,customerName:r.customerName,
             startDate:start,dueDate:due,days:days||1,price:Math.max(0,Number(l.price||0)),deposit:0,paid:Math.max(0,Number(l.paid||0)),lateFee:0,damageFee:0,
             postponed:!(start&&due),status:'reserved',method:r.method||'cash',createdAt:now(),userId:State.user.id,userName:State.user.name});
-          if(delta>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'rental',amount:delta,method:r.method||'cash',createdAt:now(),userId:State.user.id});
+          if(delta>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'rental',amount:delta,refId:r.id,method:r.method||'cash',createdAt:now(),userId:State.user.id});
         }
       }
       // Items dropped from a reservation: reverse any money and mark cancelled
@@ -4377,7 +4407,8 @@ function rowRental(group,custColorById){
   const paid=group.reduce((a,x)=>a+(x.paid||0),0);
   const bal=Math.max(0,price+late+damage-paid);
   const overdue=r.status==='active' && r.dueDate && daysLate(r.dueDate)>0;
-  const statusBadge= r.status==='cancelled'? `<span class="badge grey">${esc(t('cancelled'))}</span>` :
+  const statusBadge= r.mistake? `<span class="badge red" title="${esc([r.mistakeReason,r.mistakeBy&&t('undoneBy')+' '+r.mistakeBy].filter(Boolean).join(' · '))}">${esc(t('mistakeEntry'))}</span>` :
+    r.status==='cancelled'? `<span class="badge grey">${esc(t('cancelled'))}</span>` :
     r.status==='returned'? `<span class="badge grey">${esc(t('returned'))}</span>` :
     r.status==='reserved'? `<span class="badge brand">${esc(t('reserved'))}</span>` :
     overdue? `<span class="badge red"><span class="dot"></span>${esc(t('overdue'))}</span>` : `<span class="badge gold"><span class="dot"></span>${esc(t('rented'))}</span>`;
@@ -4407,6 +4438,7 @@ function rowRental(group,custColorById){
       ${r.status==='active'?`<button class="btn ghost sm" data-extend="${r.id}" title="${esc(t('extendRental'))}">${svg(IC.plus,'ic')}</button>`:''}
       ${r.status==='active'?`<button class="btn secondary sm" data-return="${r.id}">${svg(IC.ret,'ic')}${esc(t('markReturned'))}</button>`:''}
       ${r.status==='returned'?`<button class="btn ghost sm" data-undoreturn="${r.id}" title="${esc(t('undoReturn'))}">${svg(IC.back,'ic')}${esc(t('undoReturn'))}</button>`:''}
+      ${(r.status==='active'||r.status==='reserved')&&mistakeAllowed(r.createdAt)?`<button class="btn ghost sm" data-rmistake="${r.id}" title="${esc(t('undoMistake'))}" style="color:var(--danger)">${svg(IC.close,'ic')}</button>`:''}
       ${(r.status==='active'||r.status==='reserved')?`<button class="btn ghost sm" data-cancel="${r.id}" title="${esc(t('cancelRental'))}" style="color:var(--danger)">${svg(IC.trash,'ic')}</button>`:''}
     </td>
   </tr>`;
@@ -4715,7 +4747,7 @@ async function openRentalModal(presetPid){
         paid:share,lateFee:0,damageFee:0,status:isReserve?'reserved':'active',method:rMethod,createdAt:now(),userId:State.user.id,userName:State.user.name,
         ...(isReserve?{}:{pickedUpAt:now(),pickedUpBy:State.user.name})};
       await idbPut('rentals',rental);
-      if(rental.paid>0) await idbPut('payments',{id:uid(),customerId:cid,refType:'rental',amount:rental.paid,method:rMethod,createdAt:now(),userId:State.user.id});
+      if(rental.paid>0) await idbPut('payments',{id:uid(),customerId:cid,refType:'rental',amount:rental.paid,refId:rental.id,method:rMethod,createdAt:now(),userId:State.user.id});
       if(rental.deposit>0) await idbPut('payments',cautionEntry(rental,'deposit',rental.deposit,rMethod,'atBooking'));
       createdRentals.push(rental);
     }
@@ -5014,7 +5046,7 @@ async function openReturnModal(r){
         it.returnTxn={ lateFeeAdded:lateShare-priorLate, damageFeeAdded:damageShare-priorDamage, payAmtAdded:payShare, refundAmt:refShare, repairFromCaution:(fromCaution>0?kept:0) };
         if((it.deposit||0)>0){ it.depositRefunded=refShare>0; it.depositRefundedAmount=refShare; it.depositKept=kept; if(refShare>0) it.depositRefundedAt=now(); }
         await idbPut('rentals',it);
-        if(payShare>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'rental',amount:payShare,method:it.method||'cash',createdAt:now(),userId:State.user.id});
+        if(payShare>0) await idbPut('payments',{id:uid(),customerId:it.customerId||null,refType:'rental',amount:payShare,refId:it.id,method:it.method||'cash',createdAt:now(),userId:State.user.id});
         if(refShare>0) await idbPut('payments',cautionEntry(it,'depositRefund',-refShare,it.method,'atReturn'));
         // A ruined item does not go back into stock — otherwise it would be on
         // the shelf, and bookable, the moment the return was confirmed.
@@ -5270,7 +5302,7 @@ async function customerPoints(cid){
 async function openCustomerLedger(cust){
   const sales=(await idbAll('sales')).filter(s=>s.customerId===cust.id);
   const rentals=(await idbAll('rentals')).filter(r=>r.customerId===cust.id);
-  const allPay=(await idbAll('payments')).filter(p=>p.customerId===cust.id).sort((a,b)=>a.createdAt-b.createdAt);
+  const allPay=livePayments(await idbAll('payments')).filter(p=>p.customerId===cust.id).sort((a,b)=>a.createdAt-b.createdAt);
   const pays=allPay.filter(p=>p.refType==='repayment');
   let rows=[];
   // Reversed transactions stay visible but clearly marked (Voided / Cancelled)
@@ -5475,7 +5507,7 @@ async function viewSales(){
     offerReceipt(()=>buildInvoiceHtml(sale,meta), t('invoiceA4'));
   });
   view.querySelectorAll('[data-refund]').forEach(b=>b.onclick=async()=>openRefundModal(await idbGet('sales',b.dataset.refund)));
-  view.querySelectorAll('[data-void]').forEach(b=>b.onclick=async()=>voidSale(await idbGet('sales',b.dataset.void)));
+  view.querySelectorAll('[data-mistake]').forEach(b=>b.onclick=async()=>undoSaleAsMistake(await idbGet('sales',b.dataset.mistake)));
   view.querySelectorAll('[data-hist-agr]').forEach(b=>b.onclick=async()=>{ const r=await idbGet('rentals',b.dataset.histAgr); if(r) offerRentalPreview(await rentalGroupOf(r)); });
   view.querySelectorAll('[data-hist-wa]').forEach(b=>b.onclick=async()=>{
     const r=await idbGet('rentals',b.dataset.histWa); if(!r) return;
@@ -5504,7 +5536,8 @@ function rowRentalHist(group,custColorById){
   const paid=group.reduce((a,x)=>a+(x.paid||0),0);
   const bal=Math.max(0,price+late+damage-paid);
   const overdue=r.status==='active' && r.dueDate && daysLate(r.dueDate)>0;
-  const statusBadge= r.status==='cancelled'? `<span class="badge grey">${esc(t('cancelled'))}</span>` :
+  const statusBadge= r.mistake? `<span class="badge red" title="${esc([r.mistakeReason,r.mistakeBy&&t('undoneBy')+' '+r.mistakeBy].filter(Boolean).join(' · '))}">${esc(t('mistakeEntry'))}</span>` :
+    r.status==='cancelled'? `<span class="badge grey">${esc(t('cancelled'))}</span>` :
     r.status==='returned'? `<span class="badge grey">${esc(t('returned'))}</span>` :
     r.status==='reserved'? `<span class="badge brand">${esc(t('reserved'))}</span>` :
     overdue? `<span class="badge red"><span class="dot"></span>${esc(t('overdue'))}</span>` : `<span class="badge gold"><span class="dot"></span>${esc(t('rented'))}</span>`;
@@ -5527,23 +5560,104 @@ function rowRentalHist(group,custColorById){
 function rowSale(s,custColorById){
   const itemsLabel=(s.items||[]).map(i=>`${i.name}×${i.qty}`).join(', ');
   const refunded=s.refunded? `<span class="badge red">${esc(t('refund'))}</span>` : '';
-  const voided=s.voided? `<span class="badge red">${esc(t('voided'))}</span>` : '';
+  const voided=s.mistake? `<span class="badge red" title="${esc([s.mistakeReason,s.mistakeBy&&t('undoneBy')+' '+s.mistakeBy].filter(Boolean).join(' · '))}">${esc(t('mistakeEntry'))}</span>`
+    : s.voided? `<span class="badge red">${esc(t('voided'))}</span>` : '';
   const bal=Math.max(0,(s.total||0)-(s.paid||0));
-  const canVoid = !s.refunded && !s.voided && (Date.now()-s.createdAt) < 3600000;
+  const canVoid = !s.refunded && !s.voided && mistakeAllowed(s.createdAt);
   return `<tr${s.voided?' style="opacity:.55"':''}>
     <td class="mono subtle">${fmtDate(s.createdAt)}</td>
     <td>${custDotHtml(custColorById&&custColorById[s.customerId])}${esc(s.customerName||t('walkIn'))}</td>
-    <td style="max-width:220px" class="subtle">${esc(itemsLabel)}</td>
+    <td style="max-width:220px" class="subtle">${esc(itemsLabel)}${s.mistake&&s.mistakeReason?`<div style="font-size:11px;color:var(--danger)">${esc(s.mistakeReason)}</div>`:''}</td>
     <td class="t-right mono">${money(s.total)}</td>
     <td class="t-right mono">${money(s.paid)} ${refunded}${voided}</td>
     <td class="t-right">${s.voided?'—':bal>0?`<span class="badge red">${money(bal)}</span>`:`<span class="badge green">${esc(t('settled'))}</span>`}</td>
     <td class="t-right" style="white-space:nowrap">
       <button class="btn ghost sm" data-reprint="${s.id}" title="${esc(t('reprint'))}">${svg(IC.print,'ic')}</button>
       ${!s.voided?`<button class="btn ghost sm" data-invoice="${s.id}" title="${esc(t('invoiceA4'))}">${svg(IC.doc,'ic')}</button>`:''}
-      ${canVoid?`<button class="btn ghost sm" data-void="${s.id}" title="${esc(t('voidSale'))}" style="color:var(--danger)">${svg(IC.close,'ic')}</button>`:''}
+      ${canVoid?`<button class="btn ghost sm" data-mistake="${s.id}" title="${esc(t('undoMistake'))}" style="color:var(--danger)">${svg(IC.close,'ic')}</button>`:''}
       ${!s.refunded&&!s.voided?`<button class="btn ghost sm" data-refund="${s.id}" title="${esc(t('refundSale'))}" style="color:var(--danger)">${svg(IC.ret,'ic')}</button>`:''}
     </td>
   </tr>`;
+}
+/* "Entered by mistake" is neither a refund nor a cancellation. A refund means
+   goods came back and money went out; a cancellation means the booking was
+   called off, and the shop may keep part of it. A mistake means the line
+   should never have existed — so instead of booking an opposite movement,
+   which would read as money leaving the till, the original entries are struck
+   from every figure. Stock goes back, any caution leaves the caution till, and
+   the row stays on screen marked up with the reason and who undid it.
+   Owner-only beyond the first hour: striking money out of the books after the
+   fact is exactly what somebody covering a shortfall would want to do. */
+function mistakeAllowed(ts){ return isOwner() || (Date.now()-ts) < 3600000; }
+async function strikePayments(refIds){
+  const ids=new Set(refIds.filter(Boolean));
+  const hit=(await idbAll('payments')).filter(p=>p.refId && ids.has(p.refId) && !p.mistake);
+  for(const p of hit){ p.mistake=true; p.mistakeAt=now(); p.mistakeBy=State.user&&State.user.name; await idbPut('payments',p); }
+  return hit.reduce((a,p)=>a+(p.amount||0),0);
+}
+function mistakeModal(title,subtitle,cashInvolved,onGo){
+  modal(t('undoMistake'),
+   `<p style="font-weight:700;font-size:16px;margin-bottom:2px">${esc(title)}</p>
+    <p class="subtle" style="margin-bottom:12px">${esc(subtitle)}</p>
+    <div class="card pad" style="background:var(--gold-soft);margin-bottom:14px">
+      <p style="margin:0;font-size:12.5px">${esc(t('mistakeHint'))}</p>
+      <p style="margin:8px 0 0;font-size:12.5px;color:var(--danger);font-weight:600">${esc(t('notARefund'))}</p>
+    </div>
+    ${cashInvolved>0?`<div class="field"><div style="display:flex;justify-content:space-between;font-weight:700">
+      <span>${esc(t('mistakeStruck'))}</span><span class="mono">${money(cashInvolved)}</span></div></div>`:''}
+    <div class="field"><label>${esc(t('mistakeWhy'))} *</label><input id="mk_why" type="text" placeholder="${esc(t('mistakeWhyHint'))}"></div>`,
+   `<button class="btn secondary" onclick="closeModal()">${esc(t('cancel'))}</button>
+    <button class="btn danger" id="mk_go">${esc(t('undoMistake'))}</button>`);
+  document.getElementById('mk_go').onclick=async()=>{
+    const go=document.getElementById('mk_go'); if(go.disabled) return;
+    const why=document.getElementById('mk_why').value.trim();
+    if(!why){ toast(t('required'),'err'); return; }
+    go.disabled=true;
+    await onGo(why);
+    closeModal(); toast(t('mistakeDone'),'ok');
+  };
+}
+async function undoSaleAsMistake(sale){
+  if(!sale || sale.voided) return;
+  if(!mistakeAllowed(sale.createdAt)){ toast(t('mistakeOwnerOnly'),'err'); return; }
+  mistakeModal(`${sale.customerName||t('walkIn')} · ${money(sale.total)}`,
+    (sale.items||[]).map(i=>i.name+(i.qty>1?' ×'+i.qty:'')).join(', '), sale.paid||0, async(why)=>{
+    for(const it of (sale.items||[])){ const p=await idbGet('products',it.productId);
+      if(p){ p.qty=(p.qty||0)+it.qty; await idbPut('products',p); await logAct('logStockVoid', `${p.name} +${it.qty} (${p.qty})`, p.id); } }
+    const struck=await strikePayments([sale.id]);
+    // Sales taken before entries carried their sale's id cannot be found that
+    // way; book the difference out so the till still lands on the right figure.
+    const gap=(sale.paid||0)-struck;
+    if(gap>0) await idbPut('payments',{id:uid(),customerId:sale.customerId||null,refType:'void',amount:-gap,method:sale.method||'cash',createdAt:now(),userId:State.user.id,note:t('mistakeEntry')});
+    sale.voided=true; sale.mistake=true; sale.mistakeReason=why; sale.mistakeBy=State.user.name; sale.mistakeAt=now();
+    sale.paid=0; sale.balance=0;
+    await idbPut('sales',sale);
+    await logAct('logMistake', `${t('saleType')} · ${sale.customerName||t('walkIn')} · ${money(sale.total)} · ${why}`);
+    viewSales();
+  });
+}
+async function undoRentalAsMistake(r,onDone,whole){
+  if(!r || (r.status!=='active' && r.status!=='reserved')) return;
+  if(!mistakeAllowed(r.createdAt)){ toast(t('mistakeOwnerOnly'),'err'); return; }
+  const group=whole? (await rentalGroupOf(r)).filter(x=>x.status===r.status) : [r];
+  const cash=group.reduce((a,x)=>a+(x.paid||0)+(x.deposit||0),0);
+  mistakeModal(group.map(x=>x.name).join(' + '), r.customerName||'', cash, async(why)=>{
+    const struck=await strikePayments(group.map(x=>x.id));
+    const expected=group.reduce((a,x)=>a+(x.paid||0),0);
+    const gap=expected-Math.max(0,struck); // older bookings whose entries carry no id
+    if(gap>0) await idbPut('payments',{id:uid(),customerId:r.customerId||null,refType:'refund',amount:-gap,method:r.method||'cash',createdAt:now(),userId:State.user.id,note:t('mistakeEntry')});
+    for(const it of group){
+      // a reserved booking never left the shelf; an active one did
+      if(it.status==='active' && it.productId){ const p=await idbGet('products',it.productId);
+        if(p){ p.qty=(p.qty||0)+1; await idbPut('products',p); await logAct('logStockReturn', `${p.name} +1 (${p.qty})`, p.id); } }
+      it.status='cancelled'; it.cancelledAt=now();
+      it.mistake=true; it.mistakeReason=why; it.mistakeBy=State.user.name; it.mistakeAt=now();
+      it.depositKept=0;
+      await idbPut('rentals',it);
+      await logAct('logMistake', `${t('rentalType')} · ${it.name}${it.customerName?' · '+it.customerName:''} · ${why}`);
+    }
+    (onDone||viewRentals)();
+  });
 }
 async function voidSale(sale){
   if(!sale) return;
