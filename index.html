@@ -1340,7 +1340,7 @@ function idbClear(store){ return new Promise((res,rej)=>{ const r=tx(store,'read
    cloud can never overwrite what happened at the counter.
 ============================================================ */
 const SYNC_SKIP=new Set(['_fs','_outbox']); // this machine's plumbing, not shop data
-const SYNC={cfg:null,tok:null,tokExp:0,busy:false,state:'off',queued:0,lastOk:0,lastErr:'',nudgeT:null};
+const SYNC={cfg:null,tok:null,tokExp:0,busy:false,again:false,state:'off',queued:0,lastOk:0,lastErr:'',nudgeT:null};
 function syncOn(){ return !!(SYNC.cfg && SYNC.cfg.on && SYNC.cfg.url && SYNC.cfg.key && SYNC.cfg.shopId); }
 /* Kept in localStorage, not in meta: these are this device's credentials, and
    meta is mirrored to the cloud and written into every backup file. */
@@ -1406,7 +1406,10 @@ async function syncSummary(){
   await syncPush([{store:'_summary',op:'put',rowId:'now',doc:sum,at:now()}]);
 }
 async function syncFlush(){
-  if(SYNC.busy || !syncOn()) return;
+  if(!syncOn()) return;
+  // Asked again mid-flush: remember it instead of dropping it, or whatever
+  // was queued in the meantime waits for the next heartbeat for no reason.
+  if(SYNC.busy){ SYNC.again=true; return; }
   if(!navigator.onLine){ SYNC.state='offline'; paintSyncChip(); return; }
   SYNC.busy=true; SYNC.state='sending'; paintSyncChip();
   try{
@@ -1422,7 +1425,11 @@ async function syncFlush(){
   }catch(e){
     SYNC.lastErr=String((e&&e.message)||e);
     SYNC.state=navigator.onLine?'err':'offline';
-  }finally{ SYNC.busy=false; await syncCount(); paintSyncChip(); }
+  }finally{
+    SYNC.busy=false; await syncCount(); paintSyncChip();
+    if(SYNC.again && SYNC.state!=='err' && SYNC.state!=='offline'){ SYNC.again=false; syncFlush(); }
+    else SYNC.again=false;
+  }
 }
 let _syncTimer=null;
 function syncNudge(immediate){
@@ -1475,6 +1482,8 @@ function syncChipHtml(){
 function paintSyncChip(){
   const host=document.getElementById('syncChipHost');
   if(host) host.innerHTML=syncChipHtml();
+  const q=document.getElementById('sy_q'); if(q) q.textContent=SYNC.queued;
+  const last=document.getElementById('sy_last'); if(last && SYNC.lastOk) last.textContent=fmtDateTime(SYNC.lastOk);
   const chip=document.getElementById('syncChip');
   if(chip) chip.onclick=()=>{ State.route='settings'; renderApp(); };
 }
