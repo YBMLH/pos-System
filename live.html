@@ -91,7 +91,7 @@ button.ghost{background:transparent;color:var(--muted);font-weight:600;margin-to
    The money figures are the ones the shop PC worked out, not a
    second implementation of the same rules that could drift.
 ============================================================ */
-var CFG=null, TOK=null, TOKEXP=0, DATA={}, SUM=null, LASTOK=0, TIMER=null, POLL=4000;
+var CFG=null, TOK=null, TOKEXP=0, DATA={}, SUM=null, LASTOK=0, LASTROWS=-1, TIMER=null, POLL=4000;
 
 function $(id){ return document.getElementById(id); }
 /* URLs and keys reach this page through WhatsApp, email and chat apps, which
@@ -165,7 +165,7 @@ async function pull(){
     if(x.deleted) return;
     (d[x.store]=d[x.store]||[]).push(x.doc);
   });
-  DATA=d; LASTOK=Date.now();
+  DATA=d; LASTROWS=rows.length; LASTOK=Date.now();
 }
 
 /* ---------- render ---------- */
@@ -239,11 +239,21 @@ function todayLists(){
 function render(){
   var ls=liveState(), s=SUM||{}, L=todayLists();
   var sa=shopAge(), shopQuiet = sa && (Date.now()-sa > 10*60000);
+  /* Read fine, found nothing. A shop with no data and a shop name that does
+     not match look identical — all zeros — so say which this is, and show the
+     name being asked for, spelled out, since the character that breaks it is
+     invisible by definition. */
+  var emptyShop = LASTOK && LASTROWS===0;
   var html=
    '<header><span class="dot '+ls[0]+'"></span><b>'+esc(s.storeName||'Shop')+'</b>'
    +'<span class="hdr-note">'+esc(ls[1])+'<br>'+(sa?'shop sent '+esc(ago(sa)):'no data yet')+'</span></header>'
    +'<main>';
-  if(shopQuiet) html+='<div class="card" style="border-color:var(--warn);margin-bottom:14px">'
+  if(emptyShop) html+='<div class="card" style="border-color:var(--danger);margin-bottom:14px">'
+    +'<div class="row"><div class="main"><div class="t">Signed in, but this shop has nothing in it</div>'
+    +'<div class="s">Asking for shop name <b>&laquo;'+esc(CFG.shopId)+'&raquo;</b> ('+CFG.shopId.length+' characters). '
+    +'It must match the shop name on the shop PC exactly. Sign out below and type it in again if it looks right but still finds nothing — '
+    +'a copied name can carry a character you cannot see.</div></div></div></div>';
+  if(shopQuiet && !emptyShop) html+='<div class="card" style="border-color:var(--warn);margin-bottom:14px">'
     +'<div class="row"><div class="main"><div class="t">Nothing from the shop for '+esc(ago(sa))+'</div>'
     +'<div class="s">The figures below are from then. The shop PC is probably offline or closed — it keeps working either way and will catch up.</div></div></div></div>';
 
