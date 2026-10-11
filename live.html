@@ -101,6 +101,12 @@ function $(id){ return document.getElementById(id); }
    the owner nothing. None of these values can legitimately contain anything
    but printable ASCII, so strip the rest. */
 function clean(v){ return String(v==null?'':v).replace(/[^\x21-\x7E]+/g,''); }
+/* Supabase has moved its auth error text between fields over the years, and a
+   reason it does give is worth far more than "refused". */
+function authErr(r,j){
+  var m=j&&(j.error_description||j.msg||j.message||j.error_code||j.error);
+  return (m?String(m):'sign-in refused')+' ('+r.status+')';
+}
 function esc(x){ return String(x==null?'':x).replace(/[&<>"']/g,function(c){
   return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function money(n){ return Number(n||0).toLocaleString('en-US',{maximumFractionDigits:0})+' DZD'; }
@@ -139,7 +145,7 @@ async function signIn(cfg){
     headers:{'apikey':cfg.key,'Content-Type':'application/json'},
     body:JSON.stringify({email:cfg.email,password:cfg.password})});
   var j={}; try{ j=await r.json(); }catch(e){}
-  if(!r.ok || !j.access_token) throw new Error(j.error_description||j.msg||j.error||('sign-in refused ('+r.status+')'));
+  if(!r.ok || !j.access_token) throw new Error(authErr(r,j));
   TOK=j.access_token; TOKEXP=Date.now()+((j.expires_in||3600)*1000);
 }
 async function ensureTok(){ if(!TOK || Date.now()>TOKEXP-60000) await signIn(CFG); }

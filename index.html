@@ -1347,6 +1347,12 @@ const SYNC={cfg:null,tok:null,tokExp:0,busy:false,again:false,state:'off',queued
    ISO-8859-1 that means nothing to anyone. None of these can legitimately
    hold anything but printable ASCII. */
 function syncClean(v){ return String(v==null?'':v).replace(/[^\x21-\x7E]+/g,''); }
+/* Supabase has moved its auth error text between fields over the years, and a
+   reason it does give is worth far more than "refused". */
+function syncAuthErr(r,j){
+  const m=j&&(j.error_description||j.msg||j.message||j.error_code||j.error);
+  return (m?String(m):'sign-in refused')+' ('+r.status+')';
+}
 function syncOn(){ return !!(SYNC.cfg && SYNC.cfg.on && SYNC.cfg.url && SYNC.cfg.key && SYNC.cfg.shopId); }
 /* Kept in localStorage, not in meta: these are this device's credentials, and
    meta is mirrored to the cloud and written into every backup file. */
@@ -1377,7 +1383,7 @@ async function syncAuth(){
     headers:{'apikey':SYNC.cfg.key,'Content-Type':'application/json'},
     body:JSON.stringify({email:SYNC.cfg.email,password:SYNC.cfg.password})});
   let j={}; try{ j=await r.json(); }catch(e){}
-  if(!r.ok || !j.access_token) throw new Error(j.error_description||j.msg||j.error||('sign-in refused ('+r.status+')'));
+  if(!r.ok || !j.access_token) throw new Error(syncAuthErr(r,j));
   SYNC.tok=j.access_token; SYNC.tokExp=Date.now()+((j.expires_in||3600)*1000);
 }
 /* Postgres refuses an upsert that touches the same row twice in one
@@ -1472,7 +1478,7 @@ async function syncTest(cfg){
     headers:{'apikey':cfg.key,'Content-Type':'application/json'},
     body:JSON.stringify({email:cfg.email,password:cfg.password})});
   let j={}; try{ j=await a.json(); }catch(e){}
-  if(!a.ok || !j.access_token) throw new Error(j.error_description||j.msg||j.error||('sign-in refused ('+a.status+')'));
+  if(!a.ok || !j.access_token) throw new Error(syncAuthErr(a,j));
   const probe=await fetch(url+'/rest/v1/shop_rows?select=row_id&limit=1&shop_id=eq.'+encodeURIComponent(cfg.shopId),
     {headers:{'apikey':cfg.key,'Authorization':'Bearer '+j.access_token}});
   if(!probe.ok) throw new Error('table check: HTTP '+probe.status+' · '+(await probe.text()).slice(0,200));
