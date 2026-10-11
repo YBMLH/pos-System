@@ -685,6 +685,18 @@ const I18N = {
     listView:"List", calendarView:"Calendar", more:"more",
     rentalSchedule:"Rental schedule", rentedDates:"Rented dates", upcomingBookings:"Upcoming & current", pastBookings:"Past rentals",
     mon:"Mon",tue:"Tue",wed:"Wed",thu:"Thu",fri:"Fri",sat:"Sat",sun:"Sun",
+    liveView:"Owner's live view", syncIdle:"Waiting", syncSending:"Sending…", syncOk:"Online", syncOffline:"Offline", syncProblem:"Sync problem",
+    syncTitle:"Owner's live view", syncOffLbl:"Not connected", syncOnLbl:"Connected",
+    syncBlurb:"Mirror this shop to a page the owner can open from anywhere. The shop keeps working exactly as it does now with no internet — changes queue up here and go online by themselves when the connection comes back. Nothing is ever sent back down, so the till can only ever be changed at this counter.",
+    syncUrl:"Project URL", syncKey:"Public key (anon)", syncShop:"Shop name (one word, no spaces)",
+    syncEmail:"This PC's sign-in", syncPass:"This PC's password",
+    syncConnect:"Connect", syncTesting:"Checking…", syncConnected:"Connected — the owner can watch now",
+    syncDisconnect:"Disconnect", syncDisconnected:"Disconnected — nothing more will be sent",
+    syncWaiting:"Changes waiting to go up", syncLastOk:"Last sent", syncNever:"Not yet",
+    syncSendNow:"Send now", syncReupload:"Re-upload everything",
+    syncReuploadHint:"Wipes what is online and sends this PC's data again. Use it after restoring a backup or resetting, when the owner's view no longer matches the shop.",
+    syncReuploadConfirm:"Replace everything online with what is on this PC?", syncReuploaded:"Everything re-uploaded",
+    syncSetupHint:"Setup steps are in SYNC-SETUP.md next to this app.", syncErrLbl:"Last problem",
     mistakeEntry:"Entered by mistake", undoMistake:"Undo — entered by mistake",
     mistakeHint:"Use this only for a line that should never have existed — the wrong customer, the wrong item, entered twice. It comes out of the till and out of every total as if it was never typed. Stock goes back, and any caution comes back out of the caution till.",
     notARefund:"This is not a refund. Nothing is handed back to anybody and it will not show as money going out. If she is actually getting money back, close this and use Refund instead.",
@@ -950,6 +962,18 @@ const I18N = {
     listView:"Liste", calendarView:"Calendrier", more:"de plus",
     rentalSchedule:"Calendrier de location", rentedDates:"Dates louées", upcomingBookings:"À venir & en cours", pastBookings:"Locations passées",
     mon:"Lun",tue:"Mar",wed:"Mer",thu:"Jeu",fri:"Ven",sat:"Sam",sun:"Dim",
+    liveView:"Vue en direct du propriétaire", syncIdle:"En attente", syncSending:"Envoi…", syncOk:"En ligne", syncOffline:"Hors ligne", syncProblem:"Problème de synchro",
+    syncTitle:"Vue en direct du propriétaire", syncOffLbl:"Non connecté", syncOnLbl:"Connecté",
+    syncBlurb:"Reflète ce magasin sur une page que le propriétaire peut ouvrir de n'importe où. Le magasin continue de fonctionner exactement comme aujourd'hui sans internet : les changements s'accumulent ici et partent tout seuls au retour de la connexion. Rien n'est jamais renvoyé vers le PC : la caisse ne peut être modifiée qu'à ce comptoir.",
+    syncUrl:"URL du projet", syncKey:"Clé publique (anon)", syncShop:"Nom du magasin (un mot, sans espaces)",
+    syncEmail:"Identifiant de ce PC", syncPass:"Mot de passe de ce PC",
+    syncConnect:"Connecter", syncTesting:"Vérification…", syncConnected:"Connecté — le propriétaire peut regarder",
+    syncDisconnect:"Déconnecter", syncDisconnected:"Déconnecté — plus rien ne sera envoyé",
+    syncWaiting:"Changements en attente d'envoi", syncLastOk:"Dernier envoi", syncNever:"Pas encore",
+    syncSendNow:"Envoyer maintenant", syncReupload:"Tout renvoyer",
+    syncReuploadHint:"Efface ce qui est en ligne et renvoie les données de ce PC. À utiliser après une restauration ou une réinitialisation, quand la vue du propriétaire ne correspond plus.",
+    syncReuploadConfirm:"Remplacer tout ce qui est en ligne par le contenu de ce PC ?", syncReuploaded:"Tout a été renvoyé",
+    syncSetupHint:"Les étapes d'installation sont dans SYNC-SETUP.md à côté de l'application.", syncErrLbl:"Dernier problème",
     mistakeEntry:"Saisie par erreur", undoMistake:"Annuler — saisie par erreur",
     mistakeHint:"À utiliser uniquement pour une ligne qui n'aurait jamais dû exister — mauvaise cliente, mauvais article, saisie deux fois. Elle sort de la caisse et de tous les totaux comme si elle n'avait jamais été saisie. Le stock revient, et toute caution ressort de la caisse des cautions.",
     notARefund:"Ce n'est pas un remboursement. Rien n'est rendu à personne et cela n'apparaîtra pas comme une sortie d'argent. Si la cliente récupère réellement de l'argent, fermez ceci et utilisez Remboursement.",
@@ -1214,6 +1238,18 @@ const I18N = {
     listView:"قائمة", calendarView:"تقويم", more:"المزيد",
     rentalSchedule:"جدول الإيجار", rentedDates:"تواريخ الإيجار", upcomingBookings:"القادمة والحالية", pastBookings:"الإيجارات السابقة",
     mon:"إثنين",tue:"ثلاثاء",wed:"أربعاء",thu:"خميس",fri:"جمعة",sat:"سبت",sun:"أحد",
+    liveView:"عرض مباشر للمالك", syncIdle:"في الانتظار", syncSending:"جارٍ الإرسال…", syncOk:"متصل", syncOffline:"غير متصل", syncProblem:"مشكلة في المزامنة",
+    syncTitle:"عرض مباشر للمالك", syncOffLbl:"غير متصل", syncOnLbl:"متصل",
+    syncBlurb:"انسخ حالة المحل إلى صفحة يفتحها المالك من أي مكان. يواصل المحل العمل تماماً كما هو الآن بدون إنترنت: تتجمّع التغييرات هنا وتُرسل تلقائياً عند عودة الاتصال. لا يُرسل شيء في الاتجاه المعاكس، فلا يمكن تغيير الصندوق إلا من هذا المكان.",
+    syncUrl:"رابط المشروع", syncKey:"المفتاح العام (anon)", syncShop:"اسم المحل (كلمة واحدة بدون مسافات)",
+    syncEmail:"حساب هذا الجهاز", syncPass:"كلمة مرور هذا الجهاز",
+    syncConnect:"اتصال", syncTesting:"جارٍ التحقق…", syncConnected:"تم الاتصال — يمكن للمالك المتابعة الآن",
+    syncDisconnect:"قطع الاتصال", syncDisconnected:"تم قطع الاتصال — لن يُرسل شيء بعد الآن",
+    syncWaiting:"تغييرات بانتظار الإرسال", syncLastOk:"آخر إرسال", syncNever:"ليس بعد",
+    syncSendNow:"إرسال الآن", syncReupload:"إعادة رفع كل شيء",
+    syncReuploadHint:"يمسح ما هو موجود على الإنترنت ويرسل بيانات هذا الجهاز من جديد. استعمله بعد استعادة نسخة احتياطية أو إعادة ضبط، عندما لا يعود عرض المالك مطابقاً.",
+    syncReuploadConfirm:"استبدال كل ما هو على الإنترنت بما في هذا الجهاز؟", syncReuploaded:"تمت إعادة رفع كل شيء",
+    syncSetupHint:"خطوات الإعداد موجودة في ملف SYNC-SETUP.md بجانب التطبيق.", syncErrLbl:"آخر مشكلة",
     mistakeEntry:"أُدخل بالخطأ", undoMistake:"تراجع — أُدخل بالخطأ",
     mistakeHint:"استعمله فقط لسطر ما كان ينبغي أن يوجد أصلاً — زبونة خاطئة، صنف خاطئ، أُدخل مرتين. يخرج من الصندوق ومن كل المجاميع كأنه لم يُكتب قط. يعود المخزون، ويخرج أي تأمين من صندوق التأمينات.",
     notARefund:"هذا ليس استرجاعاً. لا يُعاد شيء لأحد ولن يظهر كخروج مال. إن كانت الزبونة تسترد مالاً فعلاً، أغلق هذا واستعمل الاسترجاع.",
@@ -1265,7 +1301,7 @@ function isRTL(){ return State.lang==='ar'; }
 function isOwner(){ return State.user && State.user.role==='owner'; }
 
 /* ---------------- IndexedDB ---------------- */
-const DB_NAME='kaftanStoreDB', DB_VER=6; // 6: + counts (saved cash counts)
+const DB_NAME='kaftanStoreDB', DB_VER=7; // 7: + _outbox (queue of local changes waiting to go online)
 const STORES=['meta','users','products','sales','rentals','customers','payments','expenses','activity','parked','counts'];
 function openDB(){
   return new Promise((res,rej)=>{
@@ -1276,6 +1312,9 @@ function openDB(){
       // _fs holds the linked "Store Data" folder handle; kept out of STORES so
       // backup/restore/reset never touch it.
       if(!db.objectStoreNames.contains('_fs')) db.createObjectStore('_fs',{keyPath:'id'});
+      // _outbox queues every local change until it has been mirrored online.
+      // Also out of STORES: it is this machine's plumbing, not shop data.
+      if(!db.objectStoreNames.contains('_outbox')) db.createObjectStore('_outbox',{keyPath:'seq',autoIncrement:true});
     };
     r.onsuccess=e=>res(e.target.result);
     r.onerror=e=>rej(e.target.error);
@@ -1284,9 +1323,161 @@ function openDB(){
 function tx(store,mode='readonly'){ return State.db.transaction(store,mode).objectStore(store); }
 function idbAll(store){ return new Promise((res,rej)=>{ const r=tx(store).getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error); }); }
 function idbGet(store,id){ return new Promise((res,rej)=>{ const r=tx(store).get(id); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
-function idbPut(store,val){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').put(val); r.onsuccess=()=>res(val); r.onerror=()=>rej(r.error); }); }
-function idbDel(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').delete(id); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); }
+function idbPut(store,val){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').put(val); r.onsuccess=()=>{ outboxAdd(store,'put',val&&val.id,val); res(val); }; r.onerror=()=>rej(r.error); }); }
+function idbDel(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').delete(id); r.onsuccess=()=>{ outboxAdd(store,'del',id,null); res(); }; r.onerror=()=>rej(r.error); }); }
 function idbClear(store){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').clear(); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); }
+
+/* ============================================================
+   CLOUD MIRROR — the owner watches, the shop keeps working
+   ------------------------------------------------------------
+   Nothing here sits in the path of a sale. IndexedDB on this PC
+   stays the one source of truth and every screen reads from it, so
+   with the internet down the shop behaves exactly as it always has.
+   Each local write just drops a line in _outbox; whenever there is a
+   connection those lines are pushed up and dropped. Lose the line for
+   a day and the queue grows, then drains when it comes back.
+   The flow is one-way on purpose: nothing is ever pulled down, so the
+   cloud can never overwrite what happened at the counter.
+============================================================ */
+const SYNC_SKIP=new Set(['_fs','_outbox']); // this machine's plumbing, not shop data
+const SYNC={cfg:null,tok:null,tokExp:0,busy:false,state:'off',queued:0,lastOk:0,lastErr:'',nudgeT:null};
+function syncOn(){ return !!(SYNC.cfg && SYNC.cfg.on && SYNC.cfg.url && SYNC.cfg.key && SYNC.cfg.shopId); }
+/* Kept in localStorage, not in meta: these are this device's credentials, and
+   meta is mirrored to the cloud and written into every backup file. */
+function syncLoad(){
+  try{ SYNC.cfg=JSON.parse(localStorage.getItem('kf_sync')||'null'); }catch(e){ SYNC.cfg=null; }
+  SYNC.state=syncOn()?'idle':'off'; return SYNC.cfg;
+}
+function syncSave(c){ SYNC.cfg=c; SYNC.tok=null; localStorage.setItem('kf_sync',JSON.stringify(c)); SYNC.state=syncOn()?'idle':'off'; syncNudge(true); }
+function syncForget(){ localStorage.removeItem('kf_sync'); SYNC.cfg=null; SYNC.tok=null; SYNC.state='off'; SYNC.queued=0; paintSyncChip(); }
+
+function outboxPut(rec){ return new Promise((res,rej)=>{ const r=tx('_outbox','readwrite').add(rec); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+/* Fire-and-forget on the hot path: a sale must never wait on, or fail
+   because of, the queue. A dropped line costs a stale figure online until
+   the next full re-upload, never a wrong figure at the counter. */
+function outboxAdd(store,op,id,doc){
+  if(SYNC_SKIP.has(store) || !id || !State.db) return;
+  try{ outboxPut({store,op,rowId:String(id),doc:op==='del'?null:doc,at:Date.now()}).then(()=>{ SYNC.queued++; syncNudge(); },()=>{}); }catch(e){}
+}
+function outboxAll(){ return new Promise((res,rej)=>{ const r=tx('_outbox').getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error); }); }
+function outboxDrop(seqs){ return new Promise(res=>{ const st=tx('_outbox','readwrite'); seqs.forEach(q=>st.delete(q)); st.transaction.oncomplete=()=>res(); st.transaction.onerror=()=>res(); }); }
+async function syncCount(){ try{ SYNC.queued=(await outboxAll()).length; }catch(e){} return SYNC.queued; }
+
+function syncHeaders(){ return {'apikey':SYNC.cfg.key,'Authorization':'Bearer '+(SYNC.tok||SYNC.cfg.key)}; }
+async function syncAuth(){
+  if(SYNC.tok && Date.now() < SYNC.tokExp-60000) return;
+  const r=await fetch(SYNC.cfg.url.replace(/\/+$/,'')+'/auth/v1/token?grant_type=password',{method:'POST',
+    headers:{'apikey':SYNC.cfg.key,'Content-Type':'application/json'},
+    body:JSON.stringify({email:SYNC.cfg.email,password:SYNC.cfg.password})});
+  let j={}; try{ j=await r.json(); }catch(e){}
+  if(!r.ok || !j.access_token) throw new Error(j.error_description||j.msg||j.error||('sign-in refused ('+r.status+')'));
+  SYNC.tok=j.access_token; SYNC.tokExp=Date.now()+((j.expires_in||3600)*1000);
+}
+/* Postgres refuses an upsert that touches the same row twice in one
+   statement, and a busy day easily edits one booking several times before a
+   batch goes up. Entries arrive in the order they were written, so keeping
+   the last one per row is both legal and correct. */
+function syncDedupe(rows){
+  const m=new Map();
+  for(const r of rows) m.set(r.store+'\u0000'+r.rowId,r);
+  return [...m.values()];
+}
+async function syncPush(rows){
+  const body=syncDedupe(rows).map(r=>({shop_id:SYNC.cfg.shopId,store:r.store,row_id:r.rowId,
+    doc:r.op==='del'?null:(r.doc||null),deleted:r.op==='del',updated_at:new Date(r.at||Date.now()).toISOString()}));
+  if(!body.length) return;
+  const r=await fetch(SYNC.cfg.url.replace(/\/+$/,'')+'/rest/v1/shop_rows',{method:'POST',
+    headers:Object.assign(syncHeaders(),{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}),
+    body:JSON.stringify(body)});
+  if(!r.ok) throw new Error('HTTP '+r.status+' · '+(await r.text()).slice(0,200));
+}
+/* The owner's page shows money this PC worked out, rather than recomputing
+   the same rules in a second place where the two could quietly drift apart. */
+async function syncSummary(){
+  let T=null; try{ T=await tillTotals(); }catch(e){ return; }
+  const rentals=await idbAll('rentals'), day=todayISO();
+  const sum={at:now(),storeName:State.storeName||'',
+    till:T.till,float:T.float,cautionHeld:T.cautionOnOpenBookings,cautionBox:T.cautionTillCash,
+    repairFund:T.repairFund,storeOwnCash:T.storeOwnCash,liveCautions:T.liveCautionCount,
+    out:rentals.filter(r=>r.status==='active').length,
+    reserved:rentals.filter(r=>r.status==='reserved').length,
+    dueToday:rentals.filter(r=>r.status==='active'&&r.dueDate===day).length,
+    overdue:rentals.filter(r=>r.status==='active'&&r.dueDate&&r.dueDate<day).length};
+  await syncPush([{store:'_summary',op:'put',rowId:'now',doc:sum,at:now()}]);
+}
+async function syncFlush(){
+  if(SYNC.busy || !syncOn()) return;
+  if(!navigator.onLine){ SYNC.state='offline'; paintSyncChip(); return; }
+  SYNC.busy=true; SYNC.state='sending'; paintSyncChip();
+  try{
+    await syncAuth();
+    for(let round=0;round<30;round++){
+      const all=await outboxAll(); if(!all.length) break;
+      const batch=all.slice(0,250);
+      await syncPush(batch);
+      await outboxDrop(batch.map(x=>x.seq));
+    }
+    await syncSummary();
+    SYNC.lastOk=Date.now(); SYNC.lastErr=''; SYNC.state='ok';
+  }catch(e){
+    SYNC.lastErr=String((e&&e.message)||e);
+    SYNC.state=navigator.onLine?'err':'offline';
+  }finally{ SYNC.busy=false; await syncCount(); paintSyncChip(); }
+}
+let _syncTimer=null;
+function syncNudge(immediate){
+  if(!syncOn()) { paintSyncChip(); return; }
+  clearTimeout(SYNC.nudgeT);
+  SYNC.nudgeT=setTimeout(()=>syncFlush(), immediate?0:2500);
+}
+function syncStart(){
+  syncLoad();
+  if(_syncTimer) clearInterval(_syncTimer);
+  // A steady heartbeat catches a connection that came back without the
+  // browser saying so, and keeps the owner's figures fresh on a quiet day.
+  _syncTimer=setInterval(()=>syncFlush(),30000);
+  addEventListener('online',()=>syncNudge(true));
+  addEventListener('offline',()=>{ SYNC.state='offline'; paintSyncChip(); });
+  syncCount().then(()=>{ paintSyncChip(); syncNudge(true); });
+}
+/* After a restore or a reset the cloud still holds the old shop. Wiping and
+   re-uploading is the only honest way to make the owner's view match again. */
+async function syncReplaceAll(){
+  if(!syncOn()) throw new Error('not connected');
+  await syncAuth();
+  const r=await fetch(SYNC.cfg.url.replace(/\/+$/,'')+'/rest/v1/shop_rows?shop_id=eq.'+encodeURIComponent(SYNC.cfg.shopId),
+    {method:'DELETE',headers:syncHeaders()});
+  if(!r.ok && r.status!==404) throw new Error('HTTP '+r.status+' · '+(await r.text()).slice(0,200));
+  await idbClear('_outbox');
+  for(const st of STORES){ for(const row of await idbAll(st)){ if(row&&row.id) await outboxPut({store:st,op:'put',rowId:String(row.id),doc:row,at:Date.now()}); } }
+  await syncCount(); await syncFlush();
+}
+async function syncTest(cfg){
+  const url=cfg.url.replace(/\/+$/,'');
+  const a=await fetch(url+'/auth/v1/token?grant_type=password',{method:'POST',
+    headers:{'apikey':cfg.key,'Content-Type':'application/json'},
+    body:JSON.stringify({email:cfg.email,password:cfg.password})});
+  let j={}; try{ j=await a.json(); }catch(e){}
+  if(!a.ok || !j.access_token) throw new Error(j.error_description||j.msg||j.error||('sign-in refused ('+a.status+')'));
+  const probe=await fetch(url+'/rest/v1/shop_rows?select=row_id&limit=1&shop_id=eq.'+encodeURIComponent(cfg.shopId),
+    {headers:{'apikey':cfg.key,'Authorization':'Bearer '+j.access_token}});
+  if(!probe.ok) throw new Error('table check: HTTP '+probe.status+' · '+(await probe.text()).slice(0,200));
+  return true;
+}
+function syncChipHtml(){
+  const m={off:['',''],idle:['grey',t('syncIdle')],sending:['gold',t('syncSending')],ok:['green',t('syncOk')],
+           offline:['warnb',t('syncOffline')],err:['red',t('syncProblem')]};
+  if(SYNC.state==='off') return '';
+  const [cls,label]=m[SYNC.state]||m.idle;
+  const q=SYNC.queued>0? ' · '+SYNC.queued : '';
+  return `<span class="badge ${cls}" id="syncChip" title="${esc(SYNC.lastErr||label)}" style="cursor:pointer">${esc(label)}${esc(q)}</span>`;
+}
+function paintSyncChip(){
+  const host=document.getElementById('syncChipHost');
+  if(host) host.innerHTML=syncChipHtml();
+  const chip=document.getElementById('syncChip');
+  if(chip) chip.onclick=()=>{ State.route='settings'; renderApp(); };
+}
 
 /* ---------------- Helpers ---------------- */
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -1711,6 +1902,7 @@ function renderApp(){
        <option value="fr" ${State.lang==='fr'?'selected':''}>Français</option>
        <option value="ar" ${State.lang==='ar'?'selected':''}>العربية</option>
      </select>
+     <span id="syncChipHost">${syncChipHtml()}</span>
      <div class="who"><b>${esc(State.user.name)}</b><span class="role">${esc(isOwner()?t('owner'):t('staffRole'))}</span></div>
      <button class="icon-btn" id="btnSearch" title="${esc(t('globalSearch'))}">${svg(IC.search)}</button>
      <button class="icon-btn" id="btnTill" title="${esc(t('till'))}">${svg(IC.money)}</button>
@@ -6029,8 +6221,37 @@ function openStaffModal(u){
 async function viewSettings(){
   const view=document.getElementById('view');
   const meta=await idbGet('meta','app');
+  const sc=SYNC.cfg||{};
+  const on=syncOn();
+  const syncCard=!isOwner()?'':`
+     <div class="card pad">
+       <h3 style="margin-bottom:4px">${esc(t('syncTitle'))}</h3>
+       <p class="subtle" style="font-size:12.5px;margin-bottom:12px">${esc(t('syncBlurb'))}</p>
+       ${on?`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+          <span class="badge green">${esc(t('syncOnLbl'))}</span>
+          <span class="subtle" style="font-size:12.5px">${esc(t('syncWaiting'))}: <b class="mono" id="sy_q">${SYNC.queued}</b></span>
+          <span class="subtle" style="font-size:12.5px">${esc(t('syncLastOk'))}: <b id="sy_last">${SYNC.lastOk?fmtDateTime(SYNC.lastOk):esc(t('syncNever'))}</b></span>
+        </div>
+        ${SYNC.lastErr?`<p class="subtle" style="font-size:12px;color:var(--danger);margin:0 0 10px">${esc(t('syncErrLbl'))}: ${esc(SYNC.lastErr)}</p>`:''}
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn secondary sm" id="sy_now">${esc(t('syncSendNow'))}</button>
+          <button class="btn secondary sm" id="sy_re">${esc(t('syncReupload'))}</button>
+          <button class="btn ghost sm" id="sy_off" style="color:var(--danger)">${esc(t('syncDisconnect'))}</button>
+        </div>
+        <p class="subtle" style="font-size:11.5px;margin:8px 0 0">${esc(t('syncReuploadHint'))}</p>`
+       :`<div class="field"><label>${esc(t('syncUrl'))}</label><input id="sy_url" type="text" placeholder="https://xxxx.supabase.co" value="${esc(sc.url||'')}"></div>
+        <div class="field"><label>${esc(t('syncKey'))}</label><input id="sy_key" type="text" placeholder="eyJhbGciOi…" value="${esc(sc.key||'')}"></div>
+        <div class="field"><label>${esc(t('syncShop'))}</label><input id="sy_shop" type="text" placeholder="stylebyib" value="${esc(sc.shopId||'')}"></div>
+        <div class="row2">
+          <div class="field"><label>${esc(t('syncEmail'))}</label><input id="sy_mail" type="text" placeholder="pc@stylebyib.local" value="${esc(sc.email||'')}"></div>
+          <div class="field"><label>${esc(t('syncPass'))}</label><input id="sy_pass" type="password" value="${esc(sc.password||'')}"></div>
+        </div>
+        <button class="btn" id="sy_go">${esc(t('syncConnect'))}</button>
+        <p class="subtle" style="font-size:11.5px;margin:8px 0 0">${esc(t('syncSetupHint'))}</p>`}
+     </div>`;
   view.innerHTML=pageHead(t('settings'))+
    `<div class="grid" style="max-width:640px;gap:16px">
+     ${syncCard}
      <div class="card pad">
        <h3 style="margin-bottom:14px">${esc(t('app'))}</h3>
        <div class="field"><label>${esc(t('storeName'))}</label><input id="set_name" type="text" value="${esc(meta.storeName||'')}"></div>
@@ -6122,6 +6343,30 @@ async function viewSettings(){
            nif:document.getElementById('biz_nif').value.trim(),rc:document.getElementById('biz_rc').value.trim(),art:document.getElementById('biz_art').value.trim()};
     await idbPut('meta',m); toast(t('saved'),'ok'); await logAct('logSettings','');
   });
+  const $g=id=>document.getElementById(id);
+  $g('sy_go')&&($g('sy_go').onclick=async()=>{
+    const btn=$g('sy_go'); const cfg={on:true,
+      url:$g('sy_url').value.trim(), key:$g('sy_key').value.trim(),
+      shopId:$g('sy_shop').value.trim().toLowerCase().replace(/\s+/g,''),
+      email:$g('sy_mail').value.trim(), password:$g('sy_pass').value};
+    if(!cfg.url||!cfg.key||!cfg.shopId||!cfg.email||!cfg.password){ toast(t('required'),'err'); return; }
+    btn.disabled=true; btn.textContent=t('syncTesting');
+    try{
+      await syncTest(cfg);
+      syncSave(cfg);
+      // First connection uploads the shop as it stands, so the owner opens a
+      // full picture rather than only whatever happens to change next.
+      await syncReplaceAll();
+      toast(t('syncConnected'),'ok');
+    }catch(e){ toast(String((e&&e.message)||e),'err'); btn.disabled=false; btn.textContent=t('syncConnect'); return; }
+    viewSettings();
+  });
+  $g('sy_now')&&($g('sy_now').onclick=async()=>{ await syncFlush(); viewSettings(); });
+  $g('sy_re')&&($g('sy_re').onclick=()=>confirmDialog(t('syncReuploadConfirm'),async()=>{
+    try{ await syncReplaceAll(); toast(t('syncReuploaded'),'ok'); }catch(e){ toast(String((e&&e.message)||e),'err'); }
+    viewSettings();
+  },true));
+  $g('sy_off')&&($g('sy_off').onclick=()=>confirmDialog(t('syncDisconnect'),()=>{ syncForget(); toast(t('syncDisconnected'),'ok'); viewSettings(); },true));
   document.getElementById('fsChoose')&&(document.getElementById('fsChoose').onclick=async()=>{ if(await fsChooseFolder()) viewSettings(); });
   document.getElementById('fsSaveNow')&&(document.getElementById('fsSaveNow').onclick=async()=>{ const ok=await fsSaveAll(true); toast(ok?t('backupDone'):t('fsUnsupported'), ok?'ok':'err'); viewSettings(); });
   document.getElementById('fsLoadNow')&&(document.getElementById('fsLoadNow').onclick=()=>confirmDialog(t('restoreConfirm'),()=>fsLoadAll(true)));
@@ -6372,6 +6617,7 @@ function setupAutoLock(minutes){
     State.db=await openDB();
     try{ if(navigator.storage && navigator.storage.persist){ await navigator.storage.persist(); } }catch(e){}
     fsInstallAutoSave();
+    syncStart(); // inert until the owner connects it in Settings
     const dir=await fsGetHandle(); // reconnect the Store Data folder if one was linked before
     if(dir){
       if(await fsHasPermission(dir,false)){
