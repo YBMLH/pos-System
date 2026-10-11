@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0d3b31">
+<!-- Added to an iPhone's home screen this opens without Safari's chrome,
+     which is the only way it reads as an app rather than a web page. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Shop">
+<meta name="format-detection" content="telephone=no">
 <title>Shop — live</title>
 <style>
 :root{
@@ -32,11 +39,11 @@ header b{font-size:16px;letter-spacing:.01em}
 .dot.stale{background:#fbbf24}.dot.down{background:#f87171}
 @keyframes p{70%{box-shadow:0 0 0 7px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
 .hdr-note{margin-inline-start:auto;font-size:11.5px;opacity:.85;text-align:end}
-main{padding:16px;max-width:900px;margin:0 auto;padding-bottom:40px}
+main{padding:16px;max-width:900px;margin:0 auto;padding-bottom:calc(40px + env(safe-area-inset-bottom))}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
 .stat .k{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
-.stat .v{font-size:24px;font-weight:800;margin-top:3px}
+.stat .v{font-size:24px;font-weight:800;margin-top:3px;white-space:nowrap}
 .stat.hero{grid-column:1/-1;background:var(--brand);color:#fff;border-color:transparent}
 .stat.hero .k{color:#cfe6de}.stat.hero .v{font-size:38px;line-height:1.1}
 .stat.gold{background:var(--gold-soft);border-color:#e6d6b0}
@@ -58,13 +65,17 @@ h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute
 .login{max-width:380px;margin:12vh auto;padding:0 16px}
 .login .card{padding:22px}
 label{display:block;font-size:12.5px;font-weight:650;margin:10px 0 4px;color:var(--muted)}
+/* 16px or larger, or iOS zooms the whole page in when a field is tapped. */
 input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:var(--surface);
-  color:var(--text);font:inherit}
+  color:var(--text);font:inherit;font-size:16px;-webkit-appearance:none}
+form{margin:0}
 button{width:100%;padding:12px;border:0;border-radius:10px;background:var(--brand);color:#fff;
   font:inherit;font-weight:700;cursor:pointer;margin-top:16px}
 button.ghost{background:transparent;color:var(--muted);font-weight:600;margin-top:8px}
 .err{color:var(--danger);font-size:12.5px;margin-top:10px}
-@media (max-width:480px){ main{padding:12px} .stat.hero .v{font-size:32px} }
+/* Two cards side by side on a phone leaves ~150px, which an amount like
+   24,000 DZD overflows at the desktop size. */
+@media (max-width:480px){ main{padding:12px} .stat{padding:12px 13px} .stat .v{font-size:20px} .stat.hero .v{font-size:32px} }
 </style>
 </head>
 <body>
@@ -99,6 +110,18 @@ function todayISO(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMo
 
 /* ---------- sign in ---------- */
 function loadCfg(){ try{ CFG=JSON.parse(localStorage.getItem('kf_live')||'null'); }catch(e){ CFG=null; } return CFG; }
+/* The project URL, key and shop name can ride in the link's #fragment, so the
+   owner taps a link and types only their own email and password. A fragment
+   never leaves the browser — it is not sent to whoever hosts this page. */
+function cfgFromLink(){
+  var h=(location.hash||'').replace(/^#/,''); if(!h) return null;
+  var q={}; h.split('&').forEach(function(kv){ var i=kv.indexOf('=');
+    if(i>0) q[decodeURIComponent(kv.slice(0,i))]=decodeURIComponent(kv.slice(i+1)); });
+  if(!q.u||!q.k||!q.s) return null;
+  // Out of the address bar once read, so it is not left sitting in history.
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+  return {url:q.u,key:q.k,shopId:q.s,email:q.e||'',password:''};
+}
 async function signIn(cfg){
   var base=cfg.url.replace(/\/+$/,'');
   var r=await fetch(base+'/auth/v1/token?grant_type=password',{method:'POST',
@@ -144,18 +167,24 @@ function shopAge(){ return SUM && SUM.at ? SUM.at : 0; }
 function renderLogin(msg){
   var c=CFG||{};
   $('app').innerHTML=
-   '<div class="login"><div class="card">'
+   '<div class="login"><div class="card"><form id="l_form" autocomplete="on">'
    +'<b style="font-size:17px">Shop — live view</b>'
    +'<p style="color:var(--muted);font-size:13px;margin:6px 0 2px">Watch the shop from anywhere. This page can only look; it never changes anything.</p>'
-   +'<label>Project URL</label><input id="l_url" placeholder="https://xxxx.supabase.co" value="'+esc(c.url||'')+'">'
-   +'<label>Public key (anon)</label><input id="l_key" placeholder="eyJhbGciOi…" value="'+esc(c.key||'')+'">'
-   +'<label>Shop name</label><input id="l_shop" placeholder="stylebyib" value="'+esc(c.shopId||'')+'">'
-   +'<label>Your email</label><input id="l_mail" type="email" value="'+esc(c.email||'')+'">'
-   +'<label>Your password</label><input id="l_pass" type="password">'
-   +'<button id="l_go">Open the shop</button>'
+   // Pre-filled from the link: shown but folded away, so the owner sees two
+   // fields rather than five and a wall of key.
+   +'<details'+(c.url&&c.key?'':' open')+' style="margin-top:4px"><summary style="cursor:pointer;color:var(--muted);font-size:12.5px;padding:6px 0">Shop connection'+(c.url&&c.key?' · set':'')+'</summary>'
+   +'<label>Project URL</label><input id="l_url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://xxxx.supabase.co" value="'+esc(c.url||'')+'">'
+   +'<label>Public key (anon)</label><input id="l_key" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="eyJhbGciOi…" value="'+esc(c.key||'')+'">'
+   +'<label>Shop name</label><input id="l_shop" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="stylebyib" value="'+esc(c.shopId||'')+'">'
+   +'</details>'
+   +'<label>Your email</label><input id="l_mail" type="email" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" value="'+esc(c.email||'')+'">'
+   +'<label>Your password</label><input id="l_pass" type="password" name="password" autocomplete="current-password">'
+   +'<button id="l_go" type="submit">Open the shop</button>'
    +(msg?'<div class="err">'+esc(msg)+'</div>':'')
-   +'</div></div>';
-  $('l_go').onclick=async function(){
+   +'</form></div></div>';
+  $('l_form').onsubmit=function(e){ e.preventDefault(); };
+  $('l_go').onclick=async function(e){
+    if(e) e.preventDefault();
     var cfg={url:$('l_url').value.trim(),key:$('l_key').value.trim(),
       shopId:$('l_shop').value.trim().toLowerCase().replace(/\s+/g,''),
       email:$('l_mail').value.trim(),password:$('l_pass').value};
@@ -258,6 +287,10 @@ function start(){
   });
 }
 (async function(){
+  // A link carrying the connection details wins over anything stored, so
+  // re-sending the link is also how a changed key gets fixed.
+  var fromLink=cfgFromLink();
+  if(fromLink){ CFG=Object.assign(loadCfg()||{},fromLink); renderLogin(''); return; }
   if(!loadCfg()){ renderLogin(''); return; }
   renderLogin(''); // something on screen while the first read happens
   try{ await signIn(CFG); await pull(); start(); }

@@ -102,17 +102,41 @@ You should now see **Online** at the top of the screen, next to your name.
 
 ## 7 — Open the owner's page
 
-On the owner's phone, open **live.html**. Easiest ways to get it there:
+Put `live.html` somewhere the phone can reach. The quickest is **netlify.com/drop**
+— drag the file onto the page and you get an address in about ten seconds, free,
+no account. Cloudflare Pages or GitHub Pages work the same way.
 
-- Put `live.html` on any free static host (Netlify Drop, Cloudflare Pages,
-  GitHub Pages) and open that address, or
-- email the file to yourself and open it, or
-- serve it from the shop PC if the phone is on the same wifi.
+### Save the owner typing the key
 
-Fill in the same Project URL, the same public key, the same shop name, and
-**the owner's** email and password from step 3. Press **Open the shop**.
+Nobody should type a 200-character key on a phone. Build a link that carries
+the connection details, and send it to the owner by WhatsApp:
 
-On a phone: use **Add to Home Screen** so it opens like an app.
+```
+https://YOUR-ADDRESS/live.html#u=https://xxxx.supabase.co&k=YOUR-ANON-KEY&s=stylebyib&e=owner@email.com
+```
+
+Opening it fills in everything except the password. The part after `#` never
+leaves the phone — browsers do not send a fragment to the server, so whoever
+hosts the page never sees your key. The page also clears it from the address
+bar once it has read it.
+
+Without the link, the owner opens the page and fills the five fields by hand.
+Same result, more typing.
+
+### On an iPhone
+
+1. Open the link **in Safari** (not Chrome — only Safari can add to the home
+   screen properly).
+2. Type the owner's password. iOS will offer to save it in Keychain; accept,
+   and it is filled in from then on.
+3. **Share button** (the square with the arrow) → **Add to Home Screen**.
+
+It then opens full screen with no browser bars, like a normal app.
+
+One iPhone quirk worth knowing: if the page is only ever opened in Safari and
+then left alone for weeks, iOS can clear its saved sign-in and ask for the
+password again. Adding it to the home screen mostly avoids this. Nothing is
+lost either way — it is only a sign-in.
 
 ---
 
