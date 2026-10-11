@@ -94,6 +94,13 @@ button.ghost{background:transparent;color:var(--muted);font-weight:600;margin-to
 var CFG=null, TOK=null, TOKEXP=0, DATA={}, SUM=null, LASTOK=0, TIMER=null, POLL=4000;
 
 function $(id){ return document.getElementById(id); }
+/* URLs and keys reach this page through WhatsApp, email and chat apps, which
+   insert zero-width and non-breaking characters at line breaks. They are
+   invisible, survive a copy, and make the request illegal — fetch refuses the
+   whole call with "String contains non ISO-8859-1 code point", which tells
+   the owner nothing. None of these values can legitimately contain anything
+   but printable ASCII, so strip the rest. */
+function clean(v){ return String(v==null?'':v).replace(/[^\x21-\x7E]+/g,''); }
 function esc(x){ return String(x==null?'':x).replace(/[&<>"']/g,function(c){
   return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function money(n){ return Number(n||0).toLocaleString('en-US',{maximumFractionDigits:0})+' DZD'; }
@@ -109,7 +116,11 @@ function clock(ts){ if(!ts) return ''; var d=new Date(ts); return isNaN(d)?'':d.
 function todayISO(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 
 /* ---------- sign in ---------- */
-function loadCfg(){ try{ CFG=JSON.parse(localStorage.getItem('kf_live')||'null'); }catch(e){ CFG=null; } return CFG; }
+function loadCfg(){
+  try{ CFG=JSON.parse(localStorage.getItem('kf_live')||'null'); }catch(e){ CFG=null; }
+  if(CFG){ CFG.url=clean(CFG.url); CFG.key=clean(CFG.key); CFG.shopId=clean(CFG.shopId); CFG.email=clean(CFG.email); }
+  return CFG;
+}
 /* The project URL, key and shop name can ride in the link's #fragment, so the
    owner taps a link and types only their own email and password. A fragment
    never leaves the browser — it is not sent to whoever hosts this page. */
@@ -120,7 +131,7 @@ function cfgFromLink(){
   if(!q.u||!q.k||!q.s) return null;
   // Out of the address bar once read, so it is not left sitting in history.
   try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
-  return {url:q.u,key:q.k,shopId:q.s,email:q.e||'',password:''};
+  return {url:clean(q.u),key:clean(q.k),shopId:clean(q.s),email:clean(q.e||''),password:''};
 }
 async function signIn(cfg){
   var base=cfg.url.replace(/\/+$/,'');
@@ -185,9 +196,9 @@ function renderLogin(msg){
   $('l_form').onsubmit=function(e){ e.preventDefault(); };
   $('l_go').onclick=async function(e){
     if(e) e.preventDefault();
-    var cfg={url:$('l_url').value.trim(),key:$('l_key').value.trim(),
-      shopId:$('l_shop').value.trim().toLowerCase().replace(/\s+/g,''),
-      email:$('l_mail').value.trim(),password:$('l_pass').value};
+    var cfg={url:clean($('l_url').value),key:clean($('l_key').value),
+      shopId:clean($('l_shop').value).toLowerCase(),
+      email:clean($('l_mail').value),password:$('l_pass').value};
     if(!cfg.url||!cfg.key||!cfg.shopId||!cfg.email||!cfg.password){ renderLogin('Fill everything in.'); return; }
     $('l_go').textContent='Opening…'; $('l_go').disabled=true;
     try{ CFG=cfg; await signIn(cfg); await pull();

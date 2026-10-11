@@ -1341,11 +1341,18 @@ function idbClear(store){ return new Promise((res,rej)=>{ const r=tx(store,'read
 ============================================================ */
 const SYNC_SKIP=new Set(['_fs','_outbox']); // this machine's plumbing, not shop data
 const SYNC={cfg:null,tok:null,tokExp:0,busy:false,again:false,state:'off',queued:0,lastOk:0,lastErr:'',nudgeT:null};
+/* A URL or key pasted from a chat app or an email carries invisible
+   zero-width and non-breaking characters. They survive the paste and make the
+   request illegal, and fetch then refuses the whole call with a message about
+   ISO-8859-1 that means nothing to anyone. None of these can legitimately
+   hold anything but printable ASCII. */
+function syncClean(v){ return String(v==null?'':v).replace(/[^\x21-\x7E]+/g,''); }
 function syncOn(){ return !!(SYNC.cfg && SYNC.cfg.on && SYNC.cfg.url && SYNC.cfg.key && SYNC.cfg.shopId); }
 /* Kept in localStorage, not in meta: these are this device's credentials, and
    meta is mirrored to the cloud and written into every backup file. */
 function syncLoad(){
   try{ SYNC.cfg=JSON.parse(localStorage.getItem('kf_sync')||'null'); }catch(e){ SYNC.cfg=null; }
+  if(SYNC.cfg){ ['url','key','shopId','email'].forEach(k=>SYNC.cfg[k]=syncClean(SYNC.cfg[k])); }
   SYNC.state=syncOn()?'idle':'off'; return SYNC.cfg;
 }
 function syncSave(c){ SYNC.cfg=c; SYNC.tok=null; localStorage.setItem('kf_sync',JSON.stringify(c)); SYNC.state=syncOn()?'idle':'off'; syncNudge(true); }
@@ -6355,9 +6362,9 @@ async function viewSettings(){
   const $g=id=>document.getElementById(id);
   $g('sy_go')&&($g('sy_go').onclick=async()=>{
     const btn=$g('sy_go'); const cfg={on:true,
-      url:$g('sy_url').value.trim(), key:$g('sy_key').value.trim(),
-      shopId:$g('sy_shop').value.trim().toLowerCase().replace(/\s+/g,''),
-      email:$g('sy_mail').value.trim(), password:$g('sy_pass').value};
+      url:syncClean($g('sy_url').value), key:syncClean($g('sy_key').value),
+      shopId:syncClean($g('sy_shop').value).toLowerCase(),
+      email:syncClean($g('sy_mail').value), password:$g('sy_pass').value};
     if(!cfg.url||!cfg.key||!cfg.shopId||!cfg.email||!cfg.password){ toast(t('required'),'err'); return; }
     btn.disabled=true; btn.textContent=t('syncTesting');
     try{
