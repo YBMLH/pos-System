@@ -150,22 +150,53 @@ async function signIn(cfg){
 }
 async function ensureTok(){ if(!TOK || Date.now()>TOKEXP-60000) await signIn(CFG); }
 
-/* ---------- read ---------- */
-async function pull(){
-  await ensureTok();
-  var base=CFG.url.replace(/\/+$/,'');
-  var url=base+'/rest/v1/shop_rows?shop_id=eq.'+encodeURIComponent(CFG.shopId)
-    +'&select=store,row_id,doc,deleted,updated_at&order=updated_at.asc&limit=20000';
+/* ---------- read ----------
+   Only four of the shop's stores are shown here, and only their recent end,
+   so the page never asks for the whole shop. Pulling everything worked on a
+   small shop and quietly timed out on a real one — and cost the owner the
+   entire history in mobile data every few seconds besides.
+   After the first load it asks only for what changed, which is almost always
+   nothing. */
+var WANT={_summary:5, rentals:1500, activity:80, payments:400};
+var MAP={};      // store -> { row_id: doc }
+var SEEN='';     // newest updated_at taken in so far
+
+async function qrows(extra){
+  var url=CFG.url.replace(/\/+$/,'')+'/rest/v1/shop_rows?shop_id=eq.'+encodeURIComponent(CFG.shopId)
+    +'&select=store,row_id,doc,deleted,updated_at&'+extra;
   var r=await fetch(url,{headers:{'apikey':CFG.key,'Authorization':'Bearer '+TOK}});
   if(!r.ok) throw new Error('HTTP '+r.status+' · '+(await r.text()).slice(0,160));
-  var rows=await r.json();
-  var d={};
+  var j=await r.json();
+  return Array.isArray(j)?j:[];
+}
+function absorb(rows){
   rows.forEach(function(x){
-    if(x.store==='_summary'){ if(x.row_id==='now') SUM=x.doc; return; }
-    if(x.deleted) return;
-    (d[x.store]=d[x.store]||[]).push(x.doc);
+    if(x.updated_at && x.updated_at>SEEN) SEEN=x.updated_at;
+    var m=MAP[x.store]=MAP[x.store]||{};
+    if(x.deleted) delete m[x.row_id]; else m[x.row_id]=x.doc;
   });
-  DATA=d; LASTROWS=rows.length; LASTOK=Date.now();
+  SUM=(MAP._summary && MAP._summary.now) || SUM;
+  DATA={};
+  for(var k in MAP){ if(k!=='_summary') DATA[k]=Object.keys(MAP[k]).map(function(i){ return MAP[k][i]; }); }
+}
+async function pull(){
+  await ensureTok();
+  var got=0;
+  if(!SEEN){
+    // First load: the newest slice of each store, asked for separately so one
+    // big store cannot crowd out a small one.
+    var names=Object.keys(WANT);
+    var sets=await Promise.all(names.map(function(n){
+      return qrows('store=eq.'+encodeURIComponent(n)+'&order=updated_at.desc&limit='+WANT[n]);
+    }));
+    sets.forEach(function(rows){ got+=rows.length; absorb(rows); });
+    LASTROWS=got;
+  } else {
+    var rows=await qrows('updated_at=gt.'+encodeURIComponent(SEEN)+'&order=updated_at.asc&limit=5000');
+    absorb(rows);
+    if(LASTROWS===0 && rows.length) LASTROWS=rows.length;
+  }
+  LASTOK=Date.now();
 }
 
 /* ---------- render ---------- */
