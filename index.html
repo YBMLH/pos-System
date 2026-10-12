@@ -1408,14 +1408,54 @@ async function syncPush(rows){
    the same rules in a second place where the two could quietly drift apart. */
 async function syncSummary(){
   let T=null; try{ T=await tillTotals(); }catch(e){ return; }
-  const rentals=await idbAll('rentals'), day=todayISO();
-  const sum={at:now(),storeName:State.storeName||'',
-    till:T.till,float:T.float,cautionHeld:T.cautionOnOpenBookings,cautionBox:T.cautionTillCash,
-    repairFund:T.repairFund,storeOwnCash:T.storeOwnCash,liveCautions:T.liveCautionCount,
+  const [rentals,sales,payments0,expenses,customers]=await Promise.all(
+    [idbAll('rentals'),idbAll('sales'),idbAll('payments'),idbAll('expenses'),idbAll('customers')]);
+  const payments=livePayments(payments0);
+  const day=todayISO(), t0=startOf('today');
+  const cashToday=payments.filter(p=>(p.method||'cash')==='cash' && p.createdAt>=t0);
+  const by=types=>cashToday.filter(p=>types.includes(p.refType)).reduce((a,p)=>a+(p.amount||0),0);
+  const expToday=expenses.filter(x=>x.createdAt>=t0);
+  const spent=expToday.filter(x=>!x.isWithdrawal).reduce((a,x)=>a+(x.amount||0),0);
+  const drawn=expToday.filter(x=>x.isWithdrawal).reduce((a,x)=>a+(x.amount||0),0);
+  const keptToday=rentals.filter(r=>!r.mistake && (r.method||'cash')==='cash'
+    && (r.returnedAt||r.cancelledAt||0)>=t0).reduce((a,r)=>a+(r.depositKept||0),0);
+  // What customers still owe, counted the same way the Funds Owed page does.
+  let owed=0, owedWho=0;
+  const perCust={};
+  rentals.filter(r=>r.status!=='cancelled').forEach(r=>{
+    const d=Math.max(0,(r.price||0)+(r.lateFee||0)+(r.damageFee||0)-(r.paid||0));
+    if(d>0){ owed+=d; perCust[r.customerId||'walk']=1; } });
+  sales.filter(x=>!x.voided).forEach(x=>{
+    const d=Math.max(0,(x.total||0)-(x.paid||0));
+    if(d>0){ owed+=d; perCust[x.customerId||'walk']=1; } });
+  owedWho=Object.keys(perCust).length;
+  const open=r=>r.status==='active'||r.status==='reserved';
+  const sum={at:now(),storeName:State.storeName||'',currency:State.currency||'DZD',
+    // the drawer
+    till:T.till,float:T.float,since:T.since,storeOwnCash:T.storeOwnCash,
+    // customers' money
+    cautionHeld:T.cautionOnOpenBookings,cautionBox:T.cautionTillCash,liveCautions:T.liveCautionCount,
+    cautionLoose:T.cautionLooseOnClosed,cautionGap:T.cautionGap,
+    repairFund:T.repairFund,repairSetAside:T.repairSetAside,repairSpent:T.repairSpent,
+    // today
+    tSales:by(['sale']),tRentals:by(['rental']),tRepaid:by(['repayment']),tAdded:by(['cashin']),
+    tRefunds:-by(['refund','void']),tKept:keptToday,tSpent:spent,tDrawn:drawn,
+    tCautionIn:by(['deposit']),tCautionOut:-by(['depositRefund']),
+    tNewBookings:rentals.filter(r=>!r.mistake && (r.createdAt||0)>=t0).length,
+    tPickups:rentals.filter(r=>(r.pickedUpAt||0)>=t0).length,
+    tReturns:rentals.filter(r=>(r.returnedAt||0)>=t0).length,
+    tSalesCount:sales.filter(x=>!x.voided && x.createdAt>=t0).length,
+    // owed to the shop
+    owed,owedWho,
+    // the dresses
     out:rentals.filter(r=>r.status==='active').length,
     reserved:rentals.filter(r=>r.status==='reserved').length,
     dueToday:rentals.filter(r=>r.status==='active'&&r.dueDate===day).length,
-    overdue:rentals.filter(r=>r.status==='active'&&r.dueDate&&r.dueDate<day).length};
+    overdue:rentals.filter(r=>r.status==='active'&&r.dueDate&&r.dueDate<day).length,
+    outOfStock:0,customers:customers.length};
+  sum.tIn=sum.tSales+sum.tRentals+sum.tRepaid+sum.tAdded+sum.tKept;
+  sum.tOut=sum.tSpent+sum.tDrawn+sum.tRefunds;
+  sum.tNet=sum.tIn-sum.tOut;
   await syncPush([{store:'_summary',op:'put',rowId:'now',doc:sum,at:now()}]);
 }
 async function syncFlush(){

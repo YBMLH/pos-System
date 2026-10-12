@@ -47,14 +47,33 @@ main{padding:16px;max-width:900px;margin:0 auto;padding-bottom:calc(40px + env(s
 .stat.hero{grid-column:1/-1;background:var(--brand);color:#fff;border-color:transparent}
 .stat.hero .k{color:#cfe6de}.stat.hero .v{font-size:38px;line-height:1.1}
 .stat.gold{background:var(--gold-soft);border-color:#e6d6b0}
-.sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:24px 0 2px;font-weight:800}
+/* Every section says what it is for. The owner is not standing at the till,
+   so a bare number is a question rather than an answer. */
+.why{font-size:12.5px;color:var(--muted);margin:0 0 9px;line-height:1.45}
+.stat .sub{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.4;white-space:normal}
 .stat.hero .sub{color:#cfe6de}
-h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 0 8px}
+.stat.hero.gold{background:var(--gold);color:#241a06}
+.stat.hero.gold .k,.stat.hero.gold .sub{color:#4a3a14}
+.stat.hero.green{background:var(--ok);color:#fff}
+.stat.hero.green .k,.stat.hero.green .sub{color:#d6efe2}
+.stat.bad .v{color:var(--danger)}
+.card.note{margin-bottom:14px}
+.card.note.danger{border-color:var(--danger)}
+.card.note.warn{border-color:var(--warn)}
+.lines{margin-top:8px}
+.line{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line)}
+.line:last-child{border-bottom:0}
+.line .t{font-size:13.5px;font-weight:600}
+.line .s{font-size:11.5px;color:var(--muted);margin-top:1px}
+.line .mono{font-weight:700;flex:none;white-space:nowrap}
+.foot{font-size:11.5px;color:var(--muted);margin:26px 0 0;line-height:1.5;text-align:center}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
 .row{display:flex;gap:10px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--line)}
 .row:last-child{border-bottom:0}
 .row .main{min-width:0;flex:1}
 .row .t{font-weight:650;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .t.wrap{white-space:normal;overflow:visible}
 .row .s{font-size:11.5px;color:var(--muted);margin-top:1px}
 .amt{font-weight:800;flex:none;font-size:14px}
 .amt.in{color:var(--ok)}.amt.out{color:var(--danger)}
@@ -109,7 +128,16 @@ function authErr(r,j){
 }
 function esc(x){ return String(x==null?'':x).replace(/[&<>"']/g,function(c){
   return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-function money(n){ return Number(n||0).toLocaleString('en-US',{maximumFractionDigits:0})+' DZD'; }
+function money(n,cur){ return Number(n||0).toLocaleString('en-US',{maximumFractionDigits:0})+' '+(cur||'DZD'); }
+function plural(n,one,many){ return Number(n||0)+' '+(Number(n||0)===1?one:(many||one+'s')); }
+/* A due date is read by a person, not a machine: 05 Oct, not 2026-10-05. */
+function dayLabel(iso){
+  if(!iso) return '';
+  var d=new Date(iso+'T12:00:00');
+  // Day first, to match how the shop app writes dates — the owner and the
+  // staff should not be reading the same booking two different ways.
+  return isNaN(d)?iso:d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+}
 function ago(ts){
   if(!ts) return '—';
   var s=Math.round((Date.now()-ts)/1000);
@@ -270,65 +298,142 @@ function todayLists(){
 function render(){
   var ls=liveState(), s=SUM||{}, L=todayLists();
   var sa=shopAge(), shopQuiet = sa && (Date.now()-sa > 10*60000);
-  /* Read fine, found nothing. A shop with no data and a shop name that does
-     not match look identical — all zeros — so say which this is, and show the
-     name being asked for, spelled out, since the character that breaks it is
-     invisible by definition. */
   var emptyShop = LASTOK && LASTROWS===0;
+  var cur=s.currency||'DZD';
   var html=
    '<header><span class="dot '+ls[0]+'"></span><b>'+esc(s.storeName||'Shop')+'</b>'
    +'<span class="hdr-note">'+esc(ls[1])+'<br>'+(sa?'shop sent '+esc(ago(sa)):'no data yet')+'</span></header>'
    +'<main>';
-  if(emptyShop) html+='<div class="card" style="border-color:var(--danger);margin-bottom:14px">'
-    +'<div class="row"><div class="main"><div class="t">Signed in, but this shop has nothing in it</div>'
-    +'<div class="s">Asking for shop name <b>&laquo;'+esc(CFG.shopId)+'&raquo;</b> ('+CFG.shopId.length+' characters). '
-    +'It must match the shop name on the shop PC exactly. Sign out below and type it in again if it looks right but still finds nothing — '
-    +'a copied name can carry a character you cannot see.</div></div></div></div>';
-  if(shopQuiet && !emptyShop) html+='<div class="card" style="border-color:var(--warn);margin-bottom:14px">'
-    +'<div class="row"><div class="main"><div class="t">Nothing from the shop for '+esc(ago(sa))+'</div>'
-    +'<div class="s">The figures below are from then. The shop PC is probably offline or closed — it keeps working either way and will catch up.</div></div></div></div>';
 
+  if(emptyShop) html+=note('danger','Signed in, but this shop has nothing in it',
+    'Asking for shop name &laquo;'+esc(CFG.shopId)+'&raquo; ('+CFG.shopId.length+' characters). It must match the shop name on the shop PC exactly. '
+    +'Sign out below and type it again if it looks right but still finds nothing — a copied name can carry a character you cannot see.');
+  else if(shopQuiet) html+=note('warn','Nothing from the shop for '+esc(ago(sa)),
+    'Everything below is how things stood then. The shop PC is probably switched off or without internet. It keeps working either way, and catches up by itself.');
+
+  /* ---------- the drawer ---------- */
+  html+=sec('The till','What should be in the drawer at the shop right now.');
   html+='<div class="cards">'
-   +'<div class="stat hero"><div class="k">Cash in the till</div><div class="v mono">'+money(s.till)+'</div>'
-   +'<div class="sub">opening float '+money(s.float)+'</div></div>'
-   +'<div class="stat gold"><div class="k">Caution held</div><div class="v mono">'+money(s.cautionHeld)+'</div>'
-   +'<div class="sub">'+(s.liveCautions||0)+' bookings still out</div></div>'
-   +'<div class="stat"><div class="k">Repair fund</div><div class="v mono">'+money(s.repairFund)+'</div></div>'
-   +'<div class="stat"><div class="k">Store’s own money</div><div class="v mono">'+money(s.storeOwnCash)+'</div></div>'
-   +'<div class="stat"><div class="k">Out right now</div><div class="v mono">'+(s.out||0)+'</div>'
-   +'<div class="sub">'+(s.reserved||0)+' reserved ahead</div></div>'
-   +'<div class="stat"><div class="k">Overdue</div><div class="v mono"'+(s.overdue?' style="color:var(--danger)"':'')+'>'+(s.overdue||0)+'</div>'
-   +'<div class="sub">'+(s.dueToday||0)+' due back today</div></div>'
+   +hero('Cash in the till',s.till,cur,'The opening float of '+money(s.float,cur)+', plus everything taken in since, less everything paid out.')
+   +card('The shop’s own money',s.storeOwnCash,cur,'The till once the repair money is set aside. This part is actually yours.',s.storeOwnCash<0?'bad':'')
+   +card('Repair &amp; cleaning fund',s.repairFund,cur,'Cautions you kept and repair fees customers paid, held back to fix or wash dresses. Not profit.',s.repairFund<0?'bad':'')
    +'</div>';
 
-  function list(title,arr,fmt){
-    html+='<h2>'+esc(title)+'</h2><div class="card">';
+  /* ---------- today ---------- */
+  html+=sec('Today','Cash that moved at the counter since midnight.');
+  html+='<div class="cards">'
+   +hero('Taken in today',s.tIn,cur,'Everything that went into the drawer today.','green')
+   +card('Paid out today',s.tOut,cur,'Expenses, money you took out, and refunds given back.')
+   +card('Left over today',s.tNet,cur,'What today added to the drawer, in and out together.',s.tNet<0?'bad':'')
+   +'</div>';
+  html+=table([
+    ['Rentals &amp; reservations', s.tRentals, 'Money taken for dresses going out'],
+    ['Sales', s.tSales, 'Items sold outright'],
+    ['Old debts paid', s.tRepaid, 'Customers settling what they owed from before'],
+    ['Cautions kept', s.tKept, 'Caution held back today for a repair or a fee'],
+    ['Added to the till', s.tAdded, 'Cash you put in yourself'],
+    ['− Refunds given', -s.tRefunds, 'Money handed back to customers'],
+    ['− Expenses', -s.tSpent, 'Rent, electricity, repairs, supplies'],
+    ['− You took out', -s.tDrawn, 'Cash you removed from the drawer'],
+  ],cur);
+  html+='<div class="card" style="margin-top:10px"><div class="row"><div class="main">'
+    +'<div class="t wrap">'+plural(s.tNewBookings,'new booking')+' · '+(s.tPickups||0)+' went out'
+    +' · '+(s.tReturns||0)+' came back · '+plural(s.tSalesCount,'sale')+'</div>'
+    +'<div class="s">What the staff actually did today.</div></div></div></div>';
+
+  /* ---------- customers' money ---------- */
+  html+=sec('Cautions','Customers’ money the shop is holding. It is not yours; it goes back when the dress does.');
+  html+='<div class="cards">'
+   +hero('Should be held',s.cautionHeld,cur,'Owed back on '+plural(s.liveCautions,'booking')+' still out. This is what must be in the caution box.','gold')
+   +card('In the caution box',s.cautionBox,cur,'What the ledger says is actually there.')
+   +card('Difference',(s.cautionBox||0)-(s.cautionHeld||0),cur,
+      (((s.cautionBox||0)-(s.cautionHeld||0))===0)?'The two agree. Nothing to chase.'
+      :'The box and the live bookings disagree. Usually a booking was finished without its caution being handed back or marked as kept.',
+      (((s.cautionBox||0)-(s.cautionHeld||0))!==0)?'bad':'')
+   +'</div>';
+  if(s.cautionLoose||s.cautionGap) html+=table([
+    ['Left over on finished bookings', s.cautionLoose, 'Caution on a booking that is over, neither given back nor kept'],
+    ['Unexplained', s.cautionGap, 'Does not match any booking at all'],
+  ],cur);
+  if(s.repairSetAside) html+=table([
+    ['Set aside for repairs', s.repairSetAside, 'Kept cautions plus repair fees paid'],
+    ['− Spent on repairs', -s.repairSpent, 'Recorded as dress repair &amp; cleaning'],
+    ['Left in the fund', s.repairFund, 'Still waiting to be spent'],
+  ],cur);
+
+  /* ---------- owed to the shop ---------- */
+  html+=sec('Owed to the shop','Money customers still have to pay.');
+  html+='<div class="cards">'
+   +hero('Owed to you',s.owed,cur,'Across '+plural(s.owedWho,'customer')+' — unpaid rentals and sales on credit.',(s.owed>0)?'gold':'green')
+   +'</div>';
+
+  /* ---------- the dresses ---------- */
+  html+=sec('The dresses','Where the stock is right now.');
+  html+='<div class="cards">'
+   +card('Out with customers',s.out,cur,'Dresses not in the shop at this moment.',null,true)
+   +card('Reserved ahead',s.reserved,cur,'Booked for a date still to come.',null,true)
+   +card('Due back today',s.dueToday,cur,'Should come back before closing.',null,true)
+   +card('Overdue',s.overdue,cur,'Should already be back and is not.',s.overdue?'bad':'',true)
+   +'</div>';
+
+  function list(title,why,arr,fmt){
+    html+=sec(title,why);
+    html+='<div class="card">';
     if(!arr.length) html+='<div class="empty">Nothing</div>';
     else arr.slice(0,25).forEach(function(x){ html+=fmt(x); });
     html+='</div>';
   }
-  if(L.late.length) list('Overdue', L.late, function(r){
-    return '<div class="row"><div class="main"><div class="t">'+esc(r.customerName||'—')+'</div>'
-      +'<div class="s">'+esc(r.name||'')+' · due '+esc(r.dueDate||'')+'</div></div>'
-      +'<span class="badge red">late</span></div>'; });
-  list('Coming in today', L.pickups, function(r){
-    return '<div class="row"><div class="main"><div class="t">'+esc(r.customerName||'—')+'</div>'
-      +'<div class="s">'+esc(r.name||'')+'</div></div><span class="badge gold">pickup</span></div>'; });
-  list('Back today', L.drops, function(r){
-    return '<div class="row"><div class="main"><div class="t">'+esc(r.customerName||'—')+'</div>'
-      +'<div class="s">'+esc(r.name||'')+'</div></div><span class="badge green">return</span></div>'; });
+  if(L.late.length) list('Late','Past the day they agreed to bring it back.',L.late,function(r){
+    return row(r.customerName,(r.name||'')+' · was due '+dayLabel(r.dueDate),'<span class="badge red">late</span>'); });
+  list('Coming in today','Reserved to be collected today.',L.pickups,function(r){
+    return row(r.customerName,r.name,'<span class="badge gold">pickup</span>'); });
+  list('Back today','Out now and due back today.',L.drops,function(r){
+    return row(r.customerName,r.name,'<span class="badge green">return</span>'); });
 
+  /* ---------- feed ---------- */
   var feed=feedRows();
-  html+='<h2>As it happens</h2><div class="card">';
-  if(!feed.length) html+='<div class="empty">Nothing yet today</div>';
+  html+=sec('As it happens','Everything the staff do, newest first. Amounts show the money that moved with it.');
+  html+='<div class="card">';
+  if(!feed.length) html+='<div class="empty">Nothing yet</div>';
   else feed.slice(0,40).forEach(function(f){
     html+='<div class="row"><div class="main"><div class="t">'+esc(f.t)+'</div><div class="s">'+esc(f.s)+'</div></div>'
-      +(f.amt?'<span class="amt '+(f.amt>0?'in':'out')+'">'+(f.amt>0?'+':'')+money(f.amt)+'</span>':'')+'</div>';
+      +(f.amt?'<span class="amt '+(f.amt>0?'in':'out')+'">'+(f.amt>0?'+':'')+money(f.amt,cur)+'</span>':'')+'</div>';
   });
   html+='</div>';
+
+  html+='<p class="foot">This page only looks. Nothing here can change the till, a booking or a price — '
+    +'that can only be done at the counter. Figures refresh every few seconds.</p>';
   html+='<button class="ghost" id="l_out">Sign out of this page</button></main>';
   $('app').innerHTML=html;
-  $('l_out').onclick=function(){ localStorage.removeItem('kf_live'); clearInterval(TIMER); TOK=null; LASTOK=0; renderLogin(''); };
+  $('l_out').onclick=function(){ localStorage.removeItem('kf_live'); clearInterval(TIMER); TOK=null; LASTOK=0;
+    MAP={}; SEEN=''; SUM=null; DATA={}; LASTROWS=-1; renderLogin(''); };
+}
+/* ---- small builders, so every figure can carry its explanation ---- */
+function sec(title,why){
+  return '<h2>'+esc(title)+'</h2>'+(why?'<p class="why">'+why+'</p>':'');
+}
+function hero(k,v,cur,why,tone){
+  return '<div class="stat hero '+(tone||'')+'"><div class="k">'+k+'</div>'
+    +'<div class="v mono">'+money(v,cur)+'</div><div class="sub">'+why+'</div></div>';
+}
+function card(k,v,cur,why,tone,plain){
+  return '<div class="stat '+(tone||'')+'"><div class="k">'+k+'</div>'
+    +'<div class="v mono">'+(plain?Number(v||0):money(v,cur))+'</div><div class="sub">'+why+'</div></div>';
+}
+function row(t,s2,right){
+  return '<div class="row"><div class="main"><div class="t">'+esc(t||'—')+'</div>'
+    +'<div class="s">'+esc(s2||'')+'</div></div>'+(right||'')+'</div>';
+}
+function note(tone,title,body){
+  return '<div class="card note '+tone+'"><div class="row"><div class="main">'
+    +'<div class="t">'+esc(title)+'</div><div class="s">'+body+'</div></div></div></div>';
+}
+function table(rows,cur){
+  var any=rows.some(function(r){ return Number(r[1]||0)!==0; });
+  if(!any) return '';
+  return '<div class="card lines">'+rows.filter(function(r){ return Number(r[1]||0)!==0; }).map(function(r){
+    return '<div class="line"><div><div class="t">'+r[0]+'</div><div class="s">'+r[2]+'</div></div>'
+      +'<span class="mono">'+money(r[1],cur)+'</span></div>'; }).join('')+'</div>';
 }
 
 async function tick(){
