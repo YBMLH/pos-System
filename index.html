@@ -1382,6 +1382,18 @@ function idbGet(store,id){ return new Promise((res,rej)=>{ const r=tx(store).get
 function idbPut(store,val){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').put(val); r.onsuccess=()=>{ outboxAdd(store,'put',val&&val.id,val); res(val); }; r.onerror=()=>rej(r.error); }); }
 function idbDel(store,id){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').delete(id); r.onsuccess=()=>{ outboxAdd(store,'del',id,null); res(); }; r.onerror=()=>rej(r.error); }); }
 function idbClear(store){ return new Promise((res,rej)=>{ const r=tx(store,'readwrite').clear(); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); }
+/* Restoring a shop means writing every record it has. One transaction per
+   record — which is what a loop of idbPut does — turns a few seconds into
+   several minutes on a real shop, and the app shows nothing at all while it
+   runs. Whole store, one transaction. */
+function idbBulkPut(store,recs){
+  return new Promise((res,rej)=>{
+    if(!recs || !recs.length) return res();
+    const tr=State.db.transaction(store,'readwrite'), os=tr.objectStore(store);
+    for(const r of recs){ if(r && r.id!=null) os.put(r); }
+    tr.oncomplete=()=>res(); tr.onerror=()=>rej(tr.error); tr.onabort=()=>rej(tr.error);
+  });
+}
 
 /* ============================================================
    CLOUD MIRROR — the owner watches, the shop keeps working
@@ -1396,6 +1408,7 @@ function idbClear(store){ return new Promise((res,rej)=>{ const r=tx(store,'read
    cloud can never overwrite what happened at the counter.
 ============================================================ */
 const SYNC_SKIP=new Set(['_fs','_outbox']); // this machine's plumbing, not shop data
+let _bulkLoad=false;                        // true only while a whole shop is being written
 const SYNC={cfg:null,tok:null,tokExp:0,busy:false,again:false,state:'off',queued:0,lastOk:0,lastErr:'',nudgeT:null};
 /* A URL or key pasted from a chat app or an email carries invisible
    zero-width and non-breaking characters. They survive the paste and make the
@@ -1425,6 +1438,10 @@ function outboxPut(rec){ return new Promise((res,rej)=>{ const r=tx('_outbox','r
    because of, the queue. A dropped line costs a stale figure online until
    the next full re-upload, never a wrong figure at the counter. */
 function outboxAdd(store,op,id,doc){
+  // A restore writes the whole shop. Queuing every record of it would double
+  // the work at the one moment the app has nothing on screen, and says
+  // nothing the explicit re-upload does not say better.
+  if(_bulkLoad) return;
   if(SYNC_SKIP.has(store) || !id || !State.db) return;
   try{ outboxPut({store,op,rowId:String(id),doc:op==='del'?null:doc,at:Date.now()}).then(()=>{ SYNC.queued++; syncNudge(); },()=>{}); }catch(e){}
 }
@@ -6552,7 +6569,9 @@ function doRestore(e){
       const data=JSON.parse(reader.result);
       if(data._app!=='kaftan-store'){ toast('Invalid file','err'); return; }
       confirmDialog(t('restoreConfirm'),async()=>{
-        for(const s of STORES){ await idbClear(s); for(const rec of (data[s]||[])) await idbPut(s,rec); }
+        _bulkLoad=true;
+        try{ for(const s of STORES){ await idbClear(s); await idbBulkPut(s,data[s]||[]); } }
+        finally{ _bulkLoad=false; }
         const meta=await idbGet('meta','app'); if(meta){ State.lang=meta.lang||State.lang; State.storeName=meta.storeName; }
         State.user=null; State.cart=[]; toast(t('restored'),'ok'); render();
       });
@@ -6644,7 +6663,9 @@ async function fsLoadAll(reload){
     const fh=await dir.getFileHandle('store-data.json');
     const data=JSON.parse(await (await fh.getFile()).text());
     if(data._app!=='kaftan-store'){ toast('Invalid file','err'); return false; }
-    for(const s of STORES){ await idbClear(s); for(const rec of (data[s]||[])) await idbPut(s,rec); }
+    _bulkLoad=true;
+    try{ for(const s of STORES){ await idbClear(s); await idbBulkPut(s,data[s]||[]); } }
+    finally{ _bulkLoad=false; }
     const meta=await idbGet('meta','app'); if(meta){ State.lang=meta.lang||State.lang; State.storeName=meta.storeName; }
     toast(t('restored'),'ok');
     if(reload){ State.user=null; State.cart=[]; render(); }
