@@ -402,6 +402,50 @@ kbd{background:#EEEDEA;border-radius:5px;padding:1px 6px;font-size:11px;font-fam
 <div id="printArea"></div>
 
 <script>
+/* ------------------------------------------------------------
+   A blank screen is the worst thing this app can do: it says
+   nothing, reloading does not change it, and the natural next
+   move is to delete the app — which is what happened once. If
+   anything fails before the first screen is drawn, say so and
+   offer the two ways out. Repair clears only the saved program
+   files; the shop's data is in IndexedDB and is never touched.
+------------------------------------------------------------ */
+(function(){
+  function panic(what){
+    var app=document.getElementById('app');
+    if(!app || app.innerHTML.trim()!=='') return;   // already drew something
+    app.innerHTML='<div style="font:16px/1.6 system-ui,sans-serif;display:grid;place-items:center;'
+      +'min-height:100vh;padding:24px;text-align:center"><div style="max-width:430px">'
+      +'<h2 style="font-size:19px;margin:0 0 10px">The app did not start</h2>'
+      +'<p style="color:#6c6c66;font-size:14px">Your shop data is untouched. This is the program '
+      +'failing to load, not the data.</p>'
+      +'<p style="color:#6c6c66;font-size:13px">Press Reload first. If it keeps happening, press '
+      +'Repair: it clears the saved program files and fetches them again, and does not delete '
+      +'anything of yours.</p>'
+      +'<p style="color:#b3261e;font-size:12px;word-break:break-word">'+String(what||'').slice(0,300)+'</p>'
+      +'<button onclick="location.reload()" style="font:inherit;font-weight:700;padding:12px 20px;'
+      +'border:0;border-radius:10px;background:#0d3b31;color:#fff;margin:6px 4px;cursor:pointer">Reload</button>'
+      +'<button onclick="kfRepair()" style="font:inherit;font-weight:700;padding:12px 20px;border:0;'
+      +'border-radius:10px;background:#b58a3c;color:#fff;margin:6px 4px;cursor:pointer">Repair</button>'
+      +'</div></div>';
+  }
+  window.kfRepair=function(){
+    var done=function(){ location.reload(true); };
+    Promise.resolve()
+      .then(function(){ return caches && caches.keys().then(function(k){
+        return Promise.all(k.map(function(x){ return caches.delete(x); })); }); })
+      .catch(function(){})
+      .then(function(){ return navigator.serviceWorker && navigator.serviceWorker.getRegistrations()
+        .then(function(r){ return Promise.all(r.map(function(x){ return x.unregister(); })); }); })
+      .catch(function(){})
+      .then(done, done);
+  };
+  addEventListener('error',function(ev){ panic(ev && (ev.message||ev.error)); });
+  addEventListener('unhandledrejection',function(ev){ panic(ev && ev.reason && (ev.reason.message||ev.reason)); });
+  // Nothing drawn at all after a few seconds means it died somewhere silent.
+  addEventListener('load',function(){ setTimeout(function(){ panic('Timed out while starting.'); },6000); });
+})();
+
 /* ============================================================
    Kaftan Store Manager — offline single-file PWA
    Storage: IndexedDB | No network required
