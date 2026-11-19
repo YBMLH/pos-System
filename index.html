@@ -443,7 +443,10 @@ kbd{background:#EEEDEA;border-radius:5px;padding:1px 6px;font-size:11px;font-fam
   addEventListener('error',function(ev){ panic(ev && (ev.message||ev.error)); });
   addEventListener('unhandledrejection',function(ev){ panic(ev && ev.reason && (ev.reason.message||ev.reason)); });
   // Nothing drawn at all after a few seconds means it died somewhere silent.
-  addEventListener('load',function(){ setTimeout(function(){ panic('Timed out while starting.'); },6000); });
+  // Longer than the database's own 15-second watchdog, so its clearer message
+  // wins. A big shop on a slow machine also takes a few seconds to draw.
+  addEventListener('load',function(){ setTimeout(function(){
+    panic('Still not started. The usual cause is another window of the app being open — close every window, then open one.'); },25000); });
 })();
 
 /* ============================================================
@@ -1349,6 +1352,9 @@ const DB_NAME='kaftanStoreDB', DB_VER=7; // 7: + _outbox (queue of local changes
 const STORES=['meta','users','products','sales','rentals','customers','payments','expenses','activity','parked','counts'];
 function openDB(){
   return new Promise((res,rej)=>{
+    let settled=false;
+    const once=f=>v=>{ if(!settled){ settled=true; f(v); } };
+    const ok=once(res), fail=once(rej);
     const r=indexedDB.open(DB_NAME,DB_VER);
     r.onupgradeneeded=e=>{
       const db=e.target.result;
@@ -1360,8 +1366,14 @@ function openDB(){
       // Also out of STORES: it is this machine's plumbing, not shop data.
       if(!db.objectStoreNames.contains('_outbox')) db.createObjectStore('_outbox',{keyPath:'seq',autoIncrement:true});
     };
-    r.onsuccess=e=>res(e.target.result);
-    r.onerror=e=>rej(e.target.error);
+    r.onsuccess=e=>ok(e.target.result);
+    r.onerror=e=>fail(e.target.error||new Error('The database would not open.'));
+    /* A second window still holding the old version blocks the upgrade for
+       ever: the request then neither succeeds nor fails, so the app hangs
+       with nothing drawn and no error — a blank screen that reloading cannot
+       cure, because the other window is still there after the reload. */
+    r.onblocked=()=>fail(new Error('Another window of this app is still open. Close every window of it, then open one.'));
+    setTimeout(()=>fail(new Error('The database did not open. Close every window of the app, then open just one.')),15000);
   });
 }
 function tx(store,mode='readonly'){ return State.db.transaction(store,mode).objectStore(store); }
@@ -6742,7 +6754,14 @@ function setupAutoLock(minutes){
     if(meta) setupAutoLock(meta.autoLockMin);
     render();
   }catch(err){
-    document.getElementById('app').innerHTML=`<div style="padding:40px;text-align:center"><h2>Storage error</h2><p class="subtle">${esc(err.message||err)}</p><p class="subtle">This app needs IndexedDB. Try a normal (non-private) browser window.</p></div>`;
+    document.getElementById('app').innerHTML=`<div style="font:16px/1.6 system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;padding:24px;text-align:center"><div style="max-width:430px">
+      <h2 style="font-size:19px;margin:0 0 10px">The app could not start</h2>
+      <p style="color:#b3261e;font-size:14px;font-weight:600">${esc(err.message||err)}</p>
+      <p style="color:#6c6c66;font-size:13px">Your shop data is safe — this is the program failing to open it, not the data itself.</p>
+      <p style="color:#6c6c66;font-size:13px">Close every window of the app and open just one. If that does not help, press Repair: it clears the saved program files and fetches them again, and deletes nothing of yours.</p>
+      <button onclick="location.reload()" style="font:inherit;font-weight:700;padding:12px 20px;border:0;border-radius:10px;background:#0d3b31;color:#fff;margin:6px 4px;cursor:pointer">Reload</button>
+      <button onclick="kfRepair()" style="font:inherit;font-weight:700;padding:12px 20px;border:0;border-radius:10px;background:#b58a3c;color:#fff;margin:6px 4px;cursor:pointer">Repair</button>
+    </div></div>`;
   }
 })();
 
