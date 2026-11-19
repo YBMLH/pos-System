@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d3b31">
+<title>Recover the shop</title>
+<style>
+:root{
+  --brand:#0d3b31; --gold-soft:#f8f1e2; --bg:#f6f6f4; --surface:#fff; --line:#e4e4df;
+  --text:#161614; --muted:#6c6c66; --ok:#1f7a4d; --danger:#b3261e; --radius:14px;
+}
+:root:not([data-theme="light"]){ @media (prefers-color-scheme: dark){
+  --bg:#14150f; --surface:#1d1e18; --line:#30312a; --text:#f0efe9; --muted:#a3a39a; --brand:#2f7f6a;
+}}
+:root[data-theme="dark"]{ --bg:#14150f; --surface:#1d1e18; --line:#30312a; --text:#f0efe9; --muted:#a3a39a; --brand:#2f7f6a; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;-webkit-text-size-adjust:100%}
+.wrap{max-width:560px;margin:0 auto;padding:20px 16px calc(40px + env(safe-area-inset-bottom))}
+h1{font-size:20px;margin:6px 0 4px}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:14px}
+label{display:block;font-size:12.5px;font-weight:650;margin:10px 0 4px;color:var(--muted)}
+input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:var(--surface);
+  color:var(--text);font:inherit;font-size:16px;-webkit-appearance:none}
+button{width:100%;padding:13px;border:0;border-radius:10px;background:var(--brand);color:#fff;
+  font:inherit;font-weight:700;cursor:pointer;margin-top:18px}
+button[disabled]{opacity:.6;cursor:default}
+details summary{cursor:pointer;color:var(--muted);font-size:12.5px;padding:6px 0}
+.err{color:var(--danger);font-size:13px;margin-top:12px;font-weight:600}
+.okmsg{color:var(--ok);font-size:13px;margin-top:12px;font-weight:600}
+.log{font-size:12.5px;color:var(--muted);margin-top:14px;max-height:240px;overflow:auto}
+.log div{padding:3px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px}
+.log div:last-child{border-bottom:0}
+.mono{font-variant-numeric:tabular-nums}
+.note{background:var(--gold-soft);border:1px solid #e6d6b0;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#4a3a14;margin-bottom:14px}
+:root[data-theme="dark"] .note,:root:not([data-theme="light"]) .note{color:inherit}
+form{margin:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Recover the shop</h1>
+  <p class="lead">Builds a backup file from the copy held online, which you then restore into the app on the shop PC.
+  Nothing online is changed or deleted by this page — it only reads.</p>
+  <div id="app"></div>
+</div>
+<script>
+/* ============================================================
+   RECOVER — the way back down
+   ------------------------------------------------------------
+   The mirror is deliberately one-way: the shop PC pushes up and
+   nothing is ever pulled down, so the cloud can never overwrite
+   what happened at the counter. The cost of that is this page.
+   If the shop PC is wiped, the data is still online but the app
+   has no way to reach it — so this reads every row back and
+   writes the same backup file the app's own Restore expects.
+   It is read-only: no write, no delete, nothing touched online.
+============================================================ */
+var STORES=['meta','users','products','sales','rentals','customers','payments','expenses','activity','parked','counts'];
+var PAGE=500;   // small enough that no single read can time out
+var CFG=null, TOK=null;
+
+function $(id){ return document.getElementById(id); }
+function esc(x){ return String(x==null?'':x).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+/* Links arrive through chat apps, which insert invisible characters at line
+   breaks. They survive a copy and make the request illegal. */
+function clean(v){ return String(v==null?'':v).replace(/[^\x21-\x7E]+/g,''); }
+function authErr(r,j){
+  var m=j&&(j.error_description||j.msg||j.message||j.error_code||j.error);
+  return (m?String(m):'sign-in refused')+' ('+r.status+')';
+}
+function fromLink(){
+  var h=(location.hash||'').replace(/^#/,''); if(!h) return null;
+  var q={}; h.split('&').forEach(function(kv){ var i=kv.indexOf('=');
+    if(i>0) q[decodeURIComponent(kv.slice(0,i))]=decodeURIComponent(kv.slice(i+1)); });
+  if(!q.u||!q.k||!q.s) return null;
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+  return {url:clean(q.u),key:clean(q.k),shopId:clean(q.s),email:clean(q.e||'')};
+}
+
+function form(msg,ok){
+  var c=CFG||{};
+  $('app').innerHTML=
+   '<div class="note"><b>Before you start.</b> On the shop PC, do <b>not</b> press '
+   +'&laquo;Re-upload everything&raquo; while the app is empty — that would wipe what is online and '
+   +'replace it with nothing. Recover first, then reconnect.</div>'
+   +'<div class="card"><form id="f" autocomplete="on">'
+   +'<details'+(c.url&&c.key?'':' open')+'><summary>Shop connection'+(c.url&&c.key?' · set':'')+'</summary>'
+   +'<label>Project URL</label><input id="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" value="'+esc(c.url||'')+'">'
+   +'<label>Public key (anon)</label><input id="key" autocapitalize="off" autocorrect="off" spellcheck="false" value="'+esc(c.key||'')+'">'
+   +'<label>Shop name</label><input id="shop" autocapitalize="off" autocorrect="off" spellcheck="false" value="'+esc(c.shopId||'')+'">'
+   +'</details>'
+   +'<label>Email</label><input id="mail" type="email" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" value="'+esc(c.email||'')+'">'
+   +'<label>Password</label><input id="pass" type="password" name="password" autocomplete="current-password">'
+   +'<button id="go" type="submit">Build the backup file</button>'
+   +(msg?'<div class="err">'+esc(msg)+'</div>':'')
+   +(ok?'<div class="okmsg">'+ok+'</div>':'')
+   +'<div class="log" id="log"></div>'
+   +'</form></div>';
+  $('f').onsubmit=function(e){ e.preventDefault(); };
+  $('go').onclick=function(e){ if(e) e.preventDefault(); run(); };
+}
+function logLine(a,b){
+  var l=$('log'); if(!l) return;
+  var d=document.createElement('div');
+  d.innerHTML='<span>'+esc(a)+'</span><span class="mono">'+esc(b)+'</span>';
+  l.appendChild(d); l.scrollTop=l.scrollHeight;
+}
+
+async function signIn(){
+  var r=await fetch(CFG.url.replace(/\/+$/,'')+'/auth/v1/token?grant_type=password',{method:'POST',
+    headers:{'apikey':CFG.key,'Content-Type':'application/json'},
+    body:JSON.stringify({email:CFG.email,password:CFG.password})});
+  var j={}; try{ j=await r.json(); }catch(e){}
+  if(!r.ok || !j.access_token) throw new Error(authErr(r,j));
+  TOK=j.access_token;
+}
+/* Read one store a page at a time. Asking for everything at once is what
+   broke the live page on a real shop: the database gives up on the query
+   rather than answering it. */
+async function readStore(store){
+  var out=[], from=0;
+  for(;;){
+    var url=CFG.url.replace(/\/+$/,'')+'/rest/v1/shop_rows?shop_id=eq.'+encodeURIComponent(CFG.shopId)
+      +'&store=eq.'+encodeURIComponent(store)+'&select=row_id,doc,deleted&order=row_id.asc'
+      +'&limit='+PAGE+'&offset='+from;
+    var r=await fetch(url,{headers:{'apikey':CFG.key,'Authorization':'Bearer '+TOK}});
+    if(!r.ok) throw new Error(store+': HTTP '+r.status+' · '+(await r.text()).slice(0,160));
+    var rows=await r.json();
+    if(!Array.isArray(rows)) throw new Error(store+': unexpected answer');
+    rows.forEach(function(x){ if(!x.deleted && x.doc) out.push(x.doc); });
+    if(rows.length<PAGE) break;
+    from+=PAGE;
+    logLine(store,out.length+'…');
+  }
+  return out;
+}
+
+async function run(){
+  var cfg={url:clean($('url').value),key:clean($('key').value),
+    shopId:clean($('shop').value).toLowerCase(),
+    email:clean($('mail').value),password:$('pass').value};
+  if(!cfg.url||!cfg.key||!cfg.shopId||!cfg.email||!cfg.password){ CFG=cfg; form('Fill everything in.'); return; }
+  CFG=cfg;
+  var btn=$('go'); btn.disabled=true; btn.textContent='Reading…';
+  $('log').innerHTML='';
+  try{
+    await signIn();
+    var data={_app:'kaftan-store',_v:1,exportedAt:Date.now()};
+    var total=0;
+    for(var i=0;i<STORES.length;i++){
+      var s=STORES[i];
+      btn.textContent='Reading '+s+'…';
+      data[s]=await readStore(s);
+      total+=data[s].length;
+      logLine(s,String(data[s].length));
+    }
+    if(!total) throw new Error('Nothing found for shop «'+CFG.shopId+'» ('+CFG.shopId.length+' characters). Check the shop name.');
+    var stamp=new Date().toISOString().slice(0,10);
+    var blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='kaftan-backup-'+stamp+'-from-cloud.json';
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); },2000);
+    btn.disabled=false; btn.textContent='Build the backup file again';
+    var saved=$('log');
+    var d=document.createElement('div');
+    d.innerHTML='<span><b>Downloaded</b> · '+total+' records</span><span class="mono">'+esc(a.download)+'</span>';
+    saved.appendChild(d);
+    var tip=document.createElement('div');
+    tip.innerHTML='<span>Now: app → Settings → Restore, and pick that file.</span><span></span>';
+    saved.appendChild(tip);
+  }catch(e){
+    btn.disabled=false; btn.textContent='Build the backup file';
+    var l=$('log'); var d=document.createElement('div');
+    d.innerHTML='<span style="color:var(--danger);font-weight:600">'+esc(String(e&&e.message||e))+'</span><span></span>';
+    l.appendChild(d);
+  }
+}
+
+(function(){
+  var link=fromLink();
+  if(link) CFG=link;
+  form('');
+})();
+</script>
+</body>
+</html>
